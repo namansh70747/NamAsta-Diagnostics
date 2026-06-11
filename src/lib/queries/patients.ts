@@ -1,4 +1,4 @@
-import { dbQuery, dbExecute, dbTransaction, getDb } from '@/lib/db';
+import { dbQuery, dbExecute, getDb } from '@/lib/db';
 import { Patient, PatientWithStatus, NewPatientInput, Bill, PaymentMode } from '@/types';
 import { getSetting, setSetting } from './settings';
 import { writeAudit } from './audit';
@@ -10,40 +10,78 @@ export async function getNextTestNo(): Promise<number> {
 }
 
 export async function createPatient(input: NewPatientInput, userId: number): Promise<number> {
-  let patientId = 0;
+  const db = await getDb();
+  const nextNo = await getNextTestNo();
+  const sampleTime = input.sample_time || nowISO();
 
-  await dbTransaction(async (db) => {
-    const nextNo = await getNextTestNo();
-    const sampleTime = input.sample_time || nowISO();
+  // Insert the patient and capture its id from THIS statement's result (pool-safe;
+  // never read last_insert_rowid() in a separate call — it can hit another connection).
+  const patientRes = await db.execute(
+    `INSERT INTO patients(test_no,title,name,age,age_unit,sex,phone,email,address,doctor_id,collected_at,registered_at,sample_time)
+     VALUES(?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)`,
+    [nextNo, input.title, input.name.toUpperCase(), input.age, input.age_unit,
+     input.sex, input.phone || null, input.email || null, input.address || '',
+     input.doctor_id, input.collected_at, sampleTime]
+  );
+  const patientId = patientRes.lastInsertId ?? 0;
+  if (!patientId || patientId <= 0) {
+    throw new Error('Could not create the patient record. Please try again.');
+  }
 
-    await db.execute(
-      `INSERT INTO patients(test_no,title,name,age,age_unit,sex,phone,email,address,doctor_id,collected_at,registered_at,sample_time)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)`,
-      [nextNo, input.title, input.name.toUpperCase(), input.age, input.age_unit,
-       input.sex, input.phone, input.email || null, input.address,
-       input.doctor_id, input.collected_at, sampleTime]
-    );
+  try {
+    // Orders (price frozen at order time). A bundle test (is_panel=1) bills as one
+    // line but expands into its panel's member tests for result entry: the bundle
+    // order carries the price with not_done=1 (no result expected, excluded from
+    // the report), and each member is ordered at ₹0.
+    const meta = input.test_ids.length
+      ? await dbQuery<{ id: number; is_panel: number; panel_id: number }>(
+          `SELECT id, is_panel, panel_id FROM tests WHERE id IN (${input.test_ids.map(() => '?').join(',')})`,
+          input.test_ids
+        )
+      : [];
+    const metaById = new Map(meta.map(m => [m.id, m]));
+    const orderedIds = new Set<number>();
 
-    const rows = await db.select<{ id: number }[]>('SELECT last_insert_rowid() as id');
-    patientId = (rows as unknown as { id: number }[])[0]?.id ?? 0;
-
-    // Insert orders
     for (const testId of input.test_ids) {
       const price = input.prices[testId] ?? 0;
-      await db.execute(
-        'INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)',
-        [patientId, testId, price, String(nextNo)]
-      );
+      const m = metaById.get(testId);
+
+      if (m?.is_panel) {
+        await db.execute(
+          'INSERT INTO orders(patient_id,test_id,price_charged,sample_id,not_done) VALUES(?,?,?,?,1)',
+          [patientId, testId, price, String(nextNo)]
+        );
+        orderedIds.add(testId);
+        const children = await dbQuery<{ id: number }>(
+          'SELECT id FROM tests WHERE panel_id=? AND enabled=1 AND is_panel=0',
+          [m.panel_id]
+        );
+        for (const child of children) {
+          if (orderedIds.has(child.id)) continue;
+          await db.execute(
+            'INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)',
+            [patientId, child.id, 0, String(nextNo)]
+          );
+          orderedIds.add(child.id);
+        }
+      } else {
+        if (orderedIds.has(testId)) continue;
+        await db.execute(
+          'INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)',
+          [patientId, testId, price, String(nextNo)]
+        );
+        orderedIds.add(testId);
+      }
     }
 
-    // Insert bill
+    // Bill (net/balance are generated columns)
     const total = Object.values(input.prices).reduce((a, b) => a + b, 0);
     await db.execute(
       'INSERT INTO bills(patient_id,total,concession,received,mode) VALUES(?,?,?,?,?)',
       [patientId, total, input.concession, input.received, input.mode]
     );
 
-    // Bump next_test_no
+    // Advance the receipt number
     await db.execute(
       `INSERT INTO settings(key,value,updated_at) VALUES('next_test_no',?,CURRENT_TIMESTAMP)
        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
@@ -55,7 +93,14 @@ export async function createPatient(input: NewPatientInput, userId: number): Pro
       'INSERT INTO audit_log(user_id,action,entity,entity_id,after_json,at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)',
       [userId, 'patient.create', 'patients', patientId, JSON.stringify({ test_no: nextNo, name: input.name })]
     );
-  });
+  } catch (err) {
+    // Manual rollback — leave no orphaned/partial patient behind (replaces the
+    // unreliable cross-connection BEGIN/COMMIT). Order matters (FK ON DELETE RESTRICT).
+    await db.execute('DELETE FROM bills WHERE patient_id=?', [patientId]).catch(() => {});
+    await db.execute('DELETE FROM orders WHERE patient_id=?', [patientId]).catch(() => {});
+    await db.execute('DELETE FROM patients WHERE id=?', [patientId]).catch(() => {});
+    throw err;
+  }
 
   return patientId;
 }
@@ -129,6 +174,39 @@ export async function getPatientById(id: number): Promise<Patient | null> {
     [id]
   );
   return rows[0] ?? null;
+}
+
+export async function updatePatient(id: number, data: Partial<Patient>, userId: number): Promise<void> {
+  const allowed = ['title', 'name', 'age', 'age_unit', 'sex', 'phone', 'email', 'address', 'doctor_id', 'collected_at'];
+  const fields = Object.keys(data).filter(k => allowed.includes(k));
+  if (!fields.length) return;
+  const sets = fields.map(f => `${f}=?`).join(',');
+  const vals = fields.map(f => (data as Record<string, unknown>)[f]);
+  await dbExecute(`UPDATE patients SET ${sets},updated_at=CURRENT_TIMESTAMP WHERE id=?`, [...vals, id]);
+  await writeAudit(userId, 'patient.update', 'patients', id, null, data);
+}
+
+/** All past visits for a returning patient (matched by name + phone) — for the
+ *  history Sheet and "copy from previous visit". */
+export async function getPatientHistory(name: string, phone: string): Promise<PatientWithStatus[]> {
+  const rows = await dbQuery<Patient & { doctor_name: string; total: number; net: number; received: number; balance: number; concession: number; mode: string; test_count: number; approved_count: number }>(
+    `SELECT p.*, d.name as doctor_name, b.total, b.concession, b.net, b.received, b.balance, b.mode,
+       COUNT(o.id) as test_count,
+       SUM(CASE WHEN r.approved_at IS NOT NULL THEN 1 ELSE 0 END) as approved_count
+     FROM patients p
+     LEFT JOIN doctors d ON p.doctor_id=d.id
+     LEFT JOIN bills b ON b.patient_id=p.id
+     LEFT JOIN orders o ON o.patient_id=p.id
+     LEFT JOIN results r ON r.order_id=o.id
+     WHERE p.name=? AND (p.phone=? OR ?='')
+     GROUP BY p.id ORDER BY p.registered_at DESC`,
+    [name, phone, phone]
+  );
+  return rows.map(r => ({
+    ...r,
+    bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: (r.mode as PaymentMode) ?? 'CASH' },
+    status: deriveStatus(r.test_count, r.approved_count),
+  }));
 }
 
 export async function getBill(patientId: number): Promise<Bill | null> {
