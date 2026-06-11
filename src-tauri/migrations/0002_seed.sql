@@ -426,6 +426,271 @@ INSERT OR IGNORE INTO settings(key, value) VALUES
     ('financial_year',      '2026-2027');
 
 -- ============================================================
+-- ============================================================
+-- §5 FULL CATALOGUE COMPLETION (appended)
+-- Additional tests, ranges and interpretation notes to fully
+-- cover plan §5.2–§5.10. All INSERT OR IGNORE / idempotent.
+-- ============================================================
+-- ============================================================
+
+-- ── HEMATOLOGY (additional) ──────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, needs_review) VALUES
+    ('RET', 'Reticulocyte Count', (SELECT id FROM panels WHERE code='HEM'), 'numeric', '%', 1, 350, 1, 65, 1);
+
+-- ── BIOCHEMISTRY (additional) ────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, needs_review) VALUES
+    ('CERU', 'Ceruloplasmin', (SELECT id FROM panels WHERE code='BIO'), 'numeric', 'mg/dL', 1, 800, 1, 170, 1);
+
+-- ── DIABETIC (additional) ────────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, needs_review) VALUES
+    ('GTT', 'Glucose Tolerance Test', (SELECT id FROM panels WHERE code='DIAB'), 'numeric', 'mg/dL', 0, 150, 1, 60, 1);
+
+-- ── LIPID (additional) ───────────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, needs_review) VALUES
+    ('TL', 'Total Lipids', (SELECT id FROM panels WHERE code='LIPID'), 'numeric', 'mg/dL', 1, 200, 1, 90, 1);
+
+-- ── HORMONES (additional) ────────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, needs_review) VALUES
+    ('FTESTO', 'Free Testosterone', (SELECT id FROM panels WHERE code='HORM'), 'numeric', 'pg/mL', 2, 1100, 1, 55, 1);
+
+-- ── SEROLOGY (additional) ────────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, choices, needs_review) VALUES
+    ('WIDALT', 'Widal Test (Tube Method)',          (SELECT id FROM panels WHERE code='SERO'), 'text',    '—',     0, 800,  1, 15,  NULL, 1),
+    ('ANA',    'ANA (Anti-Nuclear Antibody)',       (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 900,  1, 45,  '["Negative","Positive"]', 1),
+    ('CCP',    'Anti-CCP',                          (SELECT id FROM panels WHERE code='SERO'), 'numeric', 'U/mL',  1, 1200, 1, 46,  NULL, 1),
+    ('TPO',    'Anti-TPO',                          (SELECT id FROM panels WHERE code='SERO'), 'numeric', 'IU/mL', 1, 1100, 1, 47,  NULL, 1),
+    ('TTG',    'Anti-Tissue Transglutaminase (IgA)',(SELECT id FROM panels WHERE code='SERO'), 'numeric', 'U/mL',  1, 850,  1, 48,  NULL, 1),
+    ('HAV',    'Anti-HAV (IgM)',                    (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 500,  1, 85,  '["Non-Reactive","Reactive"]', 1),
+    ('HEV',    'HEV-IgM',                           (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 1450, 1, 86,  '["Non-Reactive","Reactive"]', 1),
+    ('DENG',   'Dengue IgG/IgM',                    (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 600,  1, 101, '["Negative","IgM Positive","IgG Positive","Both Positive"]', 1),
+    ('MPS',    'Malaria Parasite (Slide)',          (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 50,   1, 91,  '["Negative","P.falciparum","P.vivax","Both"]', 1),
+    ('CG',     'Chikungunya IgM',                   (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 400,  1, 105, '["Non-Reactive","Reactive"]', 1),
+    ('SCRUB',  'Scrub Typhus IgM',                  (SELECT id FROM panels WHERE code='SERO'), 'choice',  '—',     0, 300,  1, 106, '["Non-Reactive","Reactive"]', 1),
+    ('TORCH',  'TORCH Profile (IgG)',               (SELECT id FROM panels WHERE code='SERO'), 'text',    '—',     0, 1100, 1, 115, NULL, 1),
+    ('TORM',   'TORCH Profile (IgM)',               (SELECT id FROM panels WHERE code='SERO'), 'text',    '—',     0, 1300, 1, 116, NULL, 1);
+
+-- ── COAGULATION (additional) ─────────────────────────────────
+INSERT OR IGNORE INTO tests(code, name, panel_id, result_type, unit, decimals, price, enabled, sort_order, formula, needs_review) VALUES
+    ('INR', 'INR',        (SELECT id FROM panels WHERE code='COAG'), 'calculated', '',      2, 0,    1, 15, 'PT_PT / 12', 1),
+    ('BNP', 'NT-proBNP',  (SELECT id FROM panels WHERE code='COAG'), 'numeric',    'pg/mL', 1, 1800, 1, 50, NULL, 1);
+
+-- ============================================================
+-- Test Ranges (additional, §5.2–§5.7 & §8.4/§8.5)
+-- ============================================================
+
+-- ESR (sex-specific)
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='ESR'), 'M', 15, '< 15'),
+    ((SELECT id FROM tests WHERE code='ESR'), 'F', 20, '< 20');
+
+-- AEC
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='AEC'), 'ANY', 40, 440, '40 - 440');
+
+-- RET
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='RET'), 'ANY', 0.5, 2.5, '0.5 - 2.5');
+
+-- PCV / HCT (sex-specific)
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='PCV'), 'M', 40, 50, '40 - 50'),
+    ((SELECT id FROM tests WHERE code='PCV'), 'F', 36, 46, '36 - 46');
+
+-- BT / CT
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='BT'), 'ANY', 2, 7, '2 - 7'),
+    ((SELECT id FROM tests WHERE code='CT'), 'ANY', 4, 9, '4 - 9');
+
+-- ── CBC sub-parameters (ERBA H360 reference, §8.4) ───────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='WBC'),     'ANY', 4.0,  10.0,  '4.0 - 10.0'),
+    ((SELECT id FROM tests WHERE code='LYM_PCT'), 'ANY', 20.0, 40.0,  '20.0 - 40.0'),
+    ((SELECT id FROM tests WHERE code='MID_PCT'), 'ANY', 3.0,  9.0,   '3.0 - 9.0'),
+    ((SELECT id FROM tests WHERE code='GRAN_PCT'),'ANY', 50.0, 70.0,  '50.0 - 70.0'),
+    ((SELECT id FROM tests WHERE code='LYM_NUM'), 'ANY', 0.8,  4.0,   '0.8 - 4.0'),
+    ((SELECT id FROM tests WHERE code='MID_NUM'), 'ANY', 0.1,  1.5,   '0.1 - 1.5'),
+    ((SELECT id FROM tests WHERE code='GRAN_NUM'),'ANY', 2.0,  7.0,   '2.0 - 7.0'),
+    ((SELECT id FROM tests WHERE code='RBC_CNT'), 'ANY', 4.0,  6.0,   '4.0 - 6.0'),
+    ((SELECT id FROM tests WHERE code='HGB'),     'ANY', 12.0, 17.5,  '12.0 - 17.5'),
+    ((SELECT id FROM tests WHERE code='HCT'),     'ANY', 36.0, 50.0,  '36.0 - 50.0'),
+    ((SELECT id FROM tests WHERE code='MCV'),     'ANY', 80.0, 100.0, '80.0 - 100.0'),
+    ((SELECT id FROM tests WHERE code='MCH'),     'ANY', 27.0, 32.0,  '27.0 - 32.0'),
+    ((SELECT id FROM tests WHERE code='MCHC'),    'ANY', 32.0, 36.0,  '32.0 - 36.0'),
+    ((SELECT id FROM tests WHERE code='RDW_SD'),  'ANY', 35.0, 56.0,  '35.0 - 56.0'),
+    ((SELECT id FROM tests WHERE code='RDW_CV'),  'ANY', 11.0, 16.0,  '11.0 - 16.0'),
+    ((SELECT id FROM tests WHERE code='PLT_CBC'), 'ANY', 150,  450,   '150 - 450'),
+    ((SELECT id FROM tests WHERE code='MPV'),     'ANY', 7.0,  11.0,  '7.0 - 11.0'),
+    ((SELECT id FROM tests WHERE code='PCT_CBC'), 'ANY', 0.108,0.282, '0.108 - 0.282'),
+    ((SELECT id FROM tests WHERE code='PDW_SD'),  'ANY', 9.0,  17.0,  '9.0 - 17.0'),
+    ((SELECT id FROM tests WHERE code='PDW_CV'),  'ANY', 10.0, 18.0,  '10.0 - 18.0'),
+    ((SELECT id FROM tests WHERE code='PLCR'),    'ANY', 13.0, 43.0,  '13.0 - 43.0'),
+    ((SELECT id FROM tests WHERE code='PLCC'),    'ANY', 30,   90,    '30 - 90');
+
+-- ── DIABETIC ─────────────────────────────────────────────────
+-- HbA1c (multi-band; primary normal band <5.7)
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, band_text) VALUES
+    ((SELECT id FROM tests WHERE code='HBA1C'), 'ANY', 5.7, 'Non-diabetic <5.7 / Pre-diabetic 5.7-6.4 / Diabetic >=6.5');
+-- EAG (derived; no fixed range, descriptive)
+INSERT OR IGNORE INTO test_ranges(test_id, sex, band_text) VALUES
+    ((SELECT id FROM tests WHERE code='EAG'), 'ANY', 'Estimated Average Glucose = 28.7 x HbA1c - 46.7');
+
+-- ── KIDNEY / ELECTROLYTES (additional) ───────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='BCALI'), 'ANY', 4.5, 5.6, '4.5 - 5.6'),
+    ((SELECT id FROM tests WHERE code='LIT'),   'ANY', 0.6, 1.2, '0.6 - 1.2'),
+    ((SELECT id FROM tests WHERE code='BC'),    'ANY', 22,  29,  '22 - 29');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='MAU'), 'ANY', 30, '< 30');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='GFR'), 'ANY', 90, '> 90');
+
+-- ── LFT (GGTP already; nothing missing) ──────────────────────
+-- (BBT/BBD/BBI/OT/PT_ALT/ALP/BGGT/TPN/ALB/GLO/BAG ranges already seeded)
+
+-- ── LIPID (additional) ───────────────────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='BVLDL'), 'ANY', 12, 30, '12 - 30'),
+    ((SELECT id FROM tests WHERE code='TL'),    'ANY', 400, 700, '400 - 700');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='BRAT'), 'ANY', 0, 4.8, '0 - 4.8'),
+    ((SELECT id FROM tests WHERE code='BLHR'), 'ANY', 0, 3.5, '0 - 3.5');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='NHDL'), 'ANY', 130, '< 130');
+
+-- ── CARDIAC / ENZYMES / IRON (BIO) ───────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='CPKM'),  'ANY', 25,  '< 25'),
+    ((SELECT id FROM tests WHERE code='HSCRP'), 'ANY', 3.0, '< 3.0');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='CPKN'), 'ANY', 24,  195, '24 - 195'),
+    ((SELECT id FROM tests WHERE code='LDH1'), 'ANY', 140, 280, '140 - 280'),
+    ((SELECT id FROM tests WHERE code='ACP'),  'ANY', 0,   6.5, '0 - 6.5'),
+    ((SELECT id FROM tests WHERE code='LPA'),  'ANY', 13,  60,  '13 - 60'),
+    ((SELECT id FROM tests WHERE code='AMY'),  'ANY', 25,  125, '25 - 125'),
+    ((SELECT id FROM tests WHERE code='FOL'),  'ANY', 3.0, 17.0,'3.0 - 17.0'),
+    ((SELECT id FROM tests WHERE code='VTB'),  'ANY', 200, 900, '200 - 900'),
+    ((SELECT id FROM tests WHERE code='VITD'), 'ANY', 30,  100, '30 - 100'),
+    ((SELECT id FROM tests WHERE code='AMM'),  'ANY', 15,  45,  '15 - 45'),
+    ((SELECT id FROM tests WHERE code='G6QT'), 'ANY', 6.4, 18.7,'6.4 - 18.7'),
+    ((SELECT id FROM tests WHERE code='CERU'), 'ANY', 20,  60,  '20 - 60');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='IRON'), 'M', 65, 175, '65 - 175'),
+    ((SELECT id FROM tests WHERE code='IRON'), 'F', 50, 170, '50 - 170'),
+    ((SELECT id FROM tests WHERE code='TIBC'), 'ANY', 250, 450, '250 - 450'),
+    ((SELECT id FROM tests WHERE code='FER'),  'M', 22, 322, '22 - 322'),
+    ((SELECT id FROM tests WHERE code='FER'),  'F', 10, 291, '10 - 291');
+
+-- ── THYROID ──────────────────────────────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='TSH'), 'ANY', 0.27, 4.20, '0.27 - 4.20'),
+    ((SELECT id FROM tests WHERE code='T3'),  'ANY', 80,   200,  '80 - 200'),
+    ((SELECT id FROM tests WHERE code='T4'),  'ANY', 5.1,  14.1, '5.1 - 14.1'),
+    ((SELECT id FROM tests WHERE code='FT3'), 'ANY', 2.0,  4.4,  '2.0 - 4.4'),
+    ((SELECT id FROM tests WHERE code='FT4'), 'ANY', 0.93, 1.71, '0.93 - 1.71');
+
+-- ── HORMONES ─────────────────────────────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='PRL'),    'ANY', 4.0,  15.2, '4.0 - 15.2'),
+    ((SELECT id FROM tests WHERE code='DHEA'),   'ANY', 35,   430,  '35 - 430'),
+    ((SELECT id FROM tests WHERE code='INS'),    'ANY', 2.6,  24.9, '2.6 - 24.9'),
+    ((SELECT id FROM tests WHERE code='HGH'),    'ANY', 0,    10,   '< 10'),
+    ((SELECT id FROM tests WHERE code='PTH'),    'ANY', 15,   65,   '15 - 65'),
+    ((SELECT id FROM tests WHERE code='CORT'),   'ANY', 6.2,  19.4, '6.2 - 19.4 (morning)'),
+    ((SELECT id FROM tests WHERE code='FTESTO'), 'ANY', 8.7,  54.7, '8.7 - 54.7');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='LH'),    'M', 1.7, 8.6,  '1.7 - 8.6'),
+    ((SELECT id FROM tests WHERE code='LH'),    'F', 2.4, 12.6, '2.4 - 12.6 (follicular)'),
+    ((SELECT id FROM tests WHERE code='FSH'),   'M', 1.5, 12.4, '1.5 - 12.4'),
+    ((SELECT id FROM tests WHERE code='FSH'),   'F', 3.5, 12.5, '3.5 - 12.5 (follicular)'),
+    ((SELECT id FROM tests WHERE code='TESTO'), 'M', 280, 1100, '280 - 1100'),
+    ((SELECT id FROM tests WHERE code='TESTO'), 'F', 15,  70,   '15 - 70'),
+    ((SELECT id FROM tests WHERE code='E2'),    'M', 11,  44,   '11 - 44'),
+    ((SELECT id FROM tests WHERE code='E2'),    'F', 30,  400,  '30 - 400 (cycle dependent)'),
+    ((SELECT id FROM tests WHERE code='PROG'),  'F', 0.2, 25,   '0.2 - 25 (cycle dependent)'),
+    ((SELECT id FROM tests WHERE code='AMH'),   'F', 1.0, 6.8,  '1.0 - 6.8');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='INSPP'), 'ANY', 100, '< 100'),
+    ((SELECT id FROM tests WHERE code='BETA'),  'ANY', 5,   '< 5 (non-pregnant)');
+
+-- ── SEROLOGY (numeric markers) ───────────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='CRP'),   'ANY', 6,   '< 6'),
+    ((SELECT id FROM tests WHERE code='ASO'),   'ANY', 200, '< 200'),
+    ((SELECT id FROM tests WHERE code='RA'),    'ANY', 20,  '< 20'),
+    ((SELECT id FROM tests WHERE code='CCP'),   'ANY', 17,  '< 17'),
+    ((SELECT id FROM tests WHERE code='TPO'),   'ANY', 34,  '< 34'),
+    ((SELECT id FROM tests WHERE code='TTG'),   'ANY', 10,  '< 10'),
+    ((SELECT id FROM tests WHERE code='CEA'),   'ANY', 5.0, '< 5.0'),
+    ((SELECT id FROM tests WHERE code='AFP'),   'ANY', 10,  '< 10'),
+    ((SELECT id FROM tests WHERE code='CA125'), 'ANY', 35,  '< 35'),
+    ((SELECT id FROM tests WHERE code='CA199'), 'ANY', 37,  '< 37'),
+    ((SELECT id FROM tests WHERE code='CA153'), 'ANY', 31.3,'< 31.3');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='PSA'), 'M', 4.0, '< 4.0');
+
+-- ── COAGULATION ──────────────────────────────────────────────
+INSERT OR IGNORE INTO test_ranges(test_id, sex, low, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='PT_PT'), 'ANY', 11, 13.5, '11 - 13.5'),
+    ((SELECT id FROM tests WHERE code='INR'),   'ANY', 0.8, 1.2, '0.8 - 1.2'),
+    ((SELECT id FROM tests WHERE code='APTT'),  'ANY', 26, 36,   '26 - 36');
+INSERT OR IGNORE INTO test_ranges(test_id, sex, high, range_text) VALUES
+    ((SELECT id FROM tests WHERE code='DDIMER'), 'ANY', 0.5, '< 0.5'),
+    ((SELECT id FROM tests WHERE code='BNP'),    'ANY', 125, '< 125');
+
+-- ============================================================
+-- Interpretation Notes (§5.10) — attach to lead tests
+-- (a)/(b) verbatim; (c)-(h) authored standards
+-- ============================================================
+
+-- (a) Glucose -> FBS (VERBATIM)
+UPDATE tests SET interpretation_note =
+'Interpretation (in accordance with the American diabetes association guidelines):
+A fasting plasma glucose level below 110 mg/dL is considered normal.
+A fasting plasma glucose level between 110-126 mg/dL is considered as glucose intolerant or pre diabetic. A fasting and post-prandial blood sugar test (after consumption of 75 gm of glucose) is recommended for all such patients.
+A fasting plasma glucose level of above 126 mg/dL is highly suggestive of a diabetic state. A repeat fasting test is strongly recommended for all such patients. A fasting plasma glucose level in excess of 126 mg/dL on two different occasions is confirmatory of a diabetic state.'
+WHERE code='FBS';
+
+-- (b) HbA1c -> HBA1C (VERBATIM REMARKS)
+UPDATE tests SET interpretation_note =
+'Bands: 4.0-5.6 Non-diabetic | 5.7-6.3 Prediabetic | 6.3-7.0 Good control | 7.0-8.0 Fair control | >8.0 Poor control.
+REMARKS: In vitro quantitative determination of HbA1c in whole blood is utilized in long term monitoring of glycemia. The HbA1c level correlates with the mean glucose concentration prevailing in the course of the patient''s recent history (approx. 6-8 weeks) and therefore provides much more reliable information for glycemia monitoring than do determinations of blood glucose or urinary glucose. It is recommended that the determination of HbA1c be performed at intervals of 4-6 weeks during Diabetes Mellitus therapy. Results of HbA1c should be assessed in conjunction with the patient''s medical history, clinical examinations and other findings.'
+WHERE code='HBA1C';
+
+-- (c) Lipid -> CHOL (authored)
+UPDATE tests SET interpretation_note =
+'Total Cholesterol: Desirable < 200 / Borderline high 200-239 / High >= 240 mg/dL.
+LDL Cholesterol: Optimal < 100 / Near optimal 100-129 / Borderline high 130-159 / High 160-189 / Very high >= 190 mg/dL.
+HDL Cholesterol: Low (risk) < 40 / High (protective) >= 60 mg/dL.
+Triglycerides: Normal < 150 / Borderline high 150-199 / High 200-499 / Very high >= 500 mg/dL.
+A higher Total Cholesterol/HDL ratio indicates greater cardiovascular risk. Results should be interpreted with the patient''s overall risk factors.'
+WHERE code='CHOL';
+
+-- (d) Thyroid -> TSH (authored)
+UPDATE tests SET interpretation_note =
+'T3, T4 and TSH together assess thyroid function. A high TSH with low T4 suggests primary hypothyroidism; a low TSH with high T3/T4 suggests hyperthyroidism. Mild TSH elevation with normal T4 suggests subclinical hypothyroidism. Correlate clinically; TSH varies with age, pregnancy, and medication.'
+WHERE code='TSH';
+
+-- (e) LFT -> OT (authored)
+UPDATE tests SET interpretation_note =
+'Raised SGOT/SGPT indicate hepatocellular injury; a raised Alkaline Phosphatase/GGT pattern suggests cholestasis. Raised bilirubin with normal enzymes may indicate haemolysis or Gilbert''s syndrome. Low albumin or reversed A:G ratio may reflect chronic liver disease. Interpret together with clinical findings.'
+WHERE code='OT';
+
+-- (f) KFT/RFT -> UREA (authored)
+UPDATE tests SET interpretation_note =
+'Raised Urea and Creatinine with reduced eGFR indicate impaired renal function. Electrolyte (Na/K) disturbances require urgent correlation. A single abnormal value should be confirmed and interpreted with hydration status and clinical context.'
+WHERE code='UREA';
+
+-- (g) Widal -> WIDAL (authored)
+UPDATE tests SET interpretation_note =
+'Titres >= 1:160 for O and H antigens are generally significant for enteric fever in a non-vaccinated patient; a four-fold rise in paired samples is confirmatory. Correlate with clinical features; a single titre may reflect past infection or vaccination.'
+WHERE code='WIDAL';
+
+-- (h) CBC -> WBC (authored)
+UPDATE tests SET interpretation_note =
+'Results are generated on a 3-part differential cell counter (ERBA H360). Abnormal flags should be confirmed on a peripheral blood film where clinically indicated.'
+WHERE code='WBC';
+
+-- ============================================================
 -- Mark migration applied
 -- ============================================================
 INSERT OR IGNORE INTO schema_migrations(version) VALUES('0002');
