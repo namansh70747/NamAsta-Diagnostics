@@ -1,4 +1,5 @@
 import { dbQuery, dbExecute } from '@/lib/db';
+import { assertCan } from '@/lib/session';
 
 export async function getSetting(key: string): Promise<string | null> {
   const rows = await dbQuery<{ value: string }>('SELECT value FROM settings WHERE key=?', [key]);
@@ -6,6 +7,7 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
+  assertCan('edit_settings');
   await dbExecute(
     'INSERT INTO settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP',
     [key, value]

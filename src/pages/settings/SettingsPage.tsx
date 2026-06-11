@@ -1,119 +1,121 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getAllSettings, setSetting } from "@/lib/queries/settings";
-import { Settings, Save, Upload } from "lucide-react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Building2,
+  ImageIcon,
+  Printer,
+  DatabaseBackup,
+  Mail,
+  MessageCircle,
+  Users,
+  SlidersHorizontal,
+  Lock,
+  type LucideIcon,
+} from "lucide-react";
+import { getAllSettings } from "@/lib/queries/settings";
+import { useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
+import { ToastProvider } from "./toast";
+import { LabIdentityTab } from "./tabs/LabIdentityTab";
+import { BrandingTab } from "./tabs/BrandingTab";
+import { PrintingTab } from "./tabs/PrintingTab";
+import { BackupsTab } from "./tabs/BackupsTab";
+import { EmailTab } from "./tabs/EmailTab";
+import { WhatsAppTab } from "./tabs/WhatsAppTab";
+import { UsersTab } from "./tabs/UsersTab";
+import { SystemTab } from "./tabs/SystemTab";
+
+type TabId = "identity" | "branding" | "printing" | "backups" | "email" | "whatsapp" | "users" | "system";
+
+const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: "identity", label: "Lab Identity", icon: Building2 },
+  { id: "branding", label: "Branding", icon: ImageIcon },
+  { id: "printing", label: "Printing", icon: Printer },
+  { id: "backups", label: "Backups", icon: DatabaseBackup },
+  { id: "email", label: "Email (SMTP)", icon: Mail },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { id: "users", label: "Users", icon: Users },
+  { id: "system", label: "System", icon: SlidersHorizontal },
+];
 
 export function SettingsPage() {
-  const [tab, setTab] = useState<'identity' | 'branding' | 'backup' | 'whatsapp' | 'email' | 'system'>('identity');
-  const { data: settings = {} } = useQuery({ queryKey: ['settings'], queryFn: getAllSettings });
-  const [local, setLocal] = useState<Record<string, string>>({});
+  const can = useSession((s) => s.can);
+  const [tab, setTab] = useState<TabId>("identity");
+  const { data: settings = {}, isLoading } = useQuery({ queryKey: ["settings"], queryFn: getAllSettings });
 
-  useEffect(() => { if (Object.keys(settings).length) setLocal(settings); }, [settings]);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      for (const [k, v] of Object.entries(local)) await setSetting(k, v);
-    },
-  });
-
-  const set = (k: string, v: string) => setLocal(prev => ({ ...prev, [k]: v }));
+  if (!can("view_settings")) {
+    return (
+      <div className="pt-4">
+        <div className="card p-6 max-w-[640px] py-14 text-center animate-fade-up">
+          <div className="w-11 h-11 rounded-xl bg-[#f1efec] text-[#8a857d] flex items-center justify-center mx-auto mb-3">
+            <Lock size={17} strokeWidth={1.8} />
+          </div>
+          <div className="text-[13.5px] font-semibold text-[#1a1a1e]">Admin only</div>
+          <p className="text-[13.5px] text-[#8a857d] mt-1">
+            You need administrator access to view or change settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <button onClick={() => save.mutate()} disabled={save.isPending}
-          className="flex items-center gap-2 bg-maroon-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-maroon-700 disabled:opacity-60">
-          <Save size={15} />
-          {save.isPending ? 'Saving…' : 'Save Changes'}
-        </button>
-      </div>
+    <ToastProvider>
+      <div className="pt-4 space-y-4">
+        <div className="flex flex-col md:flex-row gap-6 items-start animate-fade-up">
+          {/* Left tab rail */}
+          <nav className="w-full md:w-56 shrink-0 flex md:flex-col gap-1 flex-wrap" aria-label="Settings sections">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] text-left transition-colors w-auto md:w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-400",
+                    active
+                      ? "bg-white shadow-[var(--shadow-card)] text-[#1a1a1e] font-semibold"
+                      : "text-[#5d5953] hover:bg-[#f1efec]"
+                  )}
+                >
+                  <Icon
+                    size={16}
+                    strokeWidth={active ? 2.2 : 1.8}
+                    className={active ? "text-maroon-600" : "text-[#a8a29b]"}
+                  />
+                  {t.label}
+                </button>
+              );
+            })}
+          </nav>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
-        {(['identity', 'branding', 'backup', 'whatsapp', 'email', 'system'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-        {tab === 'identity' && (
-          <>
-            <h2 className="font-semibold text-gray-900">Lab Identity</h2>
-            <Field label="Lab Name" value={local.lab_name ?? ''} onChange={v => set('lab_name', v)} />
-            <Field label="Address" value={local.address_line ?? ''} onChange={v => set('address_line', v)} />
-            <Field label="Phone Numbers" value={local.phones ?? ''} onChange={v => set('phones', v)} />
-            <Field label="Timings" value={local.timings ?? ''} onChange={v => set('timings', v)} />
-            <Field label="Technician Name" value={local.technician_name ?? ''} onChange={v => set('technician_name', v)} />
-            <Field label="Qualification" value={local.technician_qual ?? ''} onChange={v => set('technician_qual', v)} />
-            <Field label="Equipment Line" value={local.equipment_line ?? ''} onChange={v => set('equipment_line', v)} multiline />
-            <Field label="Footer Tests Line" value={local.footer_tests_line ?? ''} onChange={v => set('footer_tests_line', v)} multiline />
-          </>
-        )}
-        {tab === 'whatsapp' && (
-          <>
-            <h2 className="font-semibold text-gray-900">WhatsApp Delivery</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-              <select value={local.whatsapp_mode ?? 'semi'} onChange={e => set('whatsapp_mode', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-maroon-500">
-                <option value="semi">Semi-automatic (opens WhatsApp, one click)</option>
-                <option value="api">Automatic via WhatsApp Business API</option>
-              </select>
-            </div>
-            {local.whatsapp_mode === 'api' && (
+          {/* Right panel */}
+          <div className="flex-1 min-w-0 w-full">
+            {isLoading ? (
+              <div className="card p-6 max-w-[640px] space-y-3">
+                <div className="animate-pulse rounded-lg bg-[#efedea] h-5 w-40" />
+                <div className="animate-pulse rounded-lg bg-[#efedea] h-4 w-72" />
+                <div className="animate-pulse rounded-lg bg-[#efedea] h-9 w-full" />
+                <div className="animate-pulse rounded-lg bg-[#efedea] h-9 w-full" />
+                <div className="animate-pulse rounded-lg bg-[#efedea] h-9 w-2/3" />
+              </div>
+            ) : (
               <>
-                <Field label="BSP API Key" value={local.bsp_api_key ?? ''} onChange={v => set('bsp_api_key', v)} type="password" />
-                <Field label="Template Name" value={local.bsp_template_name ?? ''} onChange={v => set('bsp_template_name', v)} />
+                {tab === "identity" && <LabIdentityTab settings={settings} />}
+                {tab === "branding" && <BrandingTab settings={settings} />}
+                {tab === "printing" && <PrintingTab settings={settings} />}
+                {tab === "backups" && <BackupsTab settings={settings} />}
+                {tab === "email" && <EmailTab settings={settings} />}
+                {tab === "whatsapp" && <WhatsAppTab settings={settings} />}
+                {tab === "users" && <UsersTab />}
+                {tab === "system" && <SystemTab settings={settings} />}
               </>
             )}
-          </>
-        )}
-        {tab === 'email' && (
-          <>
-            <h2 className="font-semibold text-gray-900">Email (SMTP)</h2>
-            <Field label="SMTP Host" value={local.smtp_host ?? ''} onChange={v => set('smtp_host', v)} placeholder="smtp.gmail.com" />
-            <Field label="SMTP Port" value={local.smtp_port ?? '587'} onChange={v => set('smtp_port', v)} />
-            <Field label="Email Address" value={local.smtp_user ?? ''} onChange={v => set('smtp_user', v)} />
-            <Field label="App Password" value={local.smtp_pass ?? ''} onChange={v => set('smtp_pass', v)} type="password" />
-          </>
-        )}
-        {tab === 'system' && (
-          <>
-            <h2 className="font-semibold text-gray-900">System</h2>
-            <Field label="Next Test Number" value={local.next_test_no ?? '1'} onChange={v => set('next_test_no', v)} type="number" />
-            <Field label="Financial Year" value={local.financial_year ?? '2026-2027'} onChange={v => set('financial_year', v)} />
-            <Field label="Backup Retention (days)" value={local.backup_retention_days ?? '30'} onChange={v => set('backup_retention_days', v)} type="number" />
-          </>
-        )}
-        {tab === 'backup' && (
-          <>
-            <h2 className="font-semibold text-gray-900">Backup Locations</h2>
-            <Field label="Backup Folder 1 (local/USB)" value={local.backup_dir_1 ?? ''} onChange={v => set('backup_dir_1', v)} placeholder="C:\\Backups\\SCL" />
-            <Field label="Backup Folder 2 (Google Drive)" value={local.backup_dir_2 ?? ''} onChange={v => set('backup_dir_2', v)} placeholder="Path to Drive-synced folder" />
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, multiline, type = 'text', placeholder }: {
-  label: string; value: string; onChange: (v: string) => void;
-  multiline?: boolean; type?: string; placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      {multiline ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500" />
-      ) : (
-        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500" />
-      )}
-    </div>
+    </ToastProvider>
   );
 }
