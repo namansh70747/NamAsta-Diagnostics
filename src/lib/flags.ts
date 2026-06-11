@@ -40,7 +40,7 @@ export function computeFlag(
   return '';
 }
 
-function findRange(
+export function findRange(
   ranges: TestRange[],
   sex: 'MALE' | 'FEMALE' | 'OTHER',
   ageDays: number
@@ -58,8 +58,21 @@ function findRange(
   return (
     candidates.find(r => r.sex === s) ||
     candidates.find(r => r.sex === 'ANY') ||
+    candidates[0] ||
     null
   );
+}
+
+/** The printed "Normal Ranges" string for a patient. Prefers the exact stored
+ *  range_text; otherwise synthesises from low/high so the report is never blank. */
+export function displayRange(r: TestRange | null): string {
+  if (!r) return '';
+  if (r.range_text && r.range_text.trim()) return r.range_text.trim();
+  const sexTag = r.sex === 'M' ? ' (M)' : r.sex === 'F' ? ' (F)' : '';
+  if (r.low != null && r.high != null) return `${r.low} - ${r.high}${sexTag}`;
+  if (r.high != null) return `< ${r.high}${sexTag}`;
+  if (r.low != null) return `> ${r.low}${sexTag}`;
+  return '';
 }
 
 export function patientAgeDays(age: number, ageUnit: 'YRS' | 'MTH' | 'DAYS'): number {
