@@ -19,3 +19,28 @@ export async function upsertDoctor(name: string, degree?: string): Promise<numbe
 export async function setDoctorActive(id: number, active: number): Promise<void> {
   await dbExecute('UPDATE doctors SET active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?', [active, id]);
 }
+
+export interface DoctorWithCount extends Doctor {
+  referral_count: number;
+}
+
+export async function listDoctorsWithCounts(): Promise<DoctorWithCount[]> {
+  return dbQuery<DoctorWithCount>(
+    `SELECT d.*, COUNT(p.id) as referral_count
+     FROM doctors d LEFT JOIN patients p ON p.doctor_id=d.id
+     GROUP BY d.id ORDER BY d.name`
+  );
+}
+
+export async function referralSummary(doctorId: number, from: string, to: string): Promise<{ patients: number; total: number; received: number; balance: number }> {
+  const rows = await dbQuery<{ patients: number; total: number; received: number; balance: number }>(
+    `SELECT COUNT(DISTINCT p.id) as patients,
+            COALESCE(SUM(b.total),0) as total,
+            COALESCE(SUM(b.received),0) as received,
+            COALESCE(SUM(b.balance),0) as balance
+     FROM patients p LEFT JOIN bills b ON b.patient_id=p.id
+     WHERE p.doctor_id=? AND date(p.registered_at,'localtime') BETWEEN ? AND ?`,
+    [doctorId, from, to]
+  );
+  return rows[0] ?? { patients: 0, total: 0, received: 0, balance: 0 };
+}
