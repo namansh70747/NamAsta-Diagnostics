@@ -23,6 +23,12 @@ pub fn run() {
             sql: include_str!("../migrations/0003_panels_fix.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "sms_channel_and_settings",
+            sql: include_str!("../migrations/0004_sms.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -40,6 +46,7 @@ pub fn run() {
             commands::backup_now,
             commands::restore_backup,
             commands::save_pdf_bytes,
+            commands::send_sms,
             commands::app_version,
         ])
         .run(tauri::generate_context!())

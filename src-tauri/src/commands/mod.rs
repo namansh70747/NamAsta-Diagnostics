@@ -247,6 +247,78 @@ pub fn save_pdf_bytes(base64_data: String, out_path: String) -> Result<String, S
     Ok(out.to_string_lossy().into_owned())
 }
 
+/// Send a transactional SMS through an Indian DLT gateway (Fast2SMS or MSG91).
+/// `vars` are the ordered values for the DLT-approved template variables.
+/// Returns the gateway's raw response on success so the UI can surface delivery ids.
+#[tauri::command]
+pub fn send_sms(
+    provider: String,
+    api_key: String,
+    sender_id: String,
+    dlt_template_id: String,
+    phone: String,
+    message: String,
+    vars: Vec<String>,
+) -> Result<String, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Could not start HTTP client: {e}"))?;
+
+    let resp = match provider.as_str() {
+        "fast2sms" => {
+            // Fast2SMS DLT route: positional template variables joined by '|'.
+            let variables_values = vars.join("|");
+            client
+                .get("https://www.fast2sms.com/dev/bulkV2")
+                .header("authorization", api_key)
+                .query(&[
+                    ("route", "dlt"),
+                    ("sender_id", sender_id.as_str()),
+                    ("message", dlt_template_id.as_str()),
+                    ("variables_values", variables_values.as_str()),
+                    ("flash", "0"),
+                    ("numbers", phone.as_str()),
+                ])
+                .send()
+        }
+        "msg91" => {
+            // MSG91 v5 flow API: template variables sent as var1, var2, … on the recipient.
+            let mut recipient = serde_json::Map::new();
+            recipient.insert("mobiles".into(), serde_json::Value::String(format!("91{phone}")));
+            for (i, v) in vars.iter().enumerate() {
+                recipient.insert(format!("var{}", i + 1), serde_json::Value::String(v.clone()));
+            }
+            let body = serde_json::json!({
+                "template_id": dlt_template_id,
+                "sender": sender_id,
+                "recipients": [serde_json::Value::Object(recipient)],
+            });
+            client
+                .post("https://control.msg91.com/api/v5/flow/")
+                .header("authkey", api_key)
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+        }
+        other => return Err(format!("Unknown SMS provider '{other}'. Use 'fast2sms' or 'msg91'.")),
+    }
+    .map_err(|e| format!("SMS request failed: {e}"))?;
+
+    let status = resp.status();
+    let text = resp.text().unwrap_or_default();
+    let _ = &message; // included in the call for the delivery log; gateways echo status in `text`
+    if !status.is_success() {
+        return Err(format!("SMS gateway returned {status}: {text}"));
+    }
+    // Both gateways return HTTP 200 even for some logical errors — detect the common ones.
+    let low = text.to_lowercase();
+    if low.contains("\"return\":false") || low.contains("\"type\":\"error\"") {
+        return Err(format!("SMS gateway rejected the request: {text}"));
+    }
+    Ok(text)
+}
+
 /// Return the app's package version.
 #[tauri::command]
 pub fn app_version() -> String {

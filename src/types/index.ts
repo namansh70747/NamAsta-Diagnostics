@@ -4,7 +4,7 @@ export type Sex = 'MALE' | 'FEMALE' | 'OTHER';
 export type ResultType = 'numeric' | 'text' | 'choice' | 'calculated';
 export type Flag = '' | 'H' | 'L' | 'A';
 export type PaymentMode = 'CASH' | 'UPI' | 'CARD';
-export type DeliveryChannel = 'whatsapp_semi' | 'whatsapp_api' | 'email' | 'print' | 'pdf';
+export type DeliveryChannel = 'whatsapp_semi' | 'whatsapp_api' | 'email' | 'print' | 'pdf' | 'sms';
 export type DeliveryStatus = 'queued' | 'sent' | 'delivered' | 'failed';
 export type PatientStatus = 'registered' | 'results_pending' | 'approved' | 'delivered';
 
