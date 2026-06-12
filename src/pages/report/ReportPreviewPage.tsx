@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getPatientById, getBill } from "@/lib/queries/patients";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getPatientById, getBill, updateBill } from "@/lib/queries/patients";
 import { getOrdersWithResults, getReportComment } from "@/lib/queries/results";
 import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
@@ -14,22 +14,47 @@ import { sendEmail } from "@/lib/email";
 import { buildWhatsAppMessage, sendWhatsAppSemi } from "@/lib/whatsapp";
 import { formatDate } from "@/lib/format";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SCLLogo } from "@/components/common/SCLLogo";
 
 const NORMAL_QUALITATIVE = new Set(['NEGATIVE', 'NIL', 'NOT SEEN', 'ABSENT', 'NORMAL', 'CLEAR', 'PALE YELLOW']);
 
+/**
+ * Which discipline each panel prints under. On the printed report the discipline
+ * (e.g. BIOCHEMISTRY) is a single centred heading, and the individual profiles within
+ * it (e.g. LIVER FUNCTION TEST (LFT)) appear as left-aligned underlined sub-headings —
+ * exactly as on the lab's existing letterhead reports. Unmapped panels stand alone.
+ */
+const DEPARTMENT: Record<string, string> = {
+  HEM: 'HAEMATOLOGY', CBC: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
+  BIO: 'BIOCHEMISTRY', LFT: 'BIOCHEMISTRY', KFT: 'BIOCHEMISTRY',
+  LIPID: 'BIOCHEMISTRY', ELEC: 'BIOCHEMISTRY', DIAB: 'BIOCHEMISTRY',
+  THY: 'BIOCHEMISTRY', HORM: 'BIOCHEMISTRY',
+  SERO: 'SEROLOGY',
+  URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
+  MICRO: 'MICROBIOLOGY',
+  MISC: 'MISCELLANEOUS',
+};
+const deptOf = (p: Panel): string => DEPARTMENT[p.code] ?? p.report_heading;
+
 export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const pid = parseInt(patientId ?? '0');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [sent, setSent] = useState<Record<string, boolean>>({});
   const [zoom, setZoom] = useState(100);
   const [showWatermark, setShowWatermark] = useState(true);
   const [showSignature, setShowSignature] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  // Pre-printed letterhead paper: when OFF, the physical print drops the header/footer
+  // and shifts the body down so the data lands inside the paper's printed frame. Digital
+  // copies (PDF, WhatsApp, email) always include the full letterhead.
+  const [printLetterhead, setPrintLetterhead] = useState(true);
+  const [preTop, setPreTop] = useState(() => Number(localStorage.getItem('scl_pre_top') ?? 40));
+  const [preBottom, setPreBottom] = useState(() => Number(localStorage.getItem('scl_pre_bottom') ?? 24));
 
   const { data: patient } = useQuery({ queryKey: ['patient', pid], queryFn: () => getPatientById(pid) });
   const { data: orders = [] } = useQuery({ queryKey: ['orders', pid], queryFn: () => getOrdersWithResults(pid) });
@@ -68,6 +93,16 @@ export function ReportPreviewPage() {
   }
   const sortedPanels = [...panelMap.values()].sort((a, b) => a.panel.sort_order - b.panel.sort_order);
 
+  // Roll the ordered panels up into discipline blocks (HAEMATOLOGY, BIOCHEMISTRY, …),
+  // preserving order. Each block prints one centred heading + its profiles.
+  const deptGroups: { dept: string; panels: typeof sortedPanels }[] = [];
+  for (const entry of sortedPanels) {
+    const dept = deptOf(entry.panel);
+    const last = deptGroups[deptGroups.length - 1];
+    if (last && last.dept === dept) last.panels.push(entry);
+    else deptGroups.push({ dept, panels: [entry] });
+  }
+
   function resultValue(o: OrderWithResult): string {
     if (o.test.result_type === 'calculated' && o.test.formula) {
       const c = computeCalculated(o.test.code, o.test.formula, valuesMap);
@@ -88,7 +123,7 @@ export function ReportPreviewPage() {
     return displayRange(findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit)));
   }
 
-  async function withLog(channel: 'print' | 'pdf' | 'whatsapp_semi' | 'email', target: string, key: string, fn: () => Promise<void> | void) {
+  async function withLog(channel: 'print' | 'pdf' | 'whatsapp_semi' | 'email' | 'sms', target: string, key: string, fn: () => Promise<void> | void) {
     setBusy(key);
     try {
       await fn();
@@ -144,6 +179,28 @@ export function ReportPreviewPage() {
     });
   }
 
+  function handleSms() {
+    if (!patient?.phone) { alert('This patient has no mobile number on file.'); return; }
+    if (!settings.sms_api_key || !settings.sms_sender_id) {
+      alert('SMS is not set up yet. Go to Settings → SMS and enter your gateway API key, Sender ID and DLT template.');
+      return;
+    }
+    withLog('sms', `91${patient.phone}`, 'sms', async () => {
+      const { sendSms, buildSmsMessage } = await import('@/lib/sms');
+      const patientName = `${patient.title} ${patient.name}`.trim();
+      await sendSms({
+        provider: settings.sms_provider ?? 'fast2sms',
+        apiKey: settings.sms_api_key!,
+        senderId: settings.sms_sender_id!,
+        dltTemplateId: settings.sms_dlt_template_id ?? '',
+        phone: patient.phone,
+        message: buildSmsMessage({ name: patientName, testNo: patient.test_no }),
+        vars: [patientName, String(patient.test_no)],
+      });
+      alert('SMS sent.');
+    });
+  }
+
   function handleEmail() {
     if (!patient?.email) { alert('This patient has no email address on file.'); return; }
     const host = settings.smtp_host, port = settings.smtp_port, user = settings.smtp_user, pass = settings.smtp_pass;
@@ -191,7 +248,11 @@ export function ReportPreviewPage() {
 
         <div className="overflow-auto pb-8">
           <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
-            <div id="report-print-area" className="report-sheet bg-white mx-auto shadow-sm relative" style={{ width: '210mm', minHeight: '297mm', padding: '12mm', fontFamily: 'Georgia, "Times New Roman", serif' }}>
+            <div
+              id="report-print-area"
+              className={cn("report-sheet bg-white mx-auto shadow-sm relative", !printLetterhead && "hide-letterhead-on-print")}
+              style={{ width: '210mm', minHeight: '297mm', padding: '12mm', fontFamily: 'Georgia, "Times New Roman", serif', ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
+            >
               {showWatermark && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
                   <span style={{ transform: 'rotate(-35deg)', fontSize: '46px', color: 'rgba(123,27,27,0.05)', fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -201,7 +262,7 @@ export function ReportPreviewPage() {
               )}
 
               {/* Header — faithful to the SCL letterhead */}
-              <header className="relative">
+              <header className="report-letterhead relative">
                 <div className="flex items-start gap-3">
                   {settings.logo_data
                     ? <img src={settings.logo_data} alt="SCL" className="h-[58px] w-auto object-contain shrink-0" />
@@ -235,6 +296,7 @@ export function ReportPreviewPage() {
                 </div>
               </header>
 
+              <div className="report-body relative">
               {/* Patient block */}
               <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[12px]">
                 <p><strong>Name :</strong> {patient.title} {patient.name}</p>
@@ -247,47 +309,64 @@ export function ReportPreviewPage() {
                 <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
               </section>
 
-              {/* Results by panel */}
+              {/* Results grouped by discipline → profile, faithful to the printed layout */}
               <section className="relative mt-3">
-                {sortedPanels.map(({ panel, orders: rows }, idx) => {
-                  const note = rows.find(r => r.test.interpretation_note)?.test.interpretation_note;
-                  const band = rows.map(r => r.ranges[0]?.band_text).find(Boolean);
+                {deptGroups.map((group, gi) => {
+                  const breakAfter = gi < deptGroups.length - 1 && group.panels.some(p => p.panel.page_break_after);
                   return (
-                    <div key={panel.code} style={panel.page_break_after && idx < sortedPanels.length - 1 ? { breakAfter: 'page' } : undefined} className="mb-4">
-                      <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1.5">{panel.report_heading}</div>
+                    <div key={group.dept} style={breakAfter ? { breakAfter: 'page' } : undefined} className="mb-4">
+                      <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1.5">{group.dept}</div>
                       <table className="w-full text-[12px] border-collapse">
                         <thead>
                           <tr>
                             <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px]">Test Name</th>
                             <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-28">Results</th>
-                            <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-24">Units</th>
-                            <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-40">Normal Ranges</th>
+                            <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-20">Units</th>
+                            <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-36">Normal Ranges</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {rows.map(o => {
-                            const value = resultValue(o);
-                            const flag = flagOf(o);
-                            const abnormal = flag !== '';
-                            return (
-                              <tr key={o.order.id}>
-                                <td className="py-[3px] pr-2 text-gray-950">{o.test.name}</td>
-                                <td className={cn("py-[3px] px-2 tabular-nums text-gray-950", abnormal && "font-bold")}>
-                                  {value || '—'}
-                                </td>
-                                <td className="py-[3px] px-2 text-gray-800">{o.test.unit && o.test.unit !== '—' ? o.test.unit : ''}</td>
-                                <td className="py-[3px] pl-2 text-gray-800">{rangeText(o)}</td>
-                              </tr>
-                            );
-                          })}
+                          {group.panels.map(({ panel, orders: rows }) => (
+                            <>
+                              {panel.report_heading !== group.dept && (
+                                <tr key={`h-${panel.code}`}>
+                                  <td colSpan={4} className="pt-2 pb-0.5 font-bold text-[12.5px] text-black underline underline-offset-2">
+                                    {panel.report_heading}
+                                  </td>
+                                </tr>
+                              )}
+                              {rows.map(o => {
+                                const value = resultValue(o);
+                                const abnormal = flagOf(o) !== '';
+                                return (
+                                  <tr key={o.order.id}>
+                                    <td className="py-[3px] pr-2 text-gray-950">{o.test.name}</td>
+                                    <td className={cn("py-[3px] px-2 tabular-nums text-gray-950", abnormal && "font-bold")}>
+                                      {value || '—'}
+                                    </td>
+                                    <td className="py-[3px] px-2 text-gray-800">{o.test.unit && o.test.unit !== '—' ? o.test.unit : ''}</td>
+                                    <td className="py-[3px] pl-2 text-gray-800">{rangeText(o)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          ))}
                         </tbody>
                       </table>
-                      {band && <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div>}
-                      {note && (
-                        <div className="mt-2 border border-gray-700 px-2.5 py-1.5 text-[9.5px] text-gray-900 leading-[1.5] whitespace-pre-line">
-                          {note}
-                        </div>
-                      )}
+                      {group.panels.map(({ panel, orders: rows }) => {
+                        const note = rows.find(r => r.test.interpretation_note)?.test.interpretation_note;
+                        const band = rows.map(r => r.ranges[0]?.band_text).find(Boolean);
+                        return (
+                          <div key={`n-${panel.code}`}>
+                            {band && <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div>}
+                            {note && (
+                              <div className="mt-2 border border-gray-700 px-2.5 py-1.5 text-[9.5px] text-gray-900 leading-[1.5] whitespace-pre-line">
+                                {note}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -296,9 +375,10 @@ export function ReportPreviewPage() {
                   <div className="mt-2 text-[11px]"><strong>Comments :</strong> {comment}</div>
                 )}
               </section>
+              </div>{/* /report-body */}
 
               {/* Footer */}
-              <footer className="relative mt-6 pt-2 border-t border-gray-400">
+              <footer className="report-letterfoot relative mt-6 pt-2 border-t border-gray-400">
                 <div className="flex justify-between items-end">
                   {qr ? <img src={qr} alt="QR" width={70} height={70} className="opacity-90" /> : <span />}
                   {showSignature && (
@@ -337,10 +417,21 @@ export function ReportPreviewPage() {
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved} busy={busy === 'pdf'} />
           <OutputBtn icon={MessageCircle} label="WhatsApp" onClick={handleWhatsApp} done={sent.whatsapp} disabled={!isApproved || !patient.phone} busy={busy === 'whatsapp'} green />
           <OutputBtn icon={Mail} label="Email" onClick={handleEmail} done={sent.email} disabled={!isApproved || !patient.email} busy={busy === 'email'} />
+          <OutputBtn icon={Smartphone} label="SMS" onClick={handleSms} done={sent.sms} disabled={!isApproved || !patient.phone} busy={busy === 'sms'} />
         </div>
 
         <div className="card p-4 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a857d]">Layout</p>
+          <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={setPrintLetterhead} />
+          {!printLetterhead && (
+            <div className="rounded-lg bg-[#f1efec] px-3 py-2.5 space-y-2">
+              <p className="text-[10.5px] text-[#6b6259] leading-snug">
+                Letterhead hidden for printing on your pre-printed paper. Adjust the gaps so the data lands inside the printed frame.
+              </p>
+              <GapInput label="Top gap" value={preTop} onChange={(v) => { setPreTop(v); localStorage.setItem('scl_pre_top', String(v)); }} />
+              <GapInput label="Bottom gap" value={preBottom} onChange={(v) => { setPreBottom(v); localStorage.setItem('scl_pre_bottom', String(v)); }} />
+            </div>
+          )}
           <Toggle label="Signature" checked={showSignature} onChange={setShowSignature} />
           <Toggle label="Watermark" checked={showWatermark} onChange={setShowWatermark} />
         </div>
@@ -349,8 +440,26 @@ export function ReportPreviewPage() {
           <div className="card p-4 space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a857d] mb-1">Billing</p>
             <Row k="Total" v={`₹${bill.total}`} />
+            {bill.concession > 0 && <Row k="Concession" v={`− ₹${bill.concession}`} />}
             <Row k="Net" v={`₹${bill.net}`} />
+            <Row k="Received" v={`₹${bill.received}`} />
             <Row k="Balance" v={`₹${bill.balance}`} danger={bill.balance > 0} />
+            {bill.balance > 0 && (
+              <button
+                onClick={async () => {
+                  const raw = window.prompt(`Balance due is ₹${bill.balance}. Enter amount received now:`, String(bill.balance));
+                  if (raw == null) return;
+                  const amt = parseFloat(raw);
+                  if (isNaN(amt) || amt <= 0) { alert('Enter a valid amount.'); return; }
+                  if (amt > bill.balance) { alert(`Amount cannot exceed the balance of ₹${bill.balance}.`); return; }
+                  await updateBill(pid, { received: bill.received + amt });
+                  await queryClient.invalidateQueries({ queryKey: ['bill', pid] });
+                }}
+                className="mt-2 w-full text-[12px] font-medium text-[#7b1b1b] border border-[#e3c9c9] bg-[#fbf3f3] rounded-lg px-3 py-1.5 hover:bg-[#f7e9e9]"
+              >
+                Record payment
+              </button>
+            )}
           </div>
         )}
       </aside>
@@ -380,6 +489,22 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
         className={cn("w-9 h-5 rounded-full transition-colors relative", checked ? "bg-[#7b1b1b]" : "bg-gray-300")}>
         <span className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all", checked ? "left-4" : "left-0.5")} />
       </button>
+    </label>
+  );
+}
+
+function GapInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="flex items-center justify-between text-[11.5px] text-[#6b6259]">
+      <span>{label}</span>
+      <span className="flex items-center gap-1">
+        <input
+          type="number" min={0} max={120} value={value}
+          onChange={(e) => onChange(Math.max(0, Math.min(120, Number(e.target.value) || 0)))}
+          className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
+        />
+        <span className="text-[#a8a29b]">mm</span>
+      </span>
     </label>
   );
 }
