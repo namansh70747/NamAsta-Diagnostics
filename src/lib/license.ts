@@ -80,11 +80,30 @@ async function readSetting(k: string): Promise<string | null> {
   return rows[0]?.value ?? null;
 }
 
+/**
+ * A monotonic "now" that can't be pushed backwards. We persist the highest timestamp ever
+ * seen; if the PC clock is later wound back (to dodge an expiry) we keep using the high-water
+ * mark, so an expired licence stays expired. Returns milliseconds.
+ */
+async function effectiveNow(): Promise<number> {
+  const now = Date.now();
+  const stored = parseInt((await readSetting("time_hwm")) ?? "0", 10) || 0;
+  const eff = Math.max(now, stored);
+  if (eff > stored) {
+    await dbExecute(
+      `INSERT INTO settings(key,value,updated_at) VALUES('time_hwm',?,CURRENT_TIMESTAMP)
+       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
+      [String(eff)]
+    ).catch(() => {});
+  }
+  return eff;
+}
+
 /** Activate with a key. Verifies + checks expiry, then stores it (ungated — no login yet). */
 export async function activateLicense(key: string): Promise<LicenseInfo> {
   const info = await verifyLicenseKey(key.trim());
   if (!info) throw new Error("This activation key is not valid. Please re-check it (or contact NamAsta).");
-  if (info.exp * 1000 < Date.now()) throw new Error("This activation key has already expired.");
+  if (info.exp * 1000 < await effectiveNow()) throw new Error("This activation key has already expired.");
   await dbExecute(
     `INSERT INTO settings(key,value,updated_at) VALUES('license_key',?,CURRENT_TIMESTAMP)
      ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
@@ -101,10 +120,11 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
     if (!key) return { active: false };
     const info = await verifyLicenseKey(key);
     if (!info) return { active: false };
-    if (info.exp * 1000 < Date.now()) {
+    const now = await effectiveNow();
+    if (info.exp * 1000 < now) {
       return { active: false, expired: true, lab: info.lab, plan: info.plan, exp: info.exp };
     }
-    const daysLeft = Math.ceil((info.exp * 1000 - Date.now()) / 86_400_000);
+    const daysLeft = Math.ceil((info.exp * 1000 - now) / 86_400_000);
     return { active: true, lab: info.lab, plan: info.plan, exp: info.exp, daysLeft };
   } catch {
     // If the DB can't be read yet, fail closed (show activation) rather than crash.

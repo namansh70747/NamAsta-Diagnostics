@@ -110,7 +110,16 @@ function LicenseGate() {
       setPhase({ kind: "onboard", licensed: false, needSetup: true, status: { active: false } });
     }
   };
-  useEffect(() => { check(); }, []);
+  useEffect(() => {
+    check();
+    // Strict enforcement: re-check every minute and whenever the window regains focus, so a
+    // subscription that lapses mid-session immediately drops the user onto the renew screen.
+    const iv = setInterval(check, 60_000);
+    const onVis = () => { if (!document.hidden) check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (phase.kind === "loading") return <LicenseSplash />;
   if (phase.kind === "onboard") {

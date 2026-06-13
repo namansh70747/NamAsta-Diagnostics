@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
-import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, ArrowRight } from "lucide-react";
+import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet } from "lucide-react";
 import { NamAstaWordmark } from "@/components/common/NamAstaLogo";
 import { activateLicense, type LicenseStatus } from "@/lib/license";
 import { completeSetup } from "@/lib/onboarding";
@@ -146,22 +146,30 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
       </div>
 
       <div className="rounded-3xl border border-white/10 glass-dark p-7">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50">Step 1 — Pay ₹{plan.price.toLocaleString("en-IN")}</div>
+        <div className="flex items-baseline justify-between">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 1 — Pay to unlock</div>
+          <div className="text-[26px] font-extrabold tabular-nums">₹{plan.price.toLocaleString("en-IN")}<span className="text-[12px] font-medium text-white/45"> {plan.per}</span></div>
+        </div>
         <div className="mt-4 flex items-center gap-5">
           <div className="rounded-2xl bg-white p-2.5 shrink-0">
             {qr ? <img src={qr} alt="UPI QR" width={132} height={132} /> : <div className="w-[132px] h-[132px] skeleton" />}
           </div>
           <div className="min-w-0 text-[13px] text-white/70 leading-relaxed">
-            <p>Scan with any UPI app (GPay, PhonePe, Paytm).</p>
-            <p className="mt-1.5 text-white/45">Paying</p>
-            <p className="font-semibold text-white">{PAYEE}</p>
-            <p className="font-mono text-[12.5px] text-[#c7cbff] break-all">{UPI_ID}</p>
+            <p>Scan with any UPI app (GPay / PhonePe / Paytm), or tap:</p>
+            <a
+              href={`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent("NamAsta " + plan.label)}`}
+              className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#16a34a] to-[#15803d] px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_14px_-4px_rgba(21,128,61,0.7)]"
+            >
+              <Wallet size={15} /> Pay ₹{plan.price.toLocaleString("en-IN")}
+            </a>
+            <p className="mt-2.5 text-white/45">Paying <span className="font-semibold text-white">{PAYEE}</span></p>
+            <p className="font-mono text-[12px] text-[#c7cbff] break-all">{UPI_ID}</p>
           </div>
         </div>
-        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50">Step 2 — Enter your key</div>
+        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Enter your activation key</div>
         <p className="mt-2 text-[13px] text-white/55 leading-relaxed">
-          After paying, send the screenshot to {VENDOR_CONTACT}. You'll receive an
-          <b className="text-white/80"> activation key</b> — paste it below.
+          After paying, send the screenshot to {VENDOR_CONTACT} on WhatsApp. You'll receive an
+          <b className="text-white/85"> activation key</b> — paste it here to unlock the app.
         </p>
         <div className="mt-3 relative">
           <KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />
@@ -169,9 +177,9 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
             placeholder="Paste activation key" spellCheck={false} className="login-input !pl-9 font-mono text-[12.5px]" />
         </div>
         <button onClick={activate} disabled={activating || !key.trim()} className="login-btn mt-3">
-          {activating ? <Loader2 size={18} className="animate-spin" /> : <>Activate <ArrowRight size={17} /></>}
+          {activating ? <Loader2 size={18} className="animate-spin" /> : <><ShieldCheck size={17} /> Unlock the app</>}
         </button>
-        <p className="mt-3 text-center text-[11px] text-white/35">Stored on this PC · works fully offline</p>
+        <p className="mt-3 text-center text-[11px] text-white/35">🔒 The app stays locked until a valid key is entered · works fully offline</p>
       </div>
     </div>
   );

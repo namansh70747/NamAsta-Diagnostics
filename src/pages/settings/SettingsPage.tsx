@@ -12,6 +12,7 @@ import {
   Users,
   SlidersHorizontal,
   Lock,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import { getAllSettings } from "@/lib/queries/settings";
@@ -28,8 +29,9 @@ import { SmsTab } from "./tabs/SmsTab";
 import { AnalyzerTab } from "./tabs/AnalyzerTab";
 import { UsersTab } from "./tabs/UsersTab";
 import { SystemTab } from "./tabs/SystemTab";
+import { LicenseTab } from "./tabs/LicenseTab";
 
-type TabId = "identity" | "branding" | "printing" | "backups" | "email" | "whatsapp" | "sms" | "analyzer" | "users" | "system";
+type TabId = "identity" | "branding" | "printing" | "backups" | "email" | "whatsapp" | "sms" | "analyzer" | "users" | "system" | "license";
 
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "identity", label: "Lab Identity", icon: Building2 },
@@ -41,6 +43,7 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "sms", label: "SMS", icon: Smartphone },
   { id: "analyzer", label: "Analyzer", icon: Cable },
   { id: "users", label: "Users", icon: Users },
+  { id: "license", label: "Subscription", icon: KeyRound },
   { id: "system", label: "System", icon: SlidersHorizontal },
 ];
 
@@ -118,6 +121,7 @@ export function SettingsPage() {
                 {tab === "sms" && <SmsTab settings={settings} />}
                 {tab === "analyzer" && <AnalyzerTab settings={settings} />}
                 {tab === "users" && <UsersTab />}
+                {tab === "license" && <LicenseTab />}
                 {tab === "system" && <SystemTab settings={settings} />}
               </>
             )}
