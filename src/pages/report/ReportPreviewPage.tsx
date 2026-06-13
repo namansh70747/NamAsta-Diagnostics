@@ -140,7 +140,10 @@ export function ReportPreviewPage() {
   const calcTests = orders
     .filter(o => o.test.result_type === 'calculated' && o.test.formula)
     .map(o => ({ code: o.test.code, formula: o.test.formula }));
-  const valuesMap = resolveCalculated(enteredMap, calcTests);
+  const calcCtx = patient
+    ? { ageYears: patientAgeDays(patient.age, patient.age_unit) / 365.25, sex: patient.sex }
+    : undefined;
+  const valuesMap = resolveCalculated(enteredMap, calcTests, calcCtx);
 
   // Group active orders by panel, preserving panel sort order.
   const panelMap = new Map<string, { panel: Panel; orders: OrderWithResult[] }>();
@@ -157,7 +160,7 @@ export function ReportPreviewPage() {
 
   function resultValue(o: OrderWithResult): string {
     if (o.test.result_type === 'calculated' && o.test.formula) {
-      const c = computeCalculated(o.test.code, o.test.formula, valuesMap);
+      const c = computeCalculated(o.test.code, o.test.formula, valuesMap, calcCtx);
       return c != null ? c.toFixed(safeDecimals(o.test.decimals)) : '';
     }
     return o.result?.value ?? '';

@@ -14,7 +14,13 @@ function safeNum(v: string | undefined | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-export function computeCalculated(code: string, formula: string, values: ResultMap): number | null {
+/** Patient context some calculated tests need (e.g. eGFR uses age + sex). */
+export interface CalcContext {
+  ageYears?: number;
+  sex?: 'MALE' | 'FEMALE' | 'OTHER';
+}
+
+export function computeCalculated(code: string, formula: string, values: ResultMap, ctx?: CalcContext): number | null {
   const g = (c: string) => values[c] ?? null;
 
   switch (code) {
@@ -59,12 +65,19 @@ export function computeCalculated(code: string, formula: string, values: ResultM
       const pt = g('PT_PT');
       return pt != null ? pt / 12.0 : null;
     }
-    case 'GFR': return null; // Requires age/sex/creatinine - computed separately
+    case 'GFR': {
+      // CKD-EPI 2021 — needs serum creatinine (CRT) + patient age + sex.
+      const crt = g('CRT');
+      if (crt == null || crt <= 0 || !ctx?.ageYears || ctx.ageYears <= 0) return null;
+      return computeGFR(crt, ctx.ageYears, ctx.sex === 'FEMALE' ? 'FEMALE' : 'MALE');
+    }
     default: {
-      // Try to evaluate simple formula like "BBT - BBD"
+      // Try to evaluate a simple formula like "BBT - BBD" or "28.7 * HBA1C - 46.7".
+      // Codes may contain digits/underscores (HBA1C, PT_PT), so a token must start with a
+      // letter and may continue with letters, digits or underscores.
       try {
         if (!formula) return null;
-        const replaced = formula.replace(/[A-Z_]+/g, (match) => {
+        const replaced = formula.replace(/[A-Za-z][A-Za-z0-9_]*/g, (match) => {
           const v = values[match];
           return v != null ? String(v) : 'null';
         });
@@ -89,14 +102,15 @@ export function computeCalculated(code: string, formula: string, values: ResultM
  */
 export function resolveCalculated(
   base: ResultMap,
-  calculated: { code: string; formula: string | null }[]
+  calculated: { code: string; formula: string | null }[],
+  ctx?: CalcContext
 ): ResultMap {
   const values: ResultMap = { ...base };
   for (let pass = 0; pass <= calculated.length; pass++) {
     let changed = false;
     for (const t of calculated) {
       if (values[t.code] != null) continue;          // already known (entered or computed)
-      const v = computeCalculated(t.code, t.formula ?? '', values);
+      const v = computeCalculated(t.code, t.formula ?? '', values, ctx);
       if (v != null) { values[t.code] = v; changed = true; }
     }
     if (!changed) break;

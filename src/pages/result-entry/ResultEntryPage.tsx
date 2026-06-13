@@ -95,11 +95,14 @@ export function ResultEntryPage() {
   const calcTests = orders
     .filter(o => o.test.result_type === 'calculated' && o.test.formula)
     .map(o => ({ code: o.test.code, formula: o.test.formula }));
-  const valuesMap = resolveCalculated(enteredMap, calcTests);
+  const calcCtx = patient
+    ? { ageYears: patientAgeDays(patient.age, patient.age_unit) / 365.25, sex: patient.sex }
+    : undefined;
+  const valuesMap = resolveCalculated(enteredMap, calcTests, calcCtx);
 
   const getDisplayValue = (o: OrderWithResult): string => {
     if (o.test.result_type === 'calculated' && o.test.formula) {
-      const calc = computeCalculated(o.test.code, o.test.formula, valuesMap);
+      const calc = computeCalculated(o.test.code, o.test.formula, valuesMap, calcCtx);
       return calc != null ? calc.toFixed(safeDecimals(o.test.decimals)) : '';
     }
     return localValues[o.order.id] ?? '';
