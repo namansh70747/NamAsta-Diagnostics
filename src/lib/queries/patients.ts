@@ -237,30 +237,44 @@ export async function addTestsToPatient(
   );
   const metaById = new Map(meta.map(m => [m.id, m]));
 
+  // Manual rollback (the pool has no cross-call transaction): if any insert or the
+  // bill update fails partway, delete the rows we added so orders never desync from
+  // the bill total. Mirrors createPatient's pattern.
   let addedTotal = 0;
-  for (const testId of testIds) {
-    if (have.has(testId)) continue;
-    const price = prices[testId] ?? 0;
-    const m = metaById.get(testId);
-    if (m?.is_panel) {
-      await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id,not_done) VALUES(?,?,?,?,1)', [patientId, testId, price, sampleId]);
-      have.add(testId); addedTotal += price;
-      const children = await dbQuery<{ id: number }>('SELECT id FROM tests WHERE panel_id=? AND enabled=1 AND is_panel=0', [m.panel_id]);
-      for (const child of children) {
-        if (have.has(child.id)) continue;
-        await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)', [patientId, child.id, 0, sampleId]);
-        have.add(child.id);
+  const insertedOrderIds: number[] = [];
+  const track = (res: { lastInsertId?: number }) => {
+    if (res.lastInsertId) insertedOrderIds.push(res.lastInsertId);
+  };
+  try {
+    for (const testId of testIds) {
+      if (have.has(testId)) continue;
+      const price = prices[testId] ?? 0;
+      const m = metaById.get(testId);
+      if (m?.is_panel) {
+        track(await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id,not_done) VALUES(?,?,?,?,1)', [patientId, testId, price, sampleId]));
+        have.add(testId); addedTotal += price;
+        const children = await dbQuery<{ id: number }>('SELECT id FROM tests WHERE panel_id=? AND enabled=1 AND is_panel=0', [m.panel_id]);
+        for (const child of children) {
+          if (have.has(child.id)) continue;
+          track(await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)', [patientId, child.id, 0, sampleId]));
+          have.add(child.id);
+        }
+      } else {
+        track(await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)', [patientId, testId, price, sampleId]));
+        have.add(testId); addedTotal += price;
       }
-    } else {
-      await db.execute('INSERT INTO orders(patient_id,test_id,price_charged,sample_id) VALUES(?,?,?,?)', [patientId, testId, price, sampleId]);
-      have.add(testId); addedTotal += price;
     }
-  }
-  if (addedTotal > 0) {
-    await db.execute(
-      'UPDATE bills SET total = total + ?, received = received + ?, updated_at=CURRENT_TIMESTAMP WHERE patient_id=?',
-      [addedTotal, addedTotal, patientId]
-    );
+    if (addedTotal > 0) {
+      await db.execute(
+        'UPDATE bills SET total = total + ?, received = received + ?, updated_at=CURRENT_TIMESTAMP WHERE patient_id=?',
+        [addedTotal, addedTotal, patientId]
+      );
+    }
+  } catch (e) {
+    for (const id of insertedOrderIds.reverse()) {
+      try { await db.execute('DELETE FROM orders WHERE id=?', [id]); } catch { /* best-effort cleanup */ }
+    }
+    throw e;
   }
 }
 
