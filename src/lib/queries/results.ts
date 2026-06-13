@@ -91,6 +91,7 @@ export async function getOrdersWithResults(patientId: number): Promise<OrderWith
 }
 
 export async function saveResult(orderId: number, value: string, flag: string, userId: number): Promise<void> {
+  value = value.trim();   // never store leading/trailing whitespace (keeps display, flag and gate consistent)
   await dbExecute(
     `INSERT INTO results(order_id,value,flag,entered_by,entered_at,updated_at)
      VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)

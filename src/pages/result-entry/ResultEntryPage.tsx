@@ -171,10 +171,12 @@ export function ResultEntryPage() {
     onError: (e) => { if (String(e).includes('cancelled')) return; alert(String(e)); },
   });
 
-  // F9 = approve (only when not already approved)
+  // F9 = approve (only when not already approved, and not while another dialog is open)
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'F9' && !isApproved && allHaveValues) { e.preventDefault(); setShowApprove(true); }
+      if (e.key === 'F9' && !isApproved && allHaveValues && !showAddTest && !analyzer && !showApprove) {
+        e.preventDefault(); setShowApprove(true);
+      }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -192,7 +194,8 @@ export function ResultEntryPage() {
   function focusNextField(e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) {
     if (e.key !== 'Enter' && e.key !== 'ArrowDown') return;
     e.preventDefault();
-    const fields = Array.from(document.querySelectorAll<HTMLElement>('[data-rinput]'));
+    // Skip disabled (approved) fields so Enter never lands focus on a non-editable input.
+    const fields = Array.from(document.querySelectorAll<HTMLElement>('[data-rinput]:not([disabled])'));
     const i = fields.indexOf(e.currentTarget);
     const next = fields[i + 1];
     if (next) next.focus();
@@ -267,21 +270,25 @@ export function ResultEntryPage() {
     const next = { ...localValues };
     for (const m of analyzer.matches) next[m.orderId] = m.incoming;
     setLocalValues(next);
-    try {
-      // Persist each imported value, with its freshly-computed flag.
-      for (const m of analyzer.matches) {
-        const o = orders.find(x => x.order.id === m.orderId);
-        if (!o) continue;
+    // Save EVERY matched value independently — one failure must not drop the others, and the
+    // histograms must still be saved. Collect failures and report them precisely.
+    const failed: string[] = [];
+    for (const m of analyzer.matches) {
+      const o = orders.find(x => x.order.id === m.orderId);
+      if (!o) continue;
+      try {
         const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
         const flag = patient ? computeFlag(o.test.result_type, m.incoming, o.ranges, patient.sex, ageDays) : '';
         await saveResult(m.orderId, m.incoming, flag, user!.id);
+      } catch {
+        failed.push(o.test.name);
       }
-      await saveHistograms(pid, analyzer.reading.histograms);
-      setAnalyzer(null);
-    } catch (e) {
-      alert(`Some imported values could not be saved: ${String(e)}. Please review the highlighted fields.`);
-    } finally {
-      qc.invalidateQueries({ queryKey: ['orders', pid] });
+    }
+    try { await saveHistograms(pid, analyzer.reading.histograms); } catch { /* histograms are non-critical */ }
+    qc.invalidateQueries({ queryKey: ['orders', pid] });
+    setAnalyzer(null);
+    if (failed.length) {
+      alert(`These values could not be saved — please re-enter them:\n• ${failed.join('\n• ')}`);
     }
   }
 
@@ -475,7 +482,15 @@ export function ResultEntryPage() {
                       </span>
                     </td>
                     <td className="px-5 py-2.5 text-right">
-                      {!o.order.not_done && (
+                      {o.order.not_done ? (
+                        <button
+                          onClick={() => markNotDone(o.order.id, 0).then(() => qc.invalidateQueries({ queryKey: ['orders', pid] }))}
+                          className="text-[12px] font-medium text-[#4f46e5] hover:underline"
+                          title="Undo — include this test again"
+                        >
+                          Mark done
+                        </button>
+                      ) : (
                         <button
                           onClick={() => markNotDone(o.order.id).then(() => qc.invalidateQueries({ queryKey: ['orders', pid] }))}
                           className="text-[#a8a29b] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
