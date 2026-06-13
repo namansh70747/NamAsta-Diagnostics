@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/app/CommandPalette";
 import { KeyboardShortcuts } from "@/app/KeyboardShortcuts";
 import { maybeDailyBackup } from "@/lib/backup";
-import { BrandLogo } from "@/components/common/SCLLogo";
+import { SCLMark } from "@/components/common/SCLLogo";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSettings } from "@/lib/queries/settings";
 
@@ -46,57 +46,68 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f8f7f5]">
+    <div className="flex h-screen overflow-hidden bg-[#f3f4f8]">
       <KeyboardShortcuts onOpenPalette={() => setPaletteOpen(true)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
-      {/* ───────── Sidebar — deep SCL maroon, the brand anchor ───────── */}
+      {/* ───────── Sidebar — modern near-black command center with aurora glow ───────── */}
       <aside
         className={cn(
-          "relative flex flex-col shrink-0 transition-[width] duration-200 ease-out",
-          collapsed ? "w-[68px]" : "w-[232px]"
+          "relative flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-out",
+          collapsed ? "w-[72px]" : "w-[244px]"
         )}
-        style={{ background: "linear-gradient(180deg, #2b0e0e 0%, #240c0c 55%, #1d0909 100%)" }}
+        style={{ background: "linear-gradient(180deg, #14161f 0%, #0e0f16 55%, #0a0b10 100%)" }}
       >
+        {/* aurora glow accents */}
+        <div className="pointer-events-none absolute -top-28 -left-16 h-72 w-72 rounded-full bg-[#6366f1]/25 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-[#7b1b1b]/30 blur-3xl" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+
         {/* brand */}
-        <div className={cn("flex items-center gap-3 h-[60px] px-4", collapsed && "justify-center px-0")}>
-          <BrandLogo src={settings.logo_data} height={collapsed ? 26 : 30} chip />
+        <div className={cn("relative flex items-center gap-3 h-[64px] px-4", collapsed && "justify-center px-0")}>
+          {settings.logo_data
+            ? <span className="inline-flex items-center justify-center rounded-xl bg-white px-1.5 py-1 shadow-lg"><img src={settings.logo_data} alt="SCL" style={{ height: collapsed ? 26 : 30, width: "auto" }} className="object-contain" /></span>
+            : <SCLMark size={collapsed ? 34 : 38} glow />}
           {!collapsed && (
             <div className="min-w-0 leading-tight">
-              <p className="text-[13px] font-bold text-white/95 truncate tracking-wide">Sharma Clinical</p>
-              <p className="text-[10.5px] text-white/45 font-medium tracking-[0.14em] uppercase">Laboratory</p>
+              <p className="text-[13.5px] font-bold text-white/95 truncate tracking-wide">Sharma Clinical</p>
+              <p className="text-[10px] text-white/40 font-semibold tracking-[0.2em] uppercase">Laboratory</p>
             </div>
           )}
         </div>
 
-        <div className="mx-4 h-px bg-white/[0.08]" />
+        <div className="relative mx-4 h-px bg-white/[0.07]" />
 
         {/* nav */}
-        <nav className="flex-1 py-3 px-2.5 space-y-0.5 overflow-y-auto">
+        <nav className="relative flex-1 py-3 px-3 space-y-1 overflow-y-auto">
           {navItems.filter(i => !i.adminOnly || user?.role === "admin").map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               title={collapsed ? item.label : undefined}
               className={({ isActive }) => cn(
-                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors duration-100",
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-all duration-150",
                 collapsed && "justify-center px-0",
                 isActive
-                  ? "bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  : "text-white/55 hover:text-white/90 hover:bg-white/[0.05]"
+                  ? "text-white"
+                  : "text-white/50 hover:text-white/90 hover:bg-white/[0.05]"
               )}
+              style={({ isActive }) => isActive ? {
+                background: "linear-gradient(120deg, rgba(99,102,241,0.22), rgba(123,27,27,0.18))",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 18px -10px rgba(99,102,241,0.6)",
+              } : undefined}
             >
               {({ isActive }) => (
                 <>
                   {/* active indicator bar */}
                   <span className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[#e8b4b4] transition-opacity",
+                    "absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-gradient-to-b from-[#818cf8] to-[#6366f1] transition-opacity",
                     isActive ? "opacity-100" : "opacity-0"
                   )} />
-                  <item.icon size={17} strokeWidth={isActive ? 2.2 : 1.8} className="shrink-0" />
+                  <item.icon size={17.5} strokeWidth={isActive ? 2.3 : 1.8} className={cn("shrink-0 transition-transform group-hover:scale-110", isActive && "text-[#c7cbff]")} />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                   {!collapsed && item.primary && (
-                    <kbd className="ml-auto text-[9.5px] font-semibold text-white/35 border border-white/15 rounded px-1 py-px">⌘{item.key}</kbd>
+                    <kbd className="ml-auto text-[9.5px] font-semibold text-white/40 border border-white/15 rounded px-1 py-px">⌘{item.key}</kbd>
                   )}
                 </>
               )}
@@ -105,10 +116,13 @@ export function AppShell() {
         </nav>
 
         {/* user / collapse */}
-        <div className="px-2.5 pb-3 space-y-1">
-          <div className="mx-1.5 h-px bg-white/[0.08] mb-2" />
-          <div className={cn("flex items-center gap-2.5 rounded-lg px-2 py-1.5", collapsed && "justify-center px-0")}>
-            <div className="w-7.5 h-7.5 w-[30px] h-[30px] rounded-full bg-white/12 flex items-center justify-center text-[12px] font-bold text-white/85 shrink-0">
+        <div className="relative px-3 pb-3 space-y-1">
+          <div className="mx-1.5 h-px bg-white/[0.07] mb-2.5" />
+          <div className={cn("flex items-center gap-2.5 rounded-xl px-2 py-1.5", collapsed && "justify-center px-0")}>
+            <div
+              className="w-[32px] h-[32px] rounded-full flex items-center justify-center text-[12.5px] font-bold text-white shrink-0 shadow-[0_2px_8px_-2px_rgba(99,102,241,0.6)]"
+              style={{ background: "linear-gradient(135deg, #6d74f5, #5b4be8 60%, #7b1b1b)" }}
+            >
               {user?.display_name?.[0]?.toUpperCase() ?? "U"}
             </div>
             {!collapsed && (
@@ -120,7 +134,7 @@ export function AppShell() {
             <button
               onClick={() => { logout(); navigate("/login"); }}
               title="Sign out"
-              className="p-1.5 rounded-md text-white/40 hover:text-white/90 hover:bg-white/[0.08] transition-colors"
+              className="p-1.5 rounded-lg text-white/40 hover:text-white/90 hover:bg-white/[0.08] transition-colors"
             >
               <LogOut size={14.5} />
             </button>
@@ -128,7 +142,7 @@ export function AppShell() {
           <button
             onClick={() => setCollapsed(c => !c)}
             className={cn(
-              "w-full flex items-center gap-2 rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-white/35 hover:text-white/70 hover:bg-white/[0.05] transition-colors",
+              "w-full flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11.5px] font-medium text-white/35 hover:text-white/70 hover:bg-white/[0.05] transition-colors",
               collapsed && "justify-center px-0"
             )}
           >
@@ -139,9 +153,9 @@ export function AppShell() {
 
       {/* ───────── Workspace ───────── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* topbar */}
-        <header className="h-[60px] shrink-0 flex items-center gap-4 px-6 bg-[#f8f7f5]">
-          <h1 className="text-[15px] font-semibold text-[#1a1a1e] tracking-tight min-w-0 truncate">
+        {/* topbar — frosted glass, sits above the page */}
+        <header className="h-[60px] shrink-0 flex items-center gap-4 px-6 glass border-b border-black/[0.05] z-20">
+          <h1 className="text-[15.5px] font-bold text-[#14151c] tracking-tight min-w-0 truncate">
             {PAGE_TITLES[location.pathname] ?? ""}
           </h1>
 
@@ -149,25 +163,26 @@ export function AppShell() {
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="flex items-center gap-2.5 w-[300px] px-3.5 py-[7px] rounded-[10px] bg-white text-[13px] text-[#a8a29b]
-                       shadow-[0_1px_2px_rgba(26,22,18,0.05),0_0_0_1px_rgba(26,22,18,0.05)]
-                       hover:shadow-[0_2px_6px_rgba(26,22,18,0.08),0_0_0_1px_rgba(26,22,18,0.07)] transition-shadow"
+            className="group flex items-center gap-2.5 w-[320px] px-3.5 py-[8px] rounded-xl bg-white/80 text-[13px] text-[#9a9cab] border border-[#e6e7ee]
+                       shadow-[0_1px_2px_rgba(20,21,28,0.04)] hover:border-[#c7c9ff] hover:shadow-[0_4px_14px_-4px_rgba(99,102,241,0.3)] transition-all"
           >
-            <Search size={14.5} />
+            <Search size={14.5} className="group-hover:text-[#6366f1] transition-colors" />
             <span className="flex-1 text-left">Search patients, tests…</span>
-            <kbd className="text-[10px] font-semibold text-[#8a857d] bg-[#f1efec] rounded px-1.5 py-0.5">⌘K</kbd>
+            <kbd className="text-[10px] font-semibold text-[#8a8b97] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
           </button>
 
-          <div className="flex items-center gap-3 text-[12.5px] text-[#8a857d]">
+          <div className="flex items-center gap-3 text-[12.5px] text-[#8a8b97]">
             <span
-              className="flex items-center gap-1.5"
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border",
+                online ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
+              )}
               title={online ? "All local features working" : "Offline — deliveries will queue"}
             >
-              <span className={cn("w-[7px] h-[7px] rounded-full", online ? "bg-emerald-500" : "bg-amber-400")} />
+              <span className={cn("w-[7px] h-[7px] rounded-full", online ? "bg-emerald-500 animate-pulse" : "bg-amber-400")} />
               {online ? "Online" : "Offline"}
             </span>
-            <span className="w-px h-4 bg-[#e7e5e1]" />
-            <span className="font-medium">
+            <span className="font-medium tabular-nums">
               {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
             </span>
           </div>
