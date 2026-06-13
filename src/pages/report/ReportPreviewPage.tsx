@@ -5,7 +5,7 @@ import { getOrdersWithResults, getReportComment } from "@/lib/queries/results";
 import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
-import { computeCalculated, resolveCalculated } from "@/lib/calc";
+import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
 import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
 import { generateReportQR } from "@/lib/qr";
 import { revealInFolder } from "@/lib/printing";
@@ -112,9 +112,12 @@ export function ReportPreviewPage() {
     if (!action || autoSendTried.current) return;
     if (!isApproved || !patient || !orders.length) return;
     autoSendTried.current = true;
-    const t = setTimeout(() => {
-      if (action === 'whatsapp') handleWhatsApp();
-      else if (action === 'print') handlePrint();
+    const t = setTimeout(async () => {
+      if (action === 'whatsapp') {
+        // Don't auto-resend if this report was already delivered on WhatsApp.
+        if (await hasDelivered(pid, 'whatsapp_api') || await hasDelivered(pid, 'whatsapp_semi')) return;
+        handleWhatsApp();
+      } else if (action === 'print') handlePrint();
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +154,7 @@ export function ReportPreviewPage() {
   function resultValue(o: OrderWithResult): string {
     if (o.test.result_type === 'calculated' && o.test.formula) {
       const c = computeCalculated(o.test.code, o.test.formula, valuesMap);
-      return c != null ? c.toFixed(o.test.decimals) : '';
+      return c != null ? c.toFixed(safeDecimals(o.test.decimals)) : '';
     }
     return o.result?.value ?? '';
   }
@@ -193,7 +196,12 @@ export function ReportPreviewPage() {
   });
   const renderNotes = (rows: OrderWithResult[]) => {
     const note = rows.find(r => r.test.interpretation_note)?.test.interpretation_note;
-    const band = rows.map(r => r.ranges[0]?.band_text).find(Boolean);
+    // Resolve the band text from the patient-matched range, not ranges[0] — otherwise a
+    // male patient could get the female band, or an adult the neonatal band.
+    const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
+    const band = patient
+      ? rows.map(r => findRange(r.ranges, patient.sex, ageDays)?.band_text).find(Boolean)
+      : undefined;
     return (
       <>
         {band && <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div>}

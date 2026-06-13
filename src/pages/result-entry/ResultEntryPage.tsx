@@ -6,7 +6,7 @@ import { getOrdersWithResults, saveResult, approvePatient, markNotDone, unlockRe
 import { listPanels, searchTests } from "@/lib/queries/tests";
 import { useSession } from "@/lib/session";
 import { OrderWithResult, Panel, Test } from "@/types";
-import { computeCalculated, resolveCalculated } from "@/lib/calc";
+import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
 import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
 import { getAllSettings } from "@/lib/queries/settings";
 import { readAnalyzerConfigured } from "@/lib/serial";
@@ -100,7 +100,7 @@ export function ResultEntryPage() {
   const getDisplayValue = (o: OrderWithResult): string => {
     if (o.test.result_type === 'calculated' && o.test.formula) {
       const calc = computeCalculated(o.test.code, o.test.formula, valuesMap);
-      return calc != null ? calc.toFixed(o.test.decimals) : '';
+      return calc != null ? calc.toFixed(safeDecimals(o.test.decimals)) : '';
     }
     return localValues[o.order.id] ?? '';
   };
