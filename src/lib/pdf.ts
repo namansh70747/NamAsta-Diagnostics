@@ -25,8 +25,10 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
   let remaining = imgH;
   let position = 0;
   pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
+  // Half-mm tolerance: when content lands exactly on a 297mm boundary, float error
+  // would otherwise leave a sliver > 0 and append a blank trailing page.
   remaining -= pageH;
-  while (remaining > 0) {
+  while (remaining > 0.5) {
     position -= pageH;
     pdf.addPage();
     pdf.addImage(img, "JPEG", 0, position, imgW, imgH);

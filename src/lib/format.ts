@@ -5,9 +5,13 @@
  * explicit UTC so every timestamp converts to local time correctly and consistently.
  */
 export function parseDbDate(dt: string): Date {
+  if (!dt) return new Date(NaN);
   if (dt.includes('T')) return new Date(dt); // already ISO (e.g. nowISO())
-  const m = /^(\d{4}-\d{2}-\d{2})[ ](\d{2}:\d{2}:\d{2})/.exec(dt);
-  if (m) return new Date(`${m[1]}T${m[2]}Z`); // SQLite UTC → explicit UTC
+  // SQLite UTC forms: "YYYY-MM-DD HH:MM:SS" (optionally fractional) or bare "YYYY-MM-DD".
+  // A bare date parsed by `new Date()` is UTC, but the space+time form is LOCAL — the
+  // exact off-by-one this normalises. Pin both to explicit UTC.
+  const m = /^(\d{4}-\d{2}-\d{2})(?:[ ](\d{2}:\d{2}:\d{2}))?/.exec(dt);
+  if (m) return new Date(`${m[1]}T${m[2] ?? '00:00:00'}Z`);
   return new Date(dt);
 }
 
