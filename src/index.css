@@ -343,10 +343,20 @@
     left: 0;
     top: 0;
     width: 210mm !important;
-    min-height: auto !important;
     margin: 0 !important;
     transform: none !important;
     box-shadow: none !important;
+  }
+  /* one test profile per physical sheet */
+  #report-print-area .report-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    break-after: page;
+    page-break-after: always;
+  }
+  #report-print-area .report-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
   body { background: white; margin: 0; padding: 0; }
 }

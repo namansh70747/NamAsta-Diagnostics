@@ -8,31 +8,38 @@ import { parseDbDate } from "@/lib/format";
  *  as a jsPDF document. The SAME DOM that is shown/printed is captured, so paper,
  *  preview and PDF are guaranteed identical (§8.7). */
 async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
-  const canvas = await html2canvas(el, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-    logging: false,
-  });
-
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = pdf.internal.pageSize.getWidth();   // 210
   const pageH = pdf.internal.pageSize.getHeight();   // 297
-  const imgW = pageW;
-  const imgH = (canvas.height * imgW) / canvas.width;
 
-  const img = canvas.toDataURL("image/jpeg", 0.95);
-  let remaining = imgH;
-  let position = 0;
-  pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
-  // Half-mm tolerance: when content lands exactly on a 297mm boundary, float error
-  // would otherwise leave a sliver > 0 and append a blank trailing page.
-  remaining -= pageH;
-  while (remaining > 0.5) {
-    position -= pageH;
-    pdf.addPage();
+  // Each test profile is its own [data-report-page] A4 sheet — render one per PDF page so
+  // tests never get cut mid-table (matches the on-screen preview and native print).
+  const pages = Array.from(el.querySelectorAll<HTMLElement>("[data-report-page]"));
+  const targets = pages.length ? pages : [el];
+
+  for (let p = 0; p < targets.length; p++) {
+    const canvas = await html2canvas(targets[p], {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+    const img = canvas.toDataURL("image/jpeg", 0.95);
+
+    if (p > 0) pdf.addPage();
+    // Normally one sheet = one page; if a single profile overflows A4, slice it (rare).
+    let remaining = imgH;
+    let position = 0;
     pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
     remaining -= pageH;
+    while (remaining > 0.5) {
+      position -= pageH;
+      pdf.addPage();
+      pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
+      remaining -= pageH;
+    }
   }
   return pdf;
 }

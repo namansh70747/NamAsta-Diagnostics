@@ -1,7 +1,8 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "@/lib/session";
 import { getPatientById, getBill } from "@/lib/queries/patients";
-import { getOrdersWithResults, getReportComment } from "@/lib/queries/results";
+import { getOrdersWithResults, getReportComment, approvePatient } from "@/lib/queries/results";
 import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
@@ -16,7 +17,7 @@ import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { HistogramRow } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { SCLLogo } from "@/components/common/SCLLogo";
@@ -45,6 +46,9 @@ export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const pid = parseInt(patientId ?? '0');
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const sessionUser = useSession(s => s.user);
+  const [approving, setApproving] = useState(false);
   const [sent, setSent] = useState<Record<string, boolean>>({});
   const [zoom, setZoom] = useState(100);
   const [showWatermark, setShowWatermark] = useState(true);
@@ -388,9 +392,117 @@ export function ReportPreviewPage() {
     });
   }
 
+  async function handleApprove() {
+    if (!sessionUser || approving) return;
+    setApproving(true);
+    try {
+      await approvePatient(pid, sessionUser.id);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['orders', pid] }),
+        qc.invalidateQueries({ queryKey: ['patient', pid] }),
+        qc.invalidateQueries({ queryKey: ['today-patients'] }),
+        qc.invalidateQueries({ queryKey: ['dashboard-stats'] }),
+        qc.invalidateQueries({ queryKey: ['patients-search'] }),
+        qc.invalidateQueries({ queryKey: ['pending-deliveries'] }),
+      ]);
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setApproving(false);
+    }
+  }
+
   if (!patient) return <div className="p-8 text-center text-gray-400">Loading…</div>;
 
   const genderLabel = patient.sex === 'MALE' ? 'Male' : patient.sex === 'FEMALE' ? 'Female' : 'Other';
+
+  // One A4 page per test profile (panel). The letterhead + patient strip repeat on every
+  // page and a signed footer closes each — the "End of report" block lands on the last page.
+  const pageList = sortedPanels.length ? sortedPanels : [null];
+
+  const Watermark = () => showWatermark ? (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
+      <span style={{ transform: 'rotate(-35deg)', fontSize: '46px', color: 'rgba(123,27,27,0.05)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        SHARMA CLINICAL LABORATORY
+      </span>
+    </div>
+  ) : null;
+
+  const Letterhead = () => (
+    <header className="report-letterhead relative">
+      <div className="flex items-start gap-3">
+        {settings.logo_data
+          ? <img src={settings.logo_data} alt="SCL" className="h-[58px] w-auto object-contain shrink-0" />
+          : <SCLLogo height={44} className="shrink-0 mt-1" />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="report-title text-[#7b1b1b]">SHARMA CLINICAL LABORATORY</h1>
+            <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
+              {settings.address_line ?? 'G.T. ROAD, VILLAGE NANGAL BHUR, TEH. & DISTT. PATHANKOT'}
+            </p>
+          </div>
+          <div className="inline-block border border-gray-800 rounded px-2 py-[1px] mt-0.5 text-[10px] font-bold tracking-wide text-gray-900">
+            FULLY COMPUTERISED HI-TECH LAB.
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 items-start mt-1.5 text-[10.5px] text-gray-900">
+        <p className="font-bold text-[#7b1b1b] leading-snug">
+          Mob : {(settings.phones ?? '9646778583 / 9464148746').replace(/^\s*mob\s*:?\s*/i, '')}
+        </p>
+        <p className="text-center leading-snug">{settings.timings ?? 'Timing : Summer - 7:30 am to 9:00 pm / Winter - 8:15 am to 7:30 pm'}</p>
+        <div className="text-right leading-tight">
+          <p className="report-script text-[#7b1b1b] text-[15px]">{settings.technician_name ?? 'Rajesh Kumar (Vicky)'}</p>
+          <p className="text-[10px]">{settings.technician_qual ?? 'DMLT (PTU)'}</p>
+        </div>
+      </div>
+      <div className="mt-1 text-[9.5px] font-bold text-gray-900 text-center leading-snug border-t-[3px] border-b-[3px] border-[#7b1b1b] border-double py-1">
+        Equipped With {(settings.equipment_line ?? 'ERBA H360 Blood Cell Counter, ERBA CHEM-5 PLUS Vz, EBRA Semi Auto Analyser, CHEM-7 & STAR 21 Semi Auto Analyser, Uri-plus 200 Urine Chemistry Analyser, Qua-lab Hba1c Analyser.').replace(/^\s*equipped with\s*/i, '')}
+      </div>
+    </header>
+  );
+
+  const PatientStrip = () => (
+    <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[12px]">
+      <p><strong>Name :</strong> {patient.title} {patient.name}</p>
+      <p><strong>Test Request ID :</strong> {patient.test_no}</p>
+      <p><strong>Age/Gender :</strong> {patient.age} {patient.age_unit} / {genderLabel}</p>
+      <p><strong>Sample Collected ON :</strong> {formatDate(patient.sample_time)}</p>
+      <p><strong>Collected AT :</strong> {patient.collected_at}</p>
+      <p><strong>Sample Received ON :</strong> {formatDate(patient.sample_time)}</p>
+      <p><strong>Referred By :</strong> {patient.doctor_name ?? 'SELF'}</p>
+      <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
+    </section>
+  );
+
+  const PageFooter = ({ pageIndex, total, isLast }: { pageIndex: number; total: number; isLast: boolean }) => (
+    <footer className="report-letterfoot relative mt-auto pt-2 border-t border-gray-400">
+      <div className="flex justify-between items-end">
+        {qr ? <img src={qr} alt="QR" width={66} height={66} className="opacity-90" /> : <span />}
+        {showSignature && (
+          <div className="text-center">
+            {settings.signature_data
+              ? <img src={settings.signature_data} alt="signature" className="h-14 mx-auto object-contain" />
+              : <div className="h-14 w-32 flex items-end justify-center text-gray-300 text-[10px] italic">[ upload signature in Settings ]</div>}
+            <p className="text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">Lab Technician</p>
+          </div>
+        )}
+      </div>
+      {isLast && (
+        <>
+          <div className="text-center text-[12px] font-bold mt-2">*** End Of Report ***</div>
+          <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+            <span>NOT FOR MEDICO LEGAL PURPOSE</span>
+            <span>ALL TEST ARE AVAILABLE HERE</span>
+          </div>
+          <div className="text-center text-[9px] text-gray-500 mt-1 leading-tight">
+            {settings.footer_tests_line ?? "T3, T4, TSH (THYROID), LH, FSH, PROLACTIN, TESTOSTERONE, ESTRADIOL, LFT, LIPID PROFILE, KIDNEY FUNCTION TEST'S CULTURES, MALARIA ANTIGEN, TYPHOID ANTIBODIES TESTS AVAILABLES"}
+          </div>
+        </>
+      )}
+      {total > 1 && <div className="text-right text-[9px] text-gray-400 mt-1">Page {pageIndex + 1} of {total}</div>}
+    </footer>
+  );
 
   return (
     <div className="flex gap-6">
@@ -411,113 +523,54 @@ export function ReportPreviewPage() {
           <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
             <div
               id="report-print-area"
-              className={cn("report-sheet bg-white mx-auto shadow-sm relative", !printLetterhead && "no-letterhead")}
-              style={{ width: '210mm', minHeight: '297mm', padding: '12mm', fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif', color: '#111', WebkitFontSmoothing: 'antialiased', ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
+              className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
+              style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
             >
-              {showWatermark && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
-                  <span style={{ transform: 'rotate(-35deg)', fontSize: '46px', color: 'rgba(123,27,27,0.05)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    SHARMA CLINICAL LABORATORY
-                  </span>
-                </div>
-              )}
-
-              {/* Header — faithful to the SCL letterhead */}
-              <header className="report-letterhead relative">
-                <div className="flex items-start gap-3">
-                  {settings.logo_data
-                    ? <img src={settings.logo_data} alt="SCL" className="h-[58px] w-auto object-contain shrink-0" />
-                    : <SCLLogo height={44} className="shrink-0 mt-1" />}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h1 className="report-title text-[#7b1b1b]">SHARMA CLINICAL LABORATORY</h1>
-                      <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
-                        {settings.address_line ?? 'G.T. ROAD, VILLAGE NANGAL BHUR, TEH. & DISTT. PATHANKOT'}
-                      </p>
+              {pageList.map((pg, idx) => {
+                const dept = pg ? deptOf(pg.panel) : '';
+                const isLast = idx === pageList.length - 1;
+                return (
+                  <div
+                    key={pg ? pg.panel.code : 'empty'}
+                    data-report-page
+                    className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
+                    style={{
+                      width: '210mm', minHeight: '297mm', padding: '12mm',
+                      marginBottom: isLast ? 0 : '18px',
+                      fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif',
+                      color: '#111', WebkitFontSmoothing: 'antialiased',
+                    }}
+                  >
+                    <Watermark />
+                    <Letterhead />
+                    <div className="report-body relative flex-1">
+                      <PatientStrip />
+                      <section className="relative mt-3">
+                        {pg ? (
+                          <div>
+                            <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
+                            {pg.panel.report_heading !== dept && (
+                              <div className="text-center font-semibold text-[12px] text-black mb-1.5">{pg.panel.report_heading}</div>
+                            )}
+                            <table className="w-full text-[12px] border-collapse">
+                              {renderHead()}
+                              <tbody>{renderRows(pg.orders)}</tbody>
+                            </table>
+                            {renderNotes(pg.orders)}
+                            {pg.panel.code === 'CBC' && <HistogramRow histos={histograms} />}
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-400 py-10 text-[12px]">No results entered yet.</div>
+                        )}
+                        {isLast && comment && (
+                          <div className="mt-3 text-[11px]"><strong>Comments :</strong> {comment}</div>
+                        )}
+                      </section>
                     </div>
-                    <div className="inline-block border border-gray-800 rounded px-2 py-[1px] mt-0.5 text-[10px] font-bold tracking-wide text-gray-900">
-                      FULLY COMPUTERISED HI-TECH LAB.
-                    </div>
+                    <PageFooter pageIndex={idx} total={pageList.length} isLast={isLast} />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-3 items-start mt-1.5 text-[10.5px] text-gray-900">
-                  <p className="font-bold text-[#7b1b1b] leading-snug">
-                    Mob : {(settings.phones ?? '9646778583 / 9464148746').replace(/^\s*mob\s*:?\s*/i, '')}
-                  </p>
-                  <p className="text-center leading-snug">{settings.timings ?? 'Timing : Summer - 7:30 am to 9:00 pm / Winter - 8:15 am to 7:30 pm'}</p>
-                  <div className="text-right leading-tight">
-                    <p className="report-script text-[#7b1b1b] text-[15px]">{settings.technician_name ?? 'Rajesh Kumar (Vicky)'}</p>
-                    <p className="text-[10px]">{settings.technician_qual ?? 'DMLT (PTU)'}</p>
-                  </div>
-                </div>
-
-                <div className="mt-1 text-[9.5px] font-bold text-gray-900 text-center leading-snug border-t-[3px] border-b-[3px] border-[#7b1b1b] border-double py-1">
-                  Equipped With {(settings.equipment_line ?? 'ERBA H360 Blood Cell Counter, ERBA CHEM-5 PLUS Vz, EBRA Semi Auto Analyser, CHEM-7 & STAR 21 Semi Auto Analyser, Uri-plus 200 Urine Chemistry Analyser, Qua-lab Hba1c Analyser.').replace(/^\s*equipped with\s*/i, '')}
-                </div>
-              </header>
-
-              <div className="report-body relative">
-              {/* Patient block */}
-              <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[12px]">
-                <p><strong>Name :</strong> {patient.title} {patient.name}</p>
-                <p><strong>Test Request ID :</strong> {patient.test_no}</p>
-                <p><strong>Age/Gender :</strong> {patient.age} {patient.age_unit} / {genderLabel}</p>
-                <p><strong>Sample Collected ON :</strong> {formatDate(patient.sample_time)}</p>
-                <p><strong>Collected AT :</strong> {patient.collected_at}</p>
-                <p><strong>Sample Received ON :</strong> {formatDate(patient.sample_time)}</p>
-                <p><strong>Referred By :</strong> {patient.doctor_name ?? 'SELF'}</p>
-                <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
-              </section>
-
-              {/* Results — each test profile prints on its own page */}
-              <section className="relative mt-3">
-                {sortedPanels.map(({ panel, orders: rows }, idx) => {
-                  const dept = deptOf(panel);
-                  return (
-                    <div key={panel.code} style={idx < sortedPanels.length - 1 ? { breakAfter: 'page' } : undefined} className="mb-4">
-                      <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
-                      {panel.report_heading !== dept && (
-                        <div className="text-center font-semibold text-[12px] text-black mb-1.5">{panel.report_heading}</div>
-                      )}
-                      <table className="w-full text-[12px] border-collapse">
-                        {renderHead()}
-                        <tbody>{renderRows(rows)}</tbody>
-                      </table>
-                      {renderNotes(rows)}
-                      {panel.code === 'CBC' && <HistogramRow histos={histograms} />}
-                    </div>
-                  );
-                })}
-
-                {comment && (
-                  <div className="mt-2 text-[11px]"><strong>Comments :</strong> {comment}</div>
-                )}
-              </section>
-              </div>{/* /report-body */}
-
-              {/* Footer */}
-              <footer className="report-letterfoot relative mt-6 pt-2 border-t border-gray-400">
-                <div className="flex justify-between items-end">
-                  {qr ? <img src={qr} alt="QR" width={70} height={70} className="opacity-90" /> : <span />}
-                  {showSignature && (
-                    <div className="text-center">
-                      {settings.signature_data
-                        ? <img src={settings.signature_data} alt="signature" className="h-14 mx-auto object-contain" />
-                        : <div className="h-14 w-32 flex items-end justify-center text-gray-300 text-[10px] italic">[ upload signature in Settings ]</div>}
-                      <p className="text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">Lab Technician</p>
-                    </div>
-                  )}
-                </div>
-                <div className="text-center text-[12px] font-bold mt-2">*** End Of Report ***</div>
-                <div className="flex justify-between text-[10px] text-gray-600 mt-1">
-                  <span>NOT FOR MEDICO LEGAL PURPOSE</span>
-                  <span>ALL TEST ARE AVAILABLE HERE</span>
-                </div>
-                <div className="text-center text-[9px] text-gray-500 mt-1 leading-tight">
-                  {settings.footer_tests_line ?? "T3, T4, TSH (THYROID), LH, FSH, PROLACTIN, TESTOSTERONE, ESTRADIOL, LFT, LIPID PROFILE, KIDNEY FUNCTION TEST'S CULTURES, MALARIA ANTIGEN, TYPHOID ANTIBODIES TESTS AVAILABLES"}
-                </div>
-              </footer>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -528,9 +581,20 @@ export function ReportPreviewPage() {
         <div className="card p-4 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a857d] mb-1">Deliver</p>
           {!isApproved && (
-            <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
-              Approve the report first to enable delivery.
-            </p>
+            <>
+              <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
+                Approve to lock the report and unlock printing &amp; sending.
+              </p>
+              <button
+                onClick={handleApprove}
+                disabled={approving}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white btn-success disabled:opacity-50"
+              >
+                {approving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                {approving ? 'Approving…' : 'Approve report'}
+              </button>
+              <div className="h-px bg-[#eef0f4] my-1" />
+            </>
           )}
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved} busy={busy === 'pdf'} />
