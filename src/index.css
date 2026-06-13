@@ -2,17 +2,20 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── SCL brand (maroon — printed-letterhead fidelity, kept) ── */
-  --color-maroon-50: #fbf3f3;
-  --color-maroon-100: #f6e3e3;
-  --color-maroon-200: #efc9c9;
-  --color-maroon-300: #e3a3a3;
-  --color-maroon-400: #c96a6a;
-  --color-maroon-500: #a83a3a;
-  --color-maroon-600: #7b1b1b;
-  --color-maroon-700: #671616;
-  --color-maroon-800: #541212;
-  --color-maroon-900: #420e0e;
+  /* ── App accent scale ──
+     Repointed to a cool indigo/blue so every `maroon-*` utility across the app reads
+     blue (active tabs, links, focus rings, toggles, progress, etc.). The PRINTED report
+     deliberately uses literal #7b1b1b hex, so its maroon letterhead is unaffected. */
+  --color-maroon-50: #eef0fe;
+  --color-maroon-100: #e0e3fc;
+  --color-maroon-200: #c7cbff;
+  --color-maroon-300: #a5acff;
+  --color-maroon-400: #818cf8;
+  --color-maroon-500: #6366f1;
+  --color-maroon-600: #4f46e5;
+  --color-maroon-700: #4338ca;
+  --color-maroon-800: #3730a3;
+  --color-maroon-900: #312e81;
 
   /* ── modern command-center chrome (near-black "ink") ── */
   --color-ink-950: #0a0b10;
@@ -197,15 +200,15 @@
   .btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* primary = the maroon brand, modernised: richer gradient + soft glow on hover */
+  /* primary = the cool indigo accent (app-wide main action) */
   .btn-primary {
     color: #ffffff;
-    background: linear-gradient(135deg, #93262d 0%, #7b1b1b 52%, #611414 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2.5px rgba(110, 23, 23, 0.45);
+    background: linear-gradient(135deg, #6d74f5 0%, #6366f1 50%, #4f46e5 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2.5px rgba(79, 70, 229, 0.45);
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #a32f37 0%, #8a2222 52%, #6e1717 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), var(--shadow-glow-maroon);
+    background: linear-gradient(135deg, #7c83ff 0%, #6d74f5 50%, #5b53ec 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), var(--shadow-glow-accent);
   }
 
   /* accent = the cool electric action (e.g. send, confirm-modern) */
