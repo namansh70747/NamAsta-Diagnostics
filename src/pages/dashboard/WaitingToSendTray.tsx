@@ -1,14 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, Printer, CheckCircle2, AlertTriangle, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DeliveryLog } from "@/types";
+import type { PendingDelivery } from "@/lib/queries/delivery";
 
-type PendingRow = DeliveryLog & {
-  patient_name: string;
-  test_no: number;
-  patient_id: number;
-  phone?: string;
-};
+type PendingRow = PendingDelivery;
 
 type CardState = { kind: "idle" | "sending" | "sent" | "failed"; message?: string };
 

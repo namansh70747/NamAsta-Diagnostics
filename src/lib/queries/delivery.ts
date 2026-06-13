@@ -1,5 +1,11 @@
 import { dbQuery, dbExecute } from '@/lib/db';
-import { DeliveryLog } from '@/types';
+
+export interface PendingDelivery {
+  patient_id: number;
+  patient_name: string;
+  test_no: number;
+  phone: string | null;
+}
 
 export async function logDelivery(
   patientId: number, channel: string, target: string,
@@ -20,8 +26,8 @@ export async function hasDelivered(patientId: number, channel: string): Promise<
   return (rows[0]?.n ?? 0) > 0;
 }
 
-export async function getPendingDeliveries(): Promise<(DeliveryLog & { patient_name: string; test_no: number; patient_id: number })[]> {
-  return dbQuery(
+export async function getPendingDeliveries(): Promise<PendingDelivery[]> {
+  return dbQuery<PendingDelivery>(
     `SELECT p.id as patient_id, p.name as patient_name, p.test_no, p.phone
      FROM patients p
      LEFT JOIN delivery_log dl ON dl.patient_id=p.id AND dl.status IN ('sent','delivered')
