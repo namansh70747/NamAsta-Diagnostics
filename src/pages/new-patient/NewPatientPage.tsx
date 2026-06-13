@@ -236,7 +236,7 @@ export function NewPatientPage() {
 
   // Enter = advance to the next field (skips textareas; the test search handles its own Enter).
   function handleEnterNext(e: React.KeyboardEvent) {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || e.metaKey || e.ctrlKey) return;   // Cmd/Ctrl+Enter is "save", not "advance"
     const t = e.target as HTMLElement;
     if (t.tagName === 'TEXTAREA' || t.getAttribute('data-search') === '1') return;
     e.preventDefault();

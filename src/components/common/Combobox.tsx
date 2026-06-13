@@ -60,14 +60,16 @@ export function Combobox<T extends string | number>({
   }
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) { setOpen(true); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setHl(h => Math.min(h + 1, filtered.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setHl(h => Math.max(h - 1, 0)); }
+    // Stop these from bubbling to a parent form's Enter-advances-field handler.
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) { e.preventDefault(); e.stopPropagation(); setOpen(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); setHl(h => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setHl(h => Math.max(h - 1, 0)); }
     else if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       const o = filtered[hl];
       if (o) pick(o.value);
-    } else if (e.key === "Escape") { setOpen(false); setQuery(""); }
+    } else if (e.key === "Escape") { e.stopPropagation(); setOpen(false); setQuery(""); }
   }
 
   return (
