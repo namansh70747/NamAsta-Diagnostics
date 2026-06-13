@@ -8,11 +8,13 @@ export interface WaMessageInput {
   tests: string;
   technicianName: string;
   technicianQual: string;
+  labName?: string;
 }
 
 export function buildWhatsAppMessage(i: WaMessageInput): string {
   const testList = i.tests.length > 90 ? i.tests.slice(0, 90) + '…' : i.tests;
-  return `Dear ${i.title} ${i.name}, your lab report (${testList}) from SHARMA CLINICAL LABORATORY, Nangal Bhur is ready. — ${i.technicianName}, ${i.technicianQual}`;
+  const lab = i.labName || 'the laboratory';
+  return `Dear ${i.title} ${i.name}, your lab report (${testList}) from ${lab} is ready. — ${i.technicianName}, ${i.technicianQual}`;
 }
 
 export interface WaDocArgs {

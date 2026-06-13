@@ -132,7 +132,7 @@ export function ReportPreviewPage() {
             caption: buildWhatsAppMessage({
               title: patient.title, name: patient.name, tests: panelSummary(),
               technicianName: settings.technician_name ?? 'Rajesh Kumar (Vicky)',
-              technicianQual: settings.technician_qual ?? 'DMLT',
+              technicianQual: settings.technician_qual ?? 'DMLT', labName: settings.lab_name || 'the laboratory',
             }),
           });
           await logDelivery(pid, 'whatsapp_api', `91${patient.phone}`, 'sent');
@@ -345,7 +345,7 @@ export function ReportPreviewPage() {
     const msg = buildWhatsAppMessage({
       title: patient.title, name: patient.name, tests: panelSummary(),
       technicianName: settings.technician_name ?? 'Rajesh Kumar (Vicky)',
-      technicianQual: settings.technician_qual ?? 'DMLT',
+      technicianQual: settings.technician_qual ?? 'DMLT', labName: settings.lab_name || 'the laboratory',
     });
     // Fully-automatic Cloud API path (sends the actual PDF) when configured.
     const apiReady = settings.whatsapp_mode === 'api' && settings.bsp_api_key && settings.wa_phone_id;
@@ -401,7 +401,7 @@ export function ReportPreviewPage() {
         senderId: settings.sms_sender_id!,
         dltTemplateId: settings.sms_dlt_template_id ?? '',
         phone: patient.phone,
-        message: buildSmsMessage({ name: patientName, testNo: patient.test_no }),
+        message: buildSmsMessage({ name: patientName, testNo: patient.test_no, labName: settings.lab_name }),
         vars: [patientName, String(patient.test_no)],
       });
       toast.success('SMS sent.');
@@ -416,10 +416,11 @@ export function ReportPreviewPage() {
     // with nothing attached.
     if (!pdfPath) throw new Error('Could not generate the report PDF — email not sent.');
     const tech = settings.technician_name ?? 'Rajesh Kumar (Vicky)';
+    const labName = settings.lab_name || 'Sharma Clinical Laboratory';
     const bodyHtml = `<div style="font-family:Inter,Arial,sans-serif;color:#14151c">
       <p>Dear ${esc(patient!.title)} ${esc(patient!.name)},</p>
       <p>Please find attached your laboratory report (${esc(panelSummary())}) from
-      <b style="color:#7b1b1b">Sharma Clinical Laboratory</b>, Nangal Bhur, Pathankot.</p>
+      <b style="color:#7b1b1b">${esc(labName)}</b>${settings.address_line ? `, ${esc(settings.address_line)}` : ''}.</p>
       <p style="color:#6b7280;font-size:13px">This is a computer-generated report. For queries, contact the laboratory.</p>
       <p style="margin-top:18px">— ${esc(tech)}<br/>${esc(settings.technician_qual ?? 'DMLT (PTU)')}</p>
     </div>`;
@@ -474,11 +475,12 @@ export function ReportPreviewPage() {
   // One A4 page per test profile (panel). The letterhead + patient strip repeat on every
   // page and a signed footer closes each — the "End of report" block lands on the last page.
   const pageList = sortedPanels.length ? sortedPanels : [null];
+  const labName = settings.lab_name || 'SHARMA CLINICAL LABORATORY';
 
   const Watermark = () => showWatermark ? (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
       <span style={{ transform: 'rotate(-35deg)', fontSize: '46px', color: 'rgba(123,27,27,0.05)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-        SHARMA CLINICAL LABORATORY
+        {labName}
       </span>
     </div>
   ) : null;
@@ -491,7 +493,7 @@ export function ReportPreviewPage() {
           : <SCLLogo height={44} className="shrink-0 mt-1" />}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h1 className="report-title text-[#7b1b1b]">SHARMA CLINICAL LABORATORY</h1>
+            <h1 className="report-title text-[#7b1b1b]">{labName}</h1>
             <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
               {settings.address_line ?? 'G.T. ROAD, VILLAGE NANGAL BHUR, TEH. & DISTT. PATHANKOT'}
             </p>

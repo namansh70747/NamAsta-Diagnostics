@@ -21,8 +21,8 @@ export interface SmsArgs {
  * the template you register (Settings → SMS explains how). The {name}/{testNo} fill the
  * two template variables.
  */
-export function buildSmsMessage(i: { name: string; testNo: number }): string {
-  return `Dear ${i.name}, your lab report (Test No ${i.testNo}) from SHARMA CLINICAL LABORATORY, Nangal Bhur is ready. Thank you.`;
+export function buildSmsMessage(i: { name: string; testNo: number; labName?: string }): string {
+  return `Dear ${i.name}, your lab report (Test No ${i.testNo}) from ${i.labName || 'the laboratory'} is ready. Thank you.`;
 }
 
 /** Send a transactional SMS through the Rust `send_sms` command (MSG91 / Fast2SMS DLT). */

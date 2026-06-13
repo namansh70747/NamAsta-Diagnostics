@@ -5,6 +5,7 @@ import { AppShell } from "@/app/AppShell";
 import { DialogHost } from "@/lib/dialog";
 import { ToastHost } from "@/lib/toast";
 import { getLicenseStatus, type LicenseStatus } from "@/lib/license";
+import { needsSetup } from "@/lib/onboarding";
 import { NamAstaMark } from "@/components/common/NamAstaLogo";
 
 // Catches a failed lazy-chunk load (e.g. after an update swaps chunk hashes) so the app
@@ -37,7 +38,7 @@ const TestMasterPage = lazy(() => import("@/pages/test-master/TestMasterPage").t
 const DoctorsPage = lazy(() => import("@/pages/doctors/DoctorsPage").then(m => ({ default: m.DoctorsPage })));
 const BizReportsPage = lazy(() => import("@/pages/reports/BizReportsPage").then(m => ({ default: m.BizReportsPage })));
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage").then(m => ({ default: m.SettingsPage })));
-const ActivationPage = lazy(() => import("@/pages/activation/ActivationPage").then(m => ({ default: m.ActivationPage })));
+const OnboardingPage = lazy(() => import("@/pages/activation/OnboardingPage").then(m => ({ default: m.OnboardingPage })));
 
 function PageFallback() {
   return (
@@ -82,18 +83,34 @@ function LicenseSplash() {
   );
 }
 
-/** Licence gate: development is never gated; in production an active in-tenure licence is
- *  required, otherwise the activation/paywall page is shown. */
-function LicenseGate() {
-  const [status, setStatus] = useState<LicenseStatus | null>(null);
-  const recheck = () => getLicenseStatus().then(setStatus).catch(() => setStatus({ active: false }));
-  useEffect(() => { recheck(); }, []);
+/** Licence + onboarding gate. Development is never gated (admin/admin123 works straight away).
+ *  In production: no/expired licence OR a first-run (no account yet) → the onboarding wizard
+ *  (pay & activate, then name the lab + create login). An activated, set-up lab → sign in. */
+type GatePhase =
+  | { kind: "loading" }
+  | { kind: "onboard"; licensed: boolean; status: LicenseStatus }
+  | { kind: "app" };
 
-  if (!status) return <LicenseSplash />;
-  if (!status.active) {
+function LicenseGate() {
+  const [phase, setPhase] = useState<GatePhase>({ kind: "loading" });
+  const check = async () => {
+    try {
+      const status = await getLicenseStatus();
+      if (status.dev) { setPhase({ kind: "app" }); return; }            // developer: never gated
+      if (!status.active) { setPhase({ kind: "onboard", licensed: false, status }); return; }
+      const setup = await needsSetup();
+      setPhase(setup ? { kind: "onboard", licensed: true, status } : { kind: "app" });
+    } catch {
+      setPhase({ kind: "onboard", licensed: false, status: { active: false } });
+    }
+  };
+  useEffect(() => { check(); }, []);
+
+  if (phase.kind === "loading") return <LicenseSplash />;
+  if (phase.kind === "onboard") {
     return (
       <Suspense fallback={<LicenseSplash />}>
-        <ActivationPage status={status} onActivated={recheck} />
+        <OnboardingPage licensed={phase.licensed} status={phase.status} onDone={check} />
       </Suspense>
     );
   }
