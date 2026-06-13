@@ -10,6 +10,7 @@ import { Test, AgeUnit, Sex, PaymentMode } from "@/types";
 import { nowISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Search, X, Plus, Save, Zap } from "lucide-react";
+import { Combobox } from "@/components/common/Combobox";
 
 interface SelectedTest {
   test: Test;
@@ -351,18 +352,17 @@ export function NewPatientPage() {
               </div>
             </div>
 
-            {/* Referred By */}
+            {/* Referred By — searchable, most-referred doctors first */}
             <div>
               <label className={labelCls}>Referred By</label>
               <div className="flex gap-2">
-                <select
-                  value={doctorId ?? ''}
-                  onChange={e => setDoctorId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="field flex-1"
-                >
-                  <option value="">— Self / Walk-in —</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+                <Combobox
+                  className="flex-1"
+                  value={doctorId}
+                  onChange={setDoctorId}
+                  options={doctors.map(d => ({ value: d.id, label: d.name }))}
+                  placeholder="Type to search, or Self / Walk-in"
+                />
                 <button type="button" tabIndex={-1} onClick={addDoctorInline} title="Add a new referring doctor" className="btn btn-ghost shrink-0 !text-[#4f46e5]">
                   <Plus size={15} strokeWidth={1.8} /> Add
                 </button>

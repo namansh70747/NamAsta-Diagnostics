@@ -7,6 +7,7 @@ import { listDoctors } from "@/lib/queries/doctors";
 import { Search, UserPlus, X } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/common/Combobox";
 import type { PatientWithStatus, PatientStatus } from "@/types";
 
 const STATUS_OPTIONS: { value: PatientStatus | "all"; label: string }[] = [
@@ -132,19 +133,13 @@ export function PatientsPage() {
             />
           </div>
 
-          <select
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            aria-label="Filter by doctor"
-            className="field w-44"
-          >
-            <option value="all">All doctors</option>
-            {doctors.map((d) => (
-              <option key={d.id} value={String(d.id)}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+          <Combobox
+            className="w-44"
+            value={doctorId === "all" ? null : Number(doctorId)}
+            onChange={(v) => setDoctorId(v == null ? "all" : String(v))}
+            options={doctors.map((d) => ({ value: d.id, label: d.name }))}
+            placeholder="All doctors"
+          />
 
           <select
             value={status}
