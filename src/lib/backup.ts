@@ -12,6 +12,10 @@ export async function backupNow(): Promise<string[]> {
   ]);
   if (!dest1) throw new Error('No backup folder configured. Set one in Settings → Backups.');
   const retentionDays = Math.max(1, parseInt(retention ?? '30', 10) || 30);
+  // Flush the WAL into the main scl.db file FIRST, so the file the Rust side copies contains
+  // every committed change (otherwise recent results live only in scl.db-wal and the backup
+  // is silently stale).
+  try { await dbExecute('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* non-fatal */ }
   // The Rust side resolves the real DB file path itself (app data dir).
   const written = await invoke<string[]>('backup_now', {
     dest1,
