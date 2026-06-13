@@ -65,6 +65,13 @@ export async function login(username: string, password: string): Promise<LoginRe
   return { ok: true, user, mustSetPassword: user.force_password_change === 1 };
 }
 
+/** Fetch a user by id WITHOUT the active filter — used to re-validate a persisted session
+ *  on app start (catches a user deactivated/demoted since they last logged in). */
+export async function getUserById(id: number): Promise<User | null> {
+  const rows = await dbQuery<User>('SELECT * FROM users WHERE id=?', [id]);
+  return rows[0] ?? null;
+}
+
 export async function getUserByUsername(username: string): Promise<User | null> {
   const rows = await dbQuery<User>(
     'SELECT * FROM users WHERE username=? AND active=1',

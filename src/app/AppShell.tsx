@@ -12,6 +12,7 @@ import { maybeDailyBackup } from "@/lib/backup";
 import { SCLMark } from "@/components/common/SCLLogo";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSettings } from "@/lib/queries/settings";
+import { getUserById } from "@/lib/queries/auth";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", key: "D" },
@@ -29,7 +30,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 export function AppShell() {
-  const { user, logout } = useSession();
+  const { user, logout, setUser } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -43,6 +44,22 @@ export function AppShell() {
     window.addEventListener("offline", off);
     void maybeDailyBackup();
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+
+  // Re-validate the persisted session against the DB on app open: if the user was
+  // deactivated or deleted, sign them out; if their role changed, refresh it.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getUserById(user.id)
+      .then(fresh => {
+        if (cancelled) return;
+        if (!fresh || fresh.active === 0) { logout(); navigate("/login"); }
+        else if (fresh.role !== user.role) { setUser({ ...user, role: fresh.role }); }
+      })
+      .catch(() => { /* offline/db error — keep the cached session */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
