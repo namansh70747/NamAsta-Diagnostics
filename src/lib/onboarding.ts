@@ -43,18 +43,21 @@ export async function completeSetup(input: SetupInput): Promise<User> {
     );
   }
 
-  // All the letterhead/report credentials, written ungated (no session yet).
+  // This lab's OWN letterhead/report identity, written ungated (no session yet). We also
+  // CLEAR the Sharma-specific seed extras (equipment list, footer test list, timings) so a
+  // new lab never inherits Sharma's details — they can add their own later in Settings.
   const settings: [string, string][] = [
     ["lab_name", input.labName.trim()],
     ["address_line", input.address.trim()],
     ["phones", input.phones.trim()],
+    ["timings", input.timings.trim()],
     ["technician_name", incharge],
     ["technician_qual", input.inchargeQual.trim()],
+    ["equipment_line", ""],
+    ["footer_tests_line", ""],
     ["setup_done", "1"],
   ];
-  if (input.timings.trim()) settings.push(["timings", input.timings.trim()]);
   for (const [k, v] of settings) {
-    if (!v) continue;
     await dbExecute(
       `INSERT INTO settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,

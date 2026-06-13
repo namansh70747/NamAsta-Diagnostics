@@ -49,13 +49,12 @@ export function OnboardingPage({ licensed, needSetup, status, onDone, preview }:
 
         {preview && (
           <div className="mt-4 flex items-center gap-2 text-[11px]">
-            <span className="text-white/35 uppercase tracking-wider">Dev preview:</span>
-            <button onClick={() => setStep("activate")} className={cn("px-2.5 py-1 rounded-full border", step === "activate" ? "border-[#818cf8] text-[#c7cbff]" : "border-white/15 text-white/50")}>Pay & activate</button>
-            <button onClick={() => setStep("setup")} className={cn("px-2.5 py-1 rounded-full border", step === "setup" ? "border-[#818cf8] text-[#c7cbff]" : "border-white/15 text-white/50")}>Set up lab</button>
+            <span className="px-2.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-200">Developer preview — real flow: pay → key → set up</span>
             <button onClick={exitPreview} className="ml-auto px-2.5 py-1 rounded-full border border-white/15 text-white/50 hover:text-white/80">Exit preview →</button>
           </div>
         )}
 
+        {/* Strict order: credentials (setup) are only reachable AFTER a valid activation key. */}
         {step === "activate"
           ? <ActivateStep status={status} onActivated={afterActivate} />
           : <SetupStep onDone={onDone} />}
@@ -107,14 +106,15 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
     <div className="mt-7 grid lg:grid-cols-2 gap-6 items-start">
       <div className="rounded-3xl border border-white/10 glass-dark p-7">
         <div className="flex items-center gap-2 text-[#c7cbff] text-[12px] font-semibold uppercase tracking-[0.15em]">
-          <Sparkles size={14} /> Activate your laboratory
+          <Sparkles size={14} /> Register your laboratory
         </div>
         <h1 className="mt-3 text-[1.9rem] font-extrabold leading-tight">
-          The complete lab, <span style={{ background: "linear-gradient(120deg,#818cf8,#c7cbff 50%,#67e8f9)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>fully computerised.</span>
+          Get started — <span style={{ background: "linear-gradient(120deg,#818cf8,#c7cbff 50%,#67e8f9)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>activate your lab.</span>
         </h1>
         <p className="mt-3 text-white/55 text-[14px] leading-relaxed">
-          Registration, result entry, auto-calculated reports, WhatsApp &amp; email delivery,
-          analyzer import, billing and backups — offline and error-proof.
+          NamAsta needs an <b className="text-white/80">active subscription</b> to run. Choose a
+          plan, pay below, and you'll get an activation key to unlock the app. Everything works
+          offline after that — results, reports, WhatsApp/email delivery, analyzer import &amp; backups.
         </p>
         {status.expired && (
           <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">

@@ -475,7 +475,7 @@ export function ReportPreviewPage() {
   // One A4 page per test profile (panel). The letterhead + patient strip repeat on every
   // page and a signed footer closes each — the "End of report" block lands on the last page.
   const pageList = sortedPanels.length ? sortedPanels : [null];
-  const labName = settings.lab_name || 'SHARMA CLINICAL LABORATORY';
+  const labName = settings.lab_name || 'YOUR LABORATORY';
 
   const Watermark = () => showWatermark ? (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
@@ -494,9 +494,11 @@ export function ReportPreviewPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h1 className="report-title text-[#7b1b1b]">{labName}</h1>
-            <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
-              {settings.address_line ?? 'G.T. ROAD, VILLAGE NANGAL BHUR, TEH. & DISTT. PATHANKOT'}
-            </p>
+            {settings.address_line && (
+              <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
+                {settings.address_line}
+              </p>
+            )}
           </div>
           <div className="inline-block border border-gray-800 rounded px-2 py-[1px] mt-0.5 text-[10px] font-bold tracking-wide text-gray-900">
             FULLY COMPUTERISED HI-TECH LAB.
@@ -505,17 +507,19 @@ export function ReportPreviewPage() {
       </div>
       <div className="grid grid-cols-3 items-start mt-1.5 text-[10.5px] text-gray-900">
         <p className="font-bold text-[#7b1b1b] leading-snug">
-          Mob : {(settings.phones ?? '9646778583 / 9464148746').replace(/^\s*mob\s*:?\s*/i, '')}
+          {settings.phones ? `Mob : ${settings.phones.replace(/^\s*mob\s*:?\s*/i, '')}` : ''}
         </p>
-        <p className="text-center leading-snug">{settings.timings ?? 'Timing : Summer - 7:30 am to 9:00 pm / Winter - 8:15 am to 7:30 pm'}</p>
+        <p className="text-center leading-snug">{settings.timings ?? ''}</p>
         <div className="text-right leading-tight">
-          <p className="report-script text-[#7b1b1b] text-[15px]">{settings.technician_name ?? 'Rajesh Kumar (Vicky)'}</p>
-          <p className="text-[10px]">{settings.technician_qual ?? 'DMLT (PTU)'}</p>
+          <p className="report-script text-[#7b1b1b] text-[15px]">{settings.technician_name ?? ''}</p>
+          <p className="text-[10px]">{settings.technician_qual ?? ''}</p>
         </div>
       </div>
-      <div className="mt-1 text-[9.5px] font-bold text-gray-900 text-center leading-snug border-t-[3px] border-b-[3px] border-[#7b1b1b] border-double py-1">
-        Equipped With {(settings.equipment_line ?? 'ERBA H360 Blood Cell Counter, ERBA CHEM-5 PLUS Vz, EBRA Semi Auto Analyser, CHEM-7 & STAR 21 Semi Auto Analyser, Uri-plus 200 Urine Chemistry Analyser, Qua-lab Hba1c Analyser.').replace(/^\s*equipped with\s*/i, '')}
-      </div>
+      {settings.equipment_line && (
+        <div className="mt-1 text-[9.5px] font-bold text-gray-900 text-center leading-snug border-t-[3px] border-b-[3px] border-[#7b1b1b] border-double py-1">
+          Equipped With {settings.equipment_line.replace(/^\s*equipped with\s*/i, '')}
+        </div>
+      )}
     </header>
   );
 
@@ -552,9 +556,11 @@ export function ReportPreviewPage() {
             <span>NOT FOR MEDICO LEGAL PURPOSE</span>
             <span>ALL TEST ARE AVAILABLE HERE</span>
           </div>
-          <div className="text-center text-[9px] text-gray-500 mt-1 leading-tight">
-            {settings.footer_tests_line ?? "T3, T4, TSH (THYROID), LH, FSH, PROLACTIN, TESTOSTERONE, ESTRADIOL, LFT, LIPID PROFILE, KIDNEY FUNCTION TEST'S CULTURES, MALARIA ANTIGEN, TYPHOID ANTIBODIES TESTS AVAILABLES"}
-          </div>
+          {settings.footer_tests_line && (
+            <div className="text-center text-[9px] text-gray-500 mt-1 leading-tight">
+              {settings.footer_tests_line}
+            </div>
+          )}
         </>
       )}
       {total > 1 && <div className="text-right text-[9px] text-gray-400 mt-1">Page {pageIndex + 1} of {total}</div>}

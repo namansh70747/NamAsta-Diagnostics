@@ -138,9 +138,10 @@ export function LoginPage() {
           {import.meta.env.DEV && (
             <button
               onClick={() => { localStorage.setItem('namasta_dev_onboard', '1'); window.location.reload(); }}
-              className="text-[#818cf8] hover:text-[#c7cbff] underline underline-offset-2"
+              className="px-2 py-0.5 rounded-md border border-amber-400/30 bg-amber-500/10 text-amber-300/80 hover:text-amber-200"
+              title="Developer only — not shown to labs. Production shows this register/activate screen to any unlicensed lab automatically."
             >
-              Preview onboarding (dev)
+              🛠 Dev: preview lab onboarding
             </button>
           )}
         </p>

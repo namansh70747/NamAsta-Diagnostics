@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listDoctors, upsertDoctor } from "@/lib/queries/doctors";
 import { searchTests, listPanels, listTests, getFrequentTests } from "@/lib/queries/tests";
 import { createPatient, getNextTestNo } from "@/lib/queries/patients";
+import { getAllSettings } from "@/lib/queries/settings";
 import { useSession } from "@/lib/session";
 import { Test, AgeUnit, Sex, PaymentMode } from "@/types";
 import { nowISO } from "@/lib/format";
@@ -89,7 +90,7 @@ export function NewPatientPage() {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [doctorId, setDoctorId] = useState<number | null>(null);
-  const [collectedAt, setCollectedAt] = useState("SHARMA CLINICAL LABORATORY");
+  const [collectedAt, setCollectedAt] = useState("");
 
   // Billing
   const [concession, setConcession] = useState(0);
@@ -108,6 +109,7 @@ export function NewPatientPage() {
   const nameRef = useRef<HTMLInputElement>(null);
   const sexTouched = useRef(false);
 
+  const { data: settings = {} } = useQuery({ queryKey: ['settings'], queryFn: getAllSettings });
   const { data: nextNo } = useQuery({ queryKey: ['next-test-no'], queryFn: getNextTestNo });
   const { data: doctors = [] } = useQuery({ queryKey: ['doctors', 'active'], queryFn: () => listDoctors() });
   const { data: panels = [] } = useQuery({ queryKey: ['panels'], queryFn: listPanels });
@@ -119,6 +121,8 @@ export function NewPatientPage() {
   });
 
   useEffect(() => { if (nextNo) setTestNo(nextNo); }, [nextNo]);
+  // Default "Collected At" to this lab's own name (not a hardcoded one).
+  useEffect(() => { if (settings.lab_name && !collectedAt) setCollectedAt(settings.lab_name); }, [settings.lab_name]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { nameRef.current?.focus(); }, []);          // jump straight to typing the name
   useEffect(() => { setHl(0); }, [testQuery, testResults.length]);
 
