@@ -70,7 +70,7 @@ export function ReportPreviewPage() {
   const [printLetterhead, setPrintLetterhead] = useState(() => localStorage.getItem('scl_print_letterhead') === '1');
   const [preTop, setPreTop] = useState(() => Number(localStorage.getItem('scl_pre_top') ?? 40));
   const [preBottom, setPreBottom] = useState(() => Number(localStorage.getItem('scl_pre_bottom') ?? 24));
-  const autoEmailTried = useRef(false);
+  const autoDeliverTried = useRef(false);
   const autoSendTried = useRef(false);
   const [searchParams] = useSearchParams();
 
@@ -93,29 +93,60 @@ export function ReportPreviewPage() {
   const gatingOrders = activeOrders.filter(o => o.test.result_type !== 'calculated');
   const isApproved = gatingOrders.length > 0 && gatingOrders.every(o => o.result?.approved_at);
 
-  // Auto-email the report once, right after it is approved, if the patient has an email
-  // address and SMTP is configured. Deduped via the delivery log so it never re-sends.
+  // Auto-deliver the report ONCE, right after it is approved — emailed to every patient who
+  // has an email + SMTP set up, and (when the WhatsApp Cloud API is configured) sent on
+  // WhatsApp to every patient with a phone. Runs the two sequentially so they never rasterise
+  // the report at the same time, and dedupes via the delivery log so it never re-sends.
   useEffect(() => {
-    if (autoEmailTried.current) return;
-    if (!isApproved || !patient?.email || !orders.length) return;
-    if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_pass) return;
-    autoEmailTried.current = true;
-    setBusy('email');   // disable the manual Email/Print buttons up-front so we can't double-send during the settle window
+    if (autoDeliverTried.current) return;
+    if (!isApproved || !patient || !orders.length) return;
+    if (searchParams.get('send')) return;   // opened from the tray for a manual send — handled below
+    const emailReady = !!patient.email && !!settings.smtp_host && !!settings.smtp_user && !!settings.smtp_pass;
+    const waApiReady = !!patient.phone && settings.whatsapp_mode === 'api' && !!settings.bsp_api_key && !!settings.wa_phone_id;
+    if (!emailReady && !waApiReady) return;
+    autoDeliverTried.current = true;
     (async () => {
-      if (await hasDelivered(pid, 'email')) { setBusy(null); return; }   // already emailed before
-      await new Promise(r => setTimeout(r, 900));      // let the report DOM + QR settle before rasterising
-      try {
-        await emailCore();
-        await logDelivery(pid, 'email', patient.email!, 'sent');
-        setSent(s => ({ ...s, email: true }));
-      } catch (e) {
-        await logDelivery(pid, 'email', patient.email!, 'failed', String(e));
-      } finally {
-        setBusy(null);
+      await new Promise(r => setTimeout(r, 900));   // let the report DOM + QR settle before rasterising
+      if (emailReady && !(await hasDelivered(pid, 'email'))) {
+        setBusy('email');
+        try {
+          await emailCore();
+          await logDelivery(pid, 'email', patient.email!, 'sent');
+          setSent(s => ({ ...s, email: true }));
+          toast.success('Report emailed to the patient.');
+        } catch (e) {
+          await logDelivery(pid, 'email', patient.email!, 'failed', String(e));
+          toast.error(`Auto-email failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
+      if (waApiReady && !(await hasDelivered(pid, 'whatsapp_api'))) {
+        setBusy('whatsapp');
+        try {
+          const pdfPath = await makePdf();
+          if (!pdfPath) throw new Error('Could not generate the report PDF.');
+          const { sendWhatsAppDocument } = await import('@/lib/whatsapp');
+          await sendWhatsAppDocument({
+            token: settings.bsp_api_key!, phoneNumberId: settings.wa_phone_id!,
+            apiVersion: settings.wa_api_version || 'v21.0', to: patient.phone!,
+            pdfPath, filename: `SCL-Report-${patient.test_no}.pdf`,
+            caption: buildWhatsAppMessage({
+              title: patient.title, name: patient.name, tests: panelSummary(),
+              technicianName: settings.technician_name ?? 'Rajesh Kumar (Vicky)',
+              technicianQual: settings.technician_qual ?? 'DMLT',
+            }),
+          });
+          await logDelivery(pid, 'whatsapp_api', `91${patient.phone}`, 'sent');
+          setSent(s => ({ ...s, whatsapp: true }));
+          toast.success('Report sent on WhatsApp.');
+        } catch (e) {
+          await logDelivery(pid, 'whatsapp_api', `91${patient.phone}`, 'failed', String(e));
+          toast.error(`Auto WhatsApp failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      setBusy(null);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isApproved, patient?.email, orders.length, settings.smtp_host, settings.smtp_user, settings.smtp_pass]);
+  }, [isApproved, patient?.email, patient?.phone, orders.length, settings.smtp_host, settings.smtp_user, settings.smtp_pass, settings.whatsapp_mode, settings.bsp_api_key, settings.wa_phone_id]);
 
   // Opened from the dashboard "Waiting to Send" tray with ?send=whatsapp|print — run it
   // here, where the report is rendered and the PDF can actually be produced.
