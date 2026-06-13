@@ -56,12 +56,25 @@ export function findRange(
     ageDays >= r.age_min_days && ageDays <= r.age_max_days
   );
 
-  return (
-    candidates.find(r => r.sex === s) ||
-    candidates.find(r => r.sex === 'ANY') ||
-    (s === 'ANY' ? candidates[0] : null) ||
-    null
-  );
+  const exact = candidates.find(r => r.sex === s);
+  if (exact) return exact;
+  const anyRow = candidates.find(r => r.sex === 'ANY');
+  if (anyRow) return anyRow;
+
+  // 'Other'-sex patient with only male/female ranges: don't apply one sex's limits — widen to
+  // the union (flag only if outside BOTH sexes' ranges) rather than picking an arbitrary sex.
+  if (s === 'ANY' && candidates.length) {
+    const lows = candidates.map(r => r.low).filter((v): v is number => v != null);
+    const highs = candidates.map(r => r.high).filter((v): v is number => v != null);
+    return {
+      ...candidates[0],
+      sex: 'ANY',
+      low: lows.length ? Math.min(...lows) : null,
+      high: highs.length ? Math.max(...highs) : null,
+      range_text: null,
+    };
+  }
+  return null;
 }
 
 /** The printed "Normal Ranges" string for a patient. Prefers the exact stored
