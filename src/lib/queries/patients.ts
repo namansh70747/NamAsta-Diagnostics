@@ -42,8 +42,17 @@ export async function createPatient(input: NewPatientInput, userId: number): Pro
     const metaById = new Map(meta.map(m => [m.id, m]));
     const orderedIds = new Set<number>();
 
+    // A member test that belongs to a panel ALSO ordered as a bundle is already paid for by
+    // the bundle price — charge it ₹0 so the patient isn't billed for it twice.
+    const bundlePanelIds = new Set(meta.filter(m => m.is_panel).map(m => m.panel_id));
+    const effectivePrice = (testId: number): number => {
+      const m = metaById.get(testId);
+      if (m && !m.is_panel && m.panel_id != null && bundlePanelIds.has(m.panel_id)) return 0;
+      return input.prices[testId] ?? 0;
+    };
+
     for (const testId of input.test_ids) {
-      const price = input.prices[testId] ?? 0;
+      const price = effectivePrice(testId);
       const m = metaById.get(testId);
 
       if (m?.is_panel) {
@@ -76,7 +85,7 @@ export async function createPatient(input: NewPatientInput, userId: number): Pro
 
     // Bill (net/balance are generated columns). The lab collects payment manually at the
     // counter, so the bill is recorded as fully received — there is no balance-due tracking.
-    const total = Object.values(input.prices).reduce((a, b) => a + b, 0);
+    const total = input.test_ids.reduce((a, id) => a + effectivePrice(id), 0);
     const concession = Math.max(0, Math.min(input.concession, total));   // never exceed total → no negative net/balance
     const received = total - concession;
     await db.execute(
