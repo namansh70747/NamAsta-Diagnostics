@@ -17,7 +17,7 @@ import { getHistograms } from "@/lib/queries/analyzer";
 import { HistogramRow } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
 import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone } from "lucide-react";
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { SCLLogo } from "@/components/common/SCLLogo";
 
@@ -58,7 +58,6 @@ export function ReportPreviewPage() {
   const [printLetterhead, setPrintLetterhead] = useState(() => localStorage.getItem('scl_print_letterhead') === '1');
   const [preTop, setPreTop] = useState(() => Number(localStorage.getItem('scl_pre_top') ?? 40));
   const [preBottom, setPreBottom] = useState(() => Number(localStorage.getItem('scl_pre_bottom') ?? 24));
-  const [separatePages, setSeparatePages] = useState(() => localStorage.getItem('scl_separate_pages') === '1');
   const autoEmailTried = useRef(false);
 
   const { data: patient } = useQuery({ queryKey: ['patient', pid], queryFn: () => getPatientById(pid) });
@@ -122,16 +121,6 @@ export function ReportPreviewPage() {
     panelMap.get(code)!.orders.push(o);
   }
   const sortedPanels = [...panelMap.values()].sort((a, b) => a.panel.sort_order - b.panel.sort_order);
-
-  // Roll the ordered panels up into discipline blocks (HAEMATOLOGY, BIOCHEMISTRY, …),
-  // preserving order. Each block prints one centred heading + its profiles.
-  const deptGroups: { dept: string; panels: typeof sortedPanels }[] = [];
-  for (const entry of sortedPanels) {
-    const dept = deptOf(entry.panel);
-    const last = deptGroups[deptGroups.length - 1];
-    if (last && last.dept === dept) last.panels.push(entry);
-    else deptGroups.push({ dept, panels: [entry] });
-  }
 
   function resultValue(o: OrderWithResult): string {
     if (o.test.result_type === 'calculated' && o.test.formula) {
@@ -433,55 +422,25 @@ export function ReportPreviewPage() {
                 <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
               </section>
 
-              {/* Results — grouped by discipline, or one profile per page when toggled */}
+              {/* Results — each test profile prints on its own page */}
               <section className="relative mt-3">
-                {separatePages
-                  ? sortedPanels.map(({ panel, orders: rows }, idx) => {
-                      const dept = deptOf(panel);
-                      return (
-                        <div key={panel.code} style={idx < sortedPanels.length - 1 ? { breakAfter: 'page' } : undefined} className="mb-4">
-                          <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
-                          {panel.report_heading !== dept && (
-                            <div className="text-center font-semibold text-[12px] text-black mb-1.5">{panel.report_heading}</div>
-                          )}
-                          <table className="w-full text-[12px] border-collapse">
-                            {renderHead()}
-                            <tbody>{renderRows(rows)}</tbody>
-                          </table>
-                          {renderNotes(rows)}
-                          {dept === 'HAEMATOLOGY' && <HistogramRow histos={histograms} />}
-                        </div>
-                      );
-                    })
-                  : deptGroups.map((group, gi) => {
-                      const breakAfter = gi < deptGroups.length - 1 && group.panels.some(p => p.panel.page_break_after);
-                      return (
-                        <div key={group.dept} style={breakAfter ? { breakAfter: 'page' } : undefined} className="mb-4">
-                          <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1.5">{group.dept}</div>
-                          <table className="w-full text-[12px] border-collapse">
-                            {renderHead()}
-                            <tbody>
-                              {group.panels.map(({ panel, orders: rows }) => (
-                                <Fragment key={panel.code}>
-                                  {panel.report_heading !== group.dept && (
-                                    <tr>
-                                      <td colSpan={4} className="pt-2 pb-0.5 font-bold text-[12.5px] text-black underline underline-offset-2">
-                                        {panel.report_heading}
-                                      </td>
-                                    </tr>
-                                  )}
-                                  {renderRows(rows)}
-                                </Fragment>
-                              ))}
-                            </tbody>
-                          </table>
-                          {group.panels.map(({ panel, orders: rows }) => (
-                            <Fragment key={`n-${panel.code}`}>{renderNotes(rows)}</Fragment>
-                          ))}
-                          {group.dept === 'HAEMATOLOGY' && <HistogramRow histos={histograms} />}
-                        </div>
-                      );
-                    })}
+                {sortedPanels.map(({ panel, orders: rows }, idx) => {
+                  const dept = deptOf(panel);
+                  return (
+                    <div key={panel.code} style={idx < sortedPanels.length - 1 ? { breakAfter: 'page' } : undefined} className="mb-4">
+                      <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
+                      {panel.report_heading !== dept && (
+                        <div className="text-center font-semibold text-[12px] text-black mb-1.5">{panel.report_heading}</div>
+                      )}
+                      <table className="w-full text-[12px] border-collapse">
+                        {renderHead()}
+                        <tbody>{renderRows(rows)}</tbody>
+                      </table>
+                      {renderNotes(rows)}
+                      {dept === 'HAEMATOLOGY' && <HistogramRow histos={histograms} />}
+                    </div>
+                  );
+                })}
 
                 {comment && (
                   <div className="mt-2 text-[11px]"><strong>Comments :</strong> {comment}</div>
@@ -544,7 +503,6 @@ export function ReportPreviewPage() {
               <GapInput label="Bottom gap" value={preBottom} onChange={(v) => { setPreBottom(v); localStorage.setItem('scl_pre_bottom', String(v)); }} />
             </div>
           )}
-          <Toggle label="Each test on a new page" checked={separatePages} onChange={(v) => { setSeparatePages(v); localStorage.setItem('scl_separate_pages', v ? '1' : '0'); }} />
           <Toggle label="Signature" checked={showSignature} onChange={setShowSignature} />
           <Toggle label="Watermark" checked={showWatermark} onChange={setShowWatermark} />
         </div>
