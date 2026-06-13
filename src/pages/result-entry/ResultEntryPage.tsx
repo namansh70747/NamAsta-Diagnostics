@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPatientById, addTestsToPatient } from "@/lib/queries/patients";
@@ -118,6 +118,16 @@ export function ResultEntryPage() {
   };
 
   const [savedTick, setSavedTick] = useState(0);
+  // Jump straight to the first empty result field on load so staff can start typing.
+  const focusedOnce = useRef(false);
+  useEffect(() => {
+    if (focusedOnce.current || !orders.length) return;
+    focusedOnce.current = true;
+    setTimeout(() => {
+      const fields = Array.from(document.querySelectorAll<HTMLInputElement>('[data-rinput]:not([disabled])'));
+      (fields.find(f => !f.value) ?? fields[0])?.focus();
+    }, 80);
+  }, [orders.length]);
   const saveMut = useMutation({
     mutationFn: ({ orderId, value, flag }: { orderId: number; value: string; flag: string }) =>
       saveResult(orderId, value, flag, user!.id),
@@ -311,7 +321,7 @@ export function ResultEntryPage() {
   return (
     <div className="space-y-4">
       {/* Sticky header strip */}
-      <div className="sticky top-0 z-10 -mx-6 px-6 py-3 bg-[#f8f7f5]/95 backdrop-blur border-b border-[#e7e5e1]">
+      <div className="sticky top-0 z-10 -mx-6 px-6 py-3 bg-[#f3f4f8]/95 backdrop-blur border-b border-[#e6e7ee]">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 min-w-0">
             <button onClick={() => navigate(-1)} className="btn btn-ghost !px-1.5 shrink-0" title="Back">
