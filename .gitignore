@@ -29,3 +29,6 @@ check/
 this-is-a-plan-logical-blum.md
 .DS_Store
 **/.DS_Store
+
+# license signing private key — NEVER commit
+tools/license-key.secret

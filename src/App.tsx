@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { Suspense, lazy, Component, type ReactNode } from "react";
+import { Suspense, lazy, Component, useState, useEffect, type ReactNode } from "react";
 import { useSession } from "@/lib/session";
 import { AppShell } from "@/app/AppShell";
 import { DialogHost } from "@/lib/dialog";
 import { ToastHost } from "@/lib/toast";
+import { getLicenseStatus, type LicenseStatus } from "@/lib/license";
+import { NamAstaMark } from "@/components/common/NamAstaLogo";
 
 // Catches a failed lazy-chunk load (e.g. after an update swaps chunk hashes) so the app
 // shows a recoverable message instead of a blank white screen.
@@ -35,6 +37,7 @@ const TestMasterPage = lazy(() => import("@/pages/test-master/TestMasterPage").t
 const DoctorsPage = lazy(() => import("@/pages/doctors/DoctorsPage").then(m => ({ default: m.DoctorsPage })));
 const BizReportsPage = lazy(() => import("@/pages/reports/BizReportsPage").then(m => ({ default: m.BizReportsPage })));
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage").then(m => ({ default: m.SettingsPage })));
+const ActivationPage = lazy(() => import("@/pages/activation/ActivationPage").then(m => ({ default: m.ActivationPage })));
 
 function PageFallback() {
   return (
@@ -70,12 +73,32 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App() {
+/** Full-screen brand splash while the licence is being checked at startup. */
+function LicenseSplash() {
   return (
-    <BrowserRouter>
-      <DialogHost />
-      <ToastHost />
-      <ChunkErrorBoundary>
+    <div className="flex h-screen items-center justify-center" style={{ background: "linear-gradient(150deg,#14161f,#0a0b10)" }}>
+      <div className="animate-pulse"><NamAstaMark size={64} glow /></div>
+    </div>
+  );
+}
+
+/** Licence gate: development is never gated; in production an active in-tenure licence is
+ *  required, otherwise the activation/paywall page is shown. */
+function LicenseGate() {
+  const [status, setStatus] = useState<LicenseStatus | null>(null);
+  const recheck = () => getLicenseStatus().then(setStatus).catch(() => setStatus({ active: false }));
+  useEffect(() => { recheck(); }, []);
+
+  if (!status) return <LicenseSplash />;
+  if (!status.active) {
+    return (
+      <Suspense fallback={<LicenseSplash />}>
+        <ActivationPage status={status} onActivated={recheck} />
+      </Suspense>
+    );
+  }
+  return (
+    <ChunkErrorBoundary>
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -101,7 +124,16 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
-      </ChunkErrorBoundary>
+    </ChunkErrorBoundary>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <DialogHost />
+      <ToastHost />
+      <LicenseGate />
     </BrowserRouter>
   );
 }
