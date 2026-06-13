@@ -77,6 +77,12 @@ pub fn run() {
             sql: include_str!("../migrations/0012_more_auto_calc.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "grandfather_setup",
+            sql: include_str!("../migrations/0013_grandfather_setup.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
