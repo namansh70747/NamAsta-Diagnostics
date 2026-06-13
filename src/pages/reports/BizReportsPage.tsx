@@ -10,23 +10,20 @@ import {
   monthly,
   doctorWise,
   testWise,
-  pendingBalances,
   toCSV,
   type DayBookRow,
   type MonthlyRow,
   type DoctorWiseRow,
   type TestWiseRow,
-  type PendingRow,
 } from "@/lib/queries/reportsBiz";
 
-type Tab = "daybook" | "monthly" | "doctorwise" | "testwise" | "pending";
+type Tab = "daybook" | "monthly" | "doctorwise" | "testwise";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "daybook", label: "Day Book" },
   { id: "monthly", label: "Monthly" },
   { id: "doctorwise", label: "Doctor-wise" },
   { id: "testwise", label: "Test-wise" },
-  { id: "pending", label: "Pending Balances" },
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -165,12 +162,11 @@ function DayBookTab() {
   });
 
   const totals = data.reduce(
-    (a: { total: number; received: number; balance: number }, r: DayBookRow) => ({
+    (a: { total: number; received: number }, r: DayBookRow) => ({
       total: a.total + r.total,
       received: a.received + r.received,
-      balance: a.balance + r.balance,
     }),
-    { total: 0, received: 0, balance: 0 }
+    { total: 0, received: 0 }
   );
 
   return (
@@ -195,14 +191,13 @@ function DayBookTab() {
               <th className={TH}>Mode</th>
               <th className={THR}>Total</th>
               <th className={THR}>Received</th>
-              <th className={THR}>Balance</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <LoadingRows colSpan={8} />
+              <LoadingRows colSpan={7} />
             ) : data.length === 0 ? (
-              <EmptyRow colSpan={8} message="No records for this range" />
+              <EmptyRow colSpan={7} message="No records for this range" />
             ) : (
               <>
                 {data.map((r: DayBookRow) => (
@@ -214,9 +209,6 @@ function DayBookTab() {
                     <td className="px-5 py-3 text-[12.5px] text-[#8a8b97]">{r.mode || "—"}</td>
                     <td className={TDR}>{formatCurrency(r.total)}</td>
                     <td className={cn(TDR, "text-[#14743a]")}>{formatCurrency(r.received)}</td>
-                    <td className={cn(TDR, r.balance > 0 ? "text-[#b91c1c] font-semibold" : "text-[#a3a5b3]")}>
-                      {r.balance > 0 ? formatCurrency(r.balance) : "—"}
-                    </td>
                   </tr>
                 ))}
                 <tr className={TOTAL_ROW}>
@@ -226,9 +218,6 @@ function DayBookTab() {
                   <td className={cn(TDR, "transition-colors")}>{formatCurrency(totals.total)}</td>
                   <td className={cn(TDR, "text-[#14743a] transition-colors")}>
                     {formatCurrency(totals.received)}
-                  </td>
-                  <td className={cn(TDR, "text-[#b91c1c] transition-colors")}>
-                    {formatCurrency(totals.balance)}
                   </td>
                 </tr>
               </>
@@ -338,13 +327,12 @@ function MonthlyTab() {
   });
 
   const totals = data.reduce(
-    (a: { patients: number; total: number; received: number; balance: number }, r: MonthlyRow) => ({
+    (a: { patients: number; total: number; received: number }, r: MonthlyRow) => ({
       patients: a.patients + r.patients,
       total: a.total + r.total,
       received: a.received + r.received,
-      balance: a.balance + r.balance,
     }),
-    { patients: 0, total: 0, received: 0, balance: 0 }
+    { patients: 0, total: 0, received: 0 }
   );
 
   return (
@@ -389,14 +377,13 @@ function MonthlyTab() {
               <th className={THR}>Patients</th>
               <th className={THR}>Total</th>
               <th className={THR}>Received</th>
-              <th className={THR}>Balance</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <LoadingRows colSpan={5} />
+              <LoadingRows colSpan={4} />
             ) : data.length === 0 ? (
-              <EmptyRow colSpan={5} message="No records for this range" />
+              <EmptyRow colSpan={4} message="No records for this range" />
             ) : (
               <>
                 {data.map((r: MonthlyRow) => (
@@ -405,9 +392,6 @@ function MonthlyTab() {
                     <td className={TDR}>{r.patients}</td>
                     <td className={TDR}>{formatCurrency(r.total)}</td>
                     <td className={cn(TDR, "text-[#14743a]")}>{formatCurrency(r.received)}</td>
-                    <td className={cn(TDR, r.balance > 0 ? "text-[#b91c1c] font-semibold" : "text-[#a3a5b3]")}>
-                      {r.balance > 0 ? formatCurrency(r.balance) : "—"}
-                    </td>
                   </tr>
                 ))}
                 <tr className={TOTAL_ROW}>
@@ -416,9 +400,6 @@ function MonthlyTab() {
                   <td className={cn(TDR, "transition-colors")}>{formatCurrency(totals.total)}</td>
                   <td className={cn(TDR, "text-[#14743a] transition-colors")}>
                     {formatCurrency(totals.received)}
-                  </td>
-                  <td className={cn(TDR, "text-[#b91c1c] transition-colors")}>
-                    {formatCurrency(totals.balance)}
                   </td>
                 </tr>
               </>
@@ -576,69 +557,6 @@ function TestWiseTab() {
   );
 }
 
-// ---- Pending Balances ----------------------------------------------------
-
-function PendingTab() {
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["biz-pending"],
-    queryFn: () => pendingBalances(),
-  });
-
-  const outstanding = data.reduce((a: number, r: PendingRow) => a + r.balance, 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <ExportButton
-          disabled={!data.length}
-          onClick={() =>
-            downloadCSV(`pending-balances.csv`, data as unknown as Record<string, unknown>[])
-          }
-        />
-      </div>
-      <TableCard>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[#eef0f4]">
-              <th className={TH}>Test No</th>
-              <th className={TH}>Name</th>
-              <th className={TH}>Phone</th>
-              <th className={TH}>Date</th>
-              <th className={THR}>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <LoadingRows colSpan={5} />
-            ) : data.length === 0 ? (
-              <EmptyRow colSpan={5} message="No pending balances" />
-            ) : (
-              <>
-                {data.map((r: PendingRow) => (
-                  <tr key={r.test_no} className={ROW}>
-                    <td className={cn(TD, "font-mono text-[13px]")}>{r.test_no}</td>
-                    <td className={TD}>{r.name}</td>
-                    <td className="px-5 py-3 text-[13.5px] text-[#8a8b97]">{r.phone || "—"}</td>
-                    <td className="px-5 py-3 text-[12.5px] text-[#8a8b97]">{formatDate(r.registered_at)}</td>
-                    <td className={cn(TDR, "text-[#b91c1c] font-semibold")}>{formatCurrency(r.balance)}</td>
-                  </tr>
-                ))}
-                <tr className={TOTAL_ROW}>
-                  <td colSpan={4} className={TD}>
-                    Total Outstanding ({data.length} patients)
-                  </td>
-                  <td className={cn(TDR, "text-[#b91c1c] transition-colors")}>
-                    {formatCurrency(outstanding)}
-                  </td>
-                </tr>
-              </>
-            )}
-          </tbody>
-        </table>
-      </TableCard>
-    </div>
-  );
-}
 
 // ---- Page ----------------------------------------------------------------
 
@@ -669,7 +587,6 @@ export function BizReportsPage() {
       {tab === "monthly" && <MonthlyTab />}
       {tab === "doctorwise" && <DoctorWiseTab />}
       {tab === "testwise" && <TestWiseTab />}
-      {tab === "pending" && <PendingTab />}
     </div>
   );
 }

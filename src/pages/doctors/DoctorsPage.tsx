@@ -237,7 +237,6 @@ function SummaryDialog({
     { label: "Patients referred", value: data ? String(data.patients) : "—" },
     { label: "Total billed", value: data ? formatCurrency(data.total) : "—" },
     { label: "Received", value: data ? formatCurrency(data.received) : "—" },
-    { label: "Balance", value: data ? formatCurrency(data.balance) : "—" },
   ];
 
   return (
@@ -279,7 +278,7 @@ function SummaryDialog({
             Could not load summary.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             {stats.map((s) => (
               <div
                 key={s.label}
