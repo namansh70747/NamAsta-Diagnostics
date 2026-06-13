@@ -59,6 +59,12 @@ pub fn run() {
             sql: include_str!("../migrations/0009_more_tests.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "fix_ocb_choices",
+            sql: include_str!("../migrations/0010_fix_ocb_choices.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
