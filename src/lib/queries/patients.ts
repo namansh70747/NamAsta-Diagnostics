@@ -145,7 +145,7 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: (r.mode as PaymentMode) ?? 'CASH' } as Bill,
-    status: deriveStatus(r.test_count, r.approved_count),
+    status: deriveStatus(r.test_count, r.report_time),
   }));
 }
 
@@ -166,7 +166,7 @@ export async function getTodayPatients(): Promise<PatientWithStatus[]> {
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: r.mode as never ?? 'CASH' },
-    status: deriveStatus(r.test_count, r.approved_count),
+    status: deriveStatus(r.test_count, r.report_time),
   }));
 }
 
@@ -207,7 +207,7 @@ export async function getPatientHistory(name: string, phone: string): Promise<Pa
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: (r.mode as PaymentMode) ?? 'CASH' },
-    status: deriveStatus(r.test_count, r.approved_count),
+    status: deriveStatus(r.test_count, r.report_time),
   }));
 }
 
@@ -271,9 +271,14 @@ export async function updateBill(patientId: number, data: Partial<Bill>): Promis
   await dbExecute(`UPDATE bills SET ${sets},updated_at=CURRENT_TIMESTAMP WHERE patient_id=?`, [...vals, patientId]);
 }
 
-function deriveStatus(testCount: number, approvedCount: number): 'registered' | 'results_pending' | 'approved' {
+/**
+ * Approval status from report_time — set by approvePatient. Counting approved results
+ * against COUNT(orders) was wrong: bundle rows, not-done rows and uncomputable calculated
+ * rows never get an approved result, so multi-test patients were stuck on "results pending".
+ */
+function deriveStatus(testCount: number, reportTime: string | null): 'registered' | 'results_pending' | 'approved' {
+  if (reportTime) return 'approved';
   if (testCount === 0) return 'registered';
-  if (approvedCount >= testCount) return 'approved';
   return 'results_pending';
 }
 
@@ -293,9 +298,12 @@ export async function getDashboardStats(): Promise<{
   }>(
     // NOTE: money totals are computed in subqueries over bills ONLY. Summing them across
     // the orders/results join would multiply each bill by the patient's test count.
+    // Approval is tracked by patients.report_time (set on approve). Counting unapproved
+    // results would keep approved patients "pending" because bundle/not-done/calculated
+    // rows never carry an approved result. Money totals use bills-only subqueries.
     `SELECT
        COUNT(DISTINCT p.id) as total_patients,
-       COUNT(DISTINCT CASE WHEN r.approved_at IS NULL AND o.id IS NOT NULL THEN p.id END) as pending,
+       COUNT(DISTINCT CASE WHEN p.report_time IS NULL AND o.id IS NOT NULL THEN p.id END) as pending,
        COUNT(DISTINCT CASE WHEN p.report_time IS NOT NULL THEN p.id END) as approved,
        (SELECT COALESCE(SUM(b2.received),0) FROM bills b2 JOIN patients p2 ON p2.id=b2.patient_id
           WHERE date(p2.registered_at,'localtime')=date('now','localtime')) as collection,
@@ -303,7 +311,6 @@ export async function getDashboardStats(): Promise<{
           WHERE date(p2.registered_at,'localtime')=date('now','localtime')) as balance
      FROM patients p
      LEFT JOIN orders o ON o.patient_id=p.id
-     LEFT JOIN results r ON r.order_id=o.id
      WHERE date(p.registered_at,'localtime')=date('now','localtime')`
   );
   const r = rows[0];

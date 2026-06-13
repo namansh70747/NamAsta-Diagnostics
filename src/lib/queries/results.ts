@@ -146,6 +146,11 @@ export async function unlockResult(orderId: number, reason: string, userId: numb
       'UPDATE results SET approved_by=NULL,approved_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE order_id=?',
       [orderId]
     );
+    // Re-open the report so its status reverts to "results pending".
+    await db.execute(
+      'UPDATE patients SET report_time=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=(SELECT patient_id FROM orders WHERE id=?)',
+      [orderId]
+    );
     await db.execute(
       'INSERT INTO audit_log(user_id,action,entity,entity_id,before_json,after_json,at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)',
       [userId, 'result.unlock', 'results', orderId, JSON.stringify(current[0]), JSON.stringify({ reason })]
