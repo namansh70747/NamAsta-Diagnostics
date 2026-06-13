@@ -18,6 +18,21 @@ export function WhatsAppTab({ settings }: { settings: Record<string, string> }) 
   }
 
   async function sendTest() {
+    // API mode: a free-form WhatsApp message can't be sent outside the 24h window without an
+    // approved template, so don't fake a "semi" success — save and verify the credentials,
+    // and be honest that real delivery happens when a report is sent.
+    if (mode === "api") {
+      if (!(await f.save())) return;
+      if (!f.get("bsp_api_key") || !f.get("wa_phone_id")) {
+        f.toast.error("Enter the Access token and Phone number ID first.");
+        return;
+      }
+      f.toast.success(
+        "API credentials saved. Automatic sending is used when you deliver a report. Note: WhatsApp only allows messages to patients who have messaged the lab in the last 24h, or via an approved template."
+      );
+      return;
+    }
+
     const input = await promptDialog({ title: "Send test WhatsApp", placeholder: "10-digit number", confirmText: "Open" });
     if (!input) return;
     const phone = input.replace(/\D/g, "");
