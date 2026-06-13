@@ -65,8 +65,8 @@ export function StatCards({ stats, loading }: { stats?: DashboardStats; loading:
       icon: <AlertCircle size={17} strokeWidth={2} />,
       label: "Balance Due",
       value: formatCurrency(stats?.balanceDue ?? 0),
-      grad: "linear-gradient(135deg,#93262d,#7b1b1b)",
-      glow: "rgba(123,27,27,0.3)",
+      grad: "linear-gradient(135deg,#a78bfa,#7c3aed)",
+      glow: "rgba(124,58,237,0.3)",
       spark: [2, 3, 2, 4, 3, 5, 4],
     },
   ];

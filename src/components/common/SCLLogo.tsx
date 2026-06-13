@@ -65,7 +65,7 @@ export function SCLMark({ size = 40, className, glow = false }: { size?: number;
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
           <stop stopColor="#6d74f5" />
           <stop offset="0.55" stopColor="#5b4be8" />
-          <stop offset="1" stopColor="#7b1b1b" />
+          <stop offset="1" stopColor="#7c3aed" />
         </linearGradient>
         <linearGradient id={`${id}-drop`} x1="24" y1="10" x2="24" y2="38" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" />

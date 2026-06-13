@@ -60,7 +60,7 @@ export function AppShell() {
       >
         {/* aurora glow accents */}
         <div className="pointer-events-none absolute -top-28 -left-16 h-72 w-72 rounded-full bg-[#6366f1]/25 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-[#7b1b1b]/30 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-[#7c3aed]/25 blur-3xl" />
         <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
         {/* brand */}
@@ -121,7 +121,7 @@ export function AppShell() {
           <div className={cn("flex items-center gap-2.5 rounded-xl px-2 py-1.5", collapsed && "justify-center px-0")}>
             <div
               className="w-[32px] h-[32px] rounded-full flex items-center justify-center text-[12.5px] font-bold text-white shrink-0 shadow-[0_2px_8px_-2px_rgba(99,102,241,0.6)]"
-              style={{ background: "linear-gradient(135deg, #6d74f5, #5b4be8 60%, #7b1b1b)" }}
+              style={{ background: "linear-gradient(135deg, #6d74f5, #5b4be8 60%, #7c3aed)" }}
             >
               {user?.display_name?.[0]?.toUpperCase() ?? "U"}
             </div>

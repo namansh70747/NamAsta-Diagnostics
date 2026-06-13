@@ -285,7 +285,7 @@ function MonthlyChart({ data }: { data: MonthlyRow[] }) {
                 width={barW}
                 height={h}
                 rx={3}
-                fill={isHover ? "#671616" : "#7b1b1b"}
+                fill={isHover ? "#4338ca" : "#6366f1"}
                 style={{ transition: "fill 0.15s ease" }}
               />
               {isHover && (
@@ -655,8 +655,8 @@ export function BizReportsPage() {
             className={cn(
               "px-3.5 py-1.5 rounded-[9px] text-[13px] font-medium transition-colors whitespace-nowrap",
               tab === t.id
-                ? "bg-[#7b1b1b] text-white shadow-sm"
-                : "text-[#5d5953] hover:bg-[#f1efec]"
+                ? "bg-[#4f46e5] text-white shadow-sm"
+                : "text-[#5d5953] hover:bg-[#eef0fe]"
             )}
           >
             {t.label}

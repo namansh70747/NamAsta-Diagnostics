@@ -100,7 +100,7 @@ export function LoginPage() {
          style={{ background: "linear-gradient(150deg, #14161f 0%, #0e0f16 55%, #0a0b10 100%)" }}>
       {/* aurora background */}
       <div className="pointer-events-none absolute -top-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-[#6366f1]/25 blur-3xl animate-float" />
-      <div className="pointer-events-none absolute top-1/4 right-[-10rem] w-[30rem] h-[30rem] rounded-full bg-[#7b1b1b]/35 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/4 right-[-10rem] w-[30rem] h-[30rem] rounded-full bg-[#7c3aed]/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 left-1/3 w-[28rem] h-[28rem] rounded-full bg-[#22d3ee]/10 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
            style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "30px 30px" }} />

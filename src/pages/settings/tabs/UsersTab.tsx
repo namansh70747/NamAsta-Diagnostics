@@ -234,7 +234,7 @@ function ToggleSwitch({
       onClick={onChange}
       className={cn(
         "relative inline-flex h-[20px] w-[34px] shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-400 focus-visible:ring-offset-1",
-        checked ? "bg-[#7b1b1b]" : "bg-[#ddd9d3]",
+        checked ? "bg-[#4f46e5]" : "bg-[#ddd9d3]",
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
       )}
     >
