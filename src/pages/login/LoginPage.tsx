@@ -14,7 +14,8 @@ import { NamAstaMark } from "@/components/common/NamAstaLogo";
 import { getAllSettings } from "@/lib/queries/settings";
 
 export function LoginPage() {
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("");
+  const [usernameTouched, setUsernameTouched] = useState(false);
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +44,12 @@ export function LoginPage() {
     queryFn: listLoginAccounts,
     retry: false,
   });
+
+  // Pre-fill the actual account (the username they registered with) instead of a guessed
+  // "admin" — until the user types their own.
+  useEffect(() => {
+    if (!usernameTouched && accounts.length === 1) setUsername(accounts[0].username);
+  }, [accounts, usernameTouched]);
 
   // Live lockout countdown — re-enables and clears the error automatically.
   useEffect(() => {
@@ -155,14 +162,14 @@ export function LoginPage() {
               <form onSubmit={handleLogin} className="space-y-5">
                 <Labeled label="Username">
                   <input
-                    type="text" value={username} onChange={e => setUsername(e.target.value)} required autoFocus
+                    type="text" value={username} onChange={e => { setUsername(e.target.value); setUsernameTouched(true); }} required autoFocus
                     autoCapitalize="off" autoCorrect="off" spellCheck={false}
-                    className="login-input" placeholder="admin" />
+                    className="login-input" placeholder="Your username" />
                   {accounts.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {accounts.map(a => (
                         <button key={a.username} type="button"
-                          onClick={() => { setUsername(a.username); setError(""); }}
+                          onClick={() => { setUsername(a.username); setUsernameTouched(true); setError(""); }}
                           className={cn(
                             "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
                             username.trim().toLowerCase() === a.username.toLowerCase()
@@ -185,7 +192,6 @@ export function LoginPage() {
                       className="login-input pr-11" />
                     <ToggleEye shown={showPw} onClick={() => setShowPw(v => !v)} />
                   </div>
-                  <p className="mt-1.5 text-xs text-white/40">First time? Type any password — you'll set a permanent one next.</p>
                 </Labeled>
 
                 {error && <ErrorBox msg={error} />}
