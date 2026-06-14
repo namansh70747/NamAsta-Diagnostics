@@ -131,6 +131,12 @@ pub fn run() {
             sql: include_str!("../migrations/0021_more_interpretations.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 22,
+            description: "soften_interpretations",
+            sql: include_str!("../migrations/0022_soften_interpretations.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
