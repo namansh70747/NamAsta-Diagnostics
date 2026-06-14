@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.2
+
+- App icon: transparent corners restored (v1.0.1 rendered the squircle on an opaque white
+  square because the rasterizer flattened transparency). Icons now build straight from the
+  SVG via Tauri/resvg, so the corners are properly transparent — like every other macOS app.
+
 ## v1.0.1
 
 - Fix the app icon: a proper macOS-style rounded "squircle" with the NamAsta blood-tube mark
