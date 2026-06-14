@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
-import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet, Eye, EyeOff, CheckCircle2, Monitor, Copy } from "lucide-react";
 import { NamAstaWordmark } from "@/components/common/NamAstaLogo";
-import { activateLicense, type LicenseStatus } from "@/lib/license";
+import { activateLicense, getDeviceFingerprint, type LicenseStatus } from "@/lib/license";
 import { completeSetup } from "@/lib/onboarding";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
@@ -87,12 +87,21 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
   const [qr, setQr] = useState("");
   const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
+  const [deviceId, setDeviceId] = useState(status.deviceId ?? "");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const upi = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent("NamAsta " + plan.label)}`;
     QRCode.toDataURL(upi, { errorCorrectionLevel: "M", margin: 1, width: 240, color: { dark: "#14151c", light: "#ffffff" } })
       .then(setQr).catch(() => setQr(""));
   }, [plan]);
+
+  // This PC's device id — the lab sends it with payment so the key is locked to this computer.
+  useEffect(() => { getDeviceFingerprint().then(setDeviceId).catch(() => {}); }, []);
+
+  function copyDeviceId() {
+    navigator.clipboard?.writeText(deviceId).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  }
 
   async function activate() {
     if (!key.trim() || activating) return;
@@ -120,7 +129,12 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
         </p>
         {status.expired && (
           <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">
-            Your {status.plan} licence for <b>{status.lab}</b> has expired. Renew below to continue.
+            Your {status.plan} subscription for <b>{status.lab}</b> has expired. Renew below to continue — <b>your lab profile, login and data are safe</b>, renewing won't ask for them again.
+          </div>
+        )}
+        {status.deviceMismatch && (
+          <div className="mt-5 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-200">
+            This key isn't registered for <b>this computer</b>. Each key works on up to 2 PCs — send this PC's Device ID (below) to {VENDOR_CONTACT} to add it.
           </div>
         )}
         <div className="mt-6 space-y-2.5">
@@ -168,10 +182,23 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
             <p className="font-mono text-[12px] text-[#c7cbff] break-all">{UPI_ID}</p>
           </div>
         </div>
-        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Enter your activation key</div>
+        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Send your Device ID</div>
         <p className="mt-2 text-[13px] text-white/55 leading-relaxed">
-          After paying, send the screenshot to {VENDOR_CONTACT} on WhatsApp. You'll receive an
-          <b className="text-white/85"> activation key</b> — paste it here to unlock the app.
+          Your key is locked to this computer. Send this <b className="text-white/85">Device ID</b> with your
+          payment screenshot — each key works on up to <b className="text-white/85">2 PCs</b>.
+        </p>
+        <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+          <Monitor size={16} className="text-[#c7cbff] shrink-0" />
+          <span className="font-mono text-[15px] font-bold tracking-wider text-white flex-1 select-all">{deviceId || "…"}</span>
+          <button type="button" onClick={copyDeviceId}
+            className="flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1 text-[12px] text-white/70 hover:bg-white/10 transition-colors">
+            {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+          </button>
+        </div>
+
+        <div className="mt-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 3 — Enter your activation key</div>
+        <p className="mt-2 text-[13px] text-white/55 leading-relaxed">
+          {VENDOR_CONTACT} sends back an <b className="text-white/85">activation key</b> — paste it here to unlock the app.
         </p>
         <div className="mt-3 relative">
           <KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />

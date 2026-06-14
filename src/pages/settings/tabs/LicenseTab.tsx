@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { KeyRound, ShieldCheck, Loader2, BadgeCheck, AlertTriangle } from "lucide-react";
+import { KeyRound, ShieldCheck, Loader2, BadgeCheck, AlertTriangle, Monitor, Copy, Check } from "lucide-react";
 import { Card, TabHeader, PrimaryButton } from "../ui";
-import { getLicenseStatus, activateLicense, type LicenseStatus } from "@/lib/license";
+import { getLicenseStatus, activateLicense, getDeviceFingerprint, type LicenseStatus } from "@/lib/license";
 import { toast } from "@/lib/toast";
 
 const PLAN_LABEL: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", triennial: "3-Year", lifetime: "Lifetime" };
@@ -10,8 +10,10 @@ export function LicenseTab() {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deviceId, setDeviceId] = useState("");
+  const [copied, setCopied] = useState(false);
   const load = () => getLicenseStatus().then(setStatus).catch(() => setStatus({ active: false }));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); getDeviceFingerprint().then(setDeviceId).catch(() => {}); }, []);
 
   async function renew() {
     if (!key.trim() || busy) return;
@@ -69,6 +71,22 @@ export function LicenseTab() {
             </div>
             <p className="mt-2 text-[12px] text-[#8a8b97]">
               Pay your yearly subscription, then paste the key sent to you. Renewing before expiry extends from the new key's date.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-2">This PC's Device ID</p>
+            <div className="flex items-center gap-2 rounded-xl border border-[#e6e7ee] bg-[#f7f8fb] px-3 py-2.5">
+              <Monitor size={16} className="text-[#4f46e5] shrink-0" />
+              <span className="font-mono text-[14px] font-bold tracking-wider text-[#14151c] flex-1 select-all">{deviceId || "…"}</span>
+              <button type="button"
+                onClick={() => navigator.clipboard?.writeText(deviceId).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {})}
+                className="flex items-center gap-1 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-white transition-colors">
+                {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+              </button>
+            </div>
+            <p className="mt-2 text-[12px] text-[#8a8b97]">
+              Each key works on up to <b>2 computers</b>. To add a second PC, send this Device ID to NamAsta.
             </p>
           </div>
         </>
