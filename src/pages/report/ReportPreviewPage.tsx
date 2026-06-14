@@ -500,26 +500,28 @@ export function ReportPreviewPage() {
               </p>
             )}
           </div>
-          <div className="inline-block border border-gray-800 rounded px-2 py-[1px] mt-0.5 text-[10px] font-bold tracking-wide text-gray-900">
+          <div className="inline-block border-[1.5px] border-gray-900 rounded-md px-2.5 py-[1px] mt-1 text-[10.5px] font-extrabold tracking-wide text-gray-900">
             FULLY COMPUTERISED HI-TECH LAB.
           </div>
         </div>
       </div>
       <div className="grid grid-cols-3 items-start mt-1.5 text-[10.5px] text-gray-900">
-        <p className="font-bold text-[#7b1b1b] leading-snug">
-          {settings.phones ? `Mob : ${settings.phones.replace(/^\s*mob\s*:?\s*/i, '')}` : ''}
+        <p className="font-bold text-[#7b1b1b] leading-snug whitespace-pre-line">
+          {settings.phones ? `Mob : ${settings.phones.replace(/^\s*mob\s*:?\s*/i, '').replace(/\s*\/\s*/, '\n')}` : ''}
         </p>
         <p className="text-center leading-snug">{settings.timings ?? ''}</p>
         <div className="text-right leading-tight">
-          <p className="report-script text-[#7b1b1b] text-[15px]">{settings.technician_name ?? ''}</p>
+          <p className="report-script text-[#7b1b1b] text-[16px]">{settings.technician_name ?? ''}</p>
           <p className="text-[10px]">{settings.technician_qual ?? ''}</p>
         </div>
       </div>
       {settings.equipment_line && (
-        <div className="mt-1 text-[9.5px] font-bold text-gray-900 text-center leading-snug border-t-[3px] border-b-[3px] border-[#7b1b1b] border-double py-1">
+        <div className="mt-1.5 text-[9.5px] font-bold text-gray-900 text-center leading-snug">
           Equipped With {settings.equipment_line.replace(/^\s*equipped with\s*/i, '')}
         </div>
       )}
+      {/* navy rule separating the letterhead from the report body (matches the printed pad) */}
+      <div className="mt-1.5 border-b-[2.5px] border-[#1a3a8f]" />
     </header>
   );
 
@@ -551,13 +553,14 @@ export function ReportPreviewPage() {
       </div>
       {isLast && (
         <>
-          <div className="text-center text-[12px] font-bold mt-2">*** End Of Report ***</div>
-          <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+          <div className="text-center text-[11px] font-bold text-gray-700 mt-2 mb-1">*** End Of Report ***</div>
+          {/* navy rule + standard footer lines, matching the printed letterhead */}
+          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
             <span>NOT FOR MEDICO LEGAL PURPOSE</span>
             <span>ALL TEST ARE AVAILABLE HERE</span>
           </div>
           {settings.footer_tests_line && (
-            <div className="text-center text-[9px] text-gray-500 mt-1 leading-tight">
+            <div className="text-center text-[9.5px] font-bold text-gray-900 mt-1 leading-snug">
               {settings.footer_tests_line}
             </div>
           )}
