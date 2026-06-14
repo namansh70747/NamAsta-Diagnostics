@@ -277,23 +277,6 @@ export function LoginPage() {
           )}
 
           <p className="lg:hidden text-center text-xs text-white/35 mt-8">{settings.lab_name || 'NamAsta Diagnostics'} · v{version}</p>
-
-          {/* DEV ONLY — never rendered in a production build. Resets to genuine first-run so the
-              full pay → key → set-up-lab flow can be tested end to end. */}
-          {import.meta.env.DEV && (
-            <button
-              type="button"
-              onClick={async () => {
-                const { resetInstallForTesting } = await import("@/lib/onboarding");
-                await resetInstallForTesting();
-                localStorage.setItem("namasta_show_onboard", "1");
-                window.location.reload();
-              }}
-              className="mt-5 w-full text-center text-[11px] text-amber-300/70 hover:text-amber-200 transition-colors"
-            >
-              🔧 Dev: reset install & test the new-lab flow
-            </button>
-          )}
         </div>
       </main>
     </div>

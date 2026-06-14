@@ -23,15 +23,21 @@ const PLANS: Plan[] = [
 
 const fieldLabel = "block text-[12px] font-medium text-white/60 mb-1.5";
 
-export function OnboardingPage({ licensed, needSetup, status, onDone, preview }: {
+export function OnboardingPage({ licensed, status, onDone, preview }: {
   licensed: boolean; needSetup: boolean; status: LicenseStatus; onDone: () => void; preview?: boolean;
 }) {
   const [step, setStep] = useState<"activate" | "setup">(licensed && !preview ? "setup" : "activate");
   // Always clear the "show onboarding" request once we leave, so the next launch behaves normally.
   const finishOnboarding = () => { localStorage.removeItem("namasta_show_onboard"); onDone(); };
-  // After a successful activation: a brand-new lab still needs to set up; a RENEWING lab that's
-  // already set up goes straight in (never re-enters its details).
-  const afterActivate = () => { if (needSetup) setStep("setup"); else finishOnboarding(); };
+
+  // Re-read needsSetup from the DB at the moment activation completes — not from the stale prop
+  // captured at mount. A brand-new lab (setup_done missing) → show the lab-details form.
+  // A renewing lab (setup_done = '1') → go straight to sign-in, no re-entering details ever.
+  const afterActivate = async () => {
+    const { needsSetup } = await import("@/lib/onboarding");
+    const fresh = await needsSetup();
+    if (fresh) setStep("setup"); else finishOnboarding();
+  };
   const exitPreview = () => finishOnboarding();
 
   return (
@@ -51,13 +57,12 @@ export function OnboardingPage({ licensed, needSetup, status, onDone, preview }:
 
         {preview && (
           <div className="mt-4 flex items-center gap-2 text-[11px]">
-            <span className="px-2.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-200">Developer preview — real flow: pay → key → set up</span>
-            {import.meta.env.DEV && step === "activate" && (
-              <button onClick={() => setStep("setup")} className="px-2.5 py-1 rounded-full border border-[#818cf8]/40 bg-[#6366f1]/10 text-[#c7cbff] hover:bg-[#6366f1]/20">
-                Skip to setup page →
-              </button>
-            )}
-            <button onClick={exitPreview} className="ml-auto px-2.5 py-1 rounded-full border border-white/15 text-white/50 hover:text-white/80">Exit preview →</button>
+            <span className="px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.05] text-white/50">
+              Subscription management — pay to renew, then enter your new key
+            </span>
+            <button onClick={exitPreview} className="ml-auto px-2.5 py-1 rounded-full border border-white/15 text-white/45 hover:text-white/80 transition-colors">
+              ← Back to sign in
+            </button>
           </div>
         )}
 
