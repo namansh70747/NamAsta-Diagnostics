@@ -30,6 +30,16 @@ export async function setDoctorActive(id: number, active: number): Promise<void>
   await dbExecute('UPDATE doctors SET active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?', [active, id]);
 }
 
+/** Permanently remove a doctor. FK-safe: a doctor referred on any patient can't be deleted
+ *  (it would break that patient's record) — the caller is told to deactivate it instead. */
+export async function deleteDoctor(id: number): Promise<void> {
+  const refs = await dbQuery<{ n: number }>('SELECT COUNT(*) AS n FROM patients WHERE doctor_id=?', [id]);
+  if ((refs[0]?.n ?? 0) > 0) {
+    throw new Error("This doctor is referred on existing patient records, so it can't be deleted. Switch it OFF (deactivate) instead — it then stays hidden from new entries.");
+  }
+  await dbExecute('DELETE FROM doctors WHERE id=?', [id]);
+}
+
 export interface DoctorWithCount extends Doctor {
   referral_count: number;
 }

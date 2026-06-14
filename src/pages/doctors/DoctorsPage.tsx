@@ -6,9 +6,11 @@ import {
   upsertDoctor,
   updateDoctor,
   setDoctorActive,
+  deleteDoctor,
   referralSummary,
   type DoctorWithCount,
 } from "@/lib/queries/doctors";
+import { confirmDialog } from "@/lib/dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +21,7 @@ import {
   BarChart3,
   X,
   Check,
+  Trash2,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
@@ -466,6 +469,22 @@ export function DoctorsPage() {
     onSuccess: invalidate,
   });
 
+  const remove = useMutation({
+    mutationFn: (id: number) => deleteDoctor(id),
+    onSuccess: () => { invalidate(); toast.success("Doctor deleted."); },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not delete doctor."),
+  });
+
+  async function askDelete(d: DoctorWithCount) {
+    const ok = await confirmDialog({
+      title: "Delete this doctor?",
+      message: `Remove "${d.name}" from the referring-doctors list? This can't be undone.`,
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (ok) remove.mutate(d.id);
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return doctors;
@@ -620,6 +639,15 @@ export function DoctorsPage() {
                           className="btn btn-ghost p-1.5"
                         >
                           <BarChart3 size={15} strokeWidth={1.8} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Delete doctor"
+                          title={d.referral_count > 0 ? "Has referrals — deactivate instead" : "Delete this doctor"}
+                          onClick={(e) => { e.stopPropagation(); askDelete(d); }}
+                          className="btn btn-ghost p-1.5 text-[#b91c1c] hover:!bg-[#fdeaea]"
+                        >
+                          <Trash2 size={15} strokeWidth={1.8} />
                         </button>
                       </div>
                     </td>
