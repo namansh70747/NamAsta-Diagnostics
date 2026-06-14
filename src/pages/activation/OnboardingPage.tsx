@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
-import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet } from "lucide-react";
+import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { NamAstaWordmark } from "@/components/common/NamAstaLogo";
 import { activateLicense, type LicenseStatus } from "@/lib/license";
 import { completeSetup } from "@/lib/onboarding";
@@ -194,6 +194,7 @@ function SetupStep({ onDone }: { onDone: () => void }) {
   const set = (k: keyof typeof f) => (v: string) => setF(p => ({ ...p, [k]: v }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   async function finish() {
     setErr("");
@@ -213,7 +214,11 @@ function SetupStep({ onDone }: { onDone: () => void }) {
       toast.success(`Welcome, ${f.labName.trim()}!`);
       onDone();
       navigate("/dashboard");
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -259,16 +264,34 @@ function SetupStep({ onDone }: { onDone: () => void }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className={fieldLabel}>Username *</label>
-            <input value={f.username} onChange={e => set("username")(e.target.value)} placeholder="admin" autoCapitalize="off" spellCheck={false} className="login-input" />
+            <input value={f.username} onChange={e => set("username")(e.target.value)}
+              placeholder="e.g. citylab" autoCapitalize="off" spellCheck={false} className="login-input" />
           </div>
           <div>
             <label className={fieldLabel}>Password *</label>
-            <input type="password" value={f.pw} onChange={e => set("pw")(e.target.value)} placeholder="••••••" className="login-input" />
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={f.pw}
+                onChange={e => set("pw")(e.target.value)} placeholder="Min 4 characters"
+                className="login-input pr-10" />
+              <button type="button" tabIndex={-1} onClick={() => setShowPw(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors">
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className={fieldLabel}>Confirm *</label>
-            <input type="password" value={f.pw2} onChange={e => set("pw2")(e.target.value)} placeholder="••••••"
-              onKeyDown={e => { if (e.key === "Enter") finish(); }} className="login-input" />
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={f.pw2}
+                onChange={e => set("pw2")(e.target.value)} placeholder="Re-enter password"
+                onKeyDown={e => { if (e.key === "Enter") finish(); }}
+                className={cn("login-input pr-10",
+                  f.pw2 && (f.pw === f.pw2 ? "!border-emerald-400/70" : "!border-red-400/60")
+                )} />
+              {f.pw2 && f.pw === f.pw2 && (
+                <CheckCircle2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />
+              )}
+            </div>
           </div>
         </div>
 
