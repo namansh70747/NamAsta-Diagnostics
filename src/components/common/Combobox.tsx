@@ -29,6 +29,7 @@ export function Combobox<T extends string | number>({
   const [hl, setHl] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find(o => o.value === value) ?? null;
 
@@ -39,6 +40,14 @@ export function Combobox<T extends string | number>({
     : options;
 
   useEffect(() => { setHl(0); }, [query, open, filtered.length]);
+
+  // Keep the keyboard-highlighted row visible when arrowing through a long list
+  // (e.g. the 40-doctor dropdown) — otherwise the highlight scrolls out of view.
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-combo-idx="${hl}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [hl, open]);
 
   // Close on outside click.
   useEffect(() => {
@@ -98,13 +107,14 @@ export function Combobox<T extends string | number>({
       </div>
 
       {open && (
-        <div className="card absolute z-20 top-full left-0 right-0 mt-1.5 max-h-60 overflow-y-auto shadow-[var(--shadow-pop)] animate-scale-in py-1">
+        <div ref={listRef} className="card absolute z-20 top-full left-0 right-0 mt-1.5 max-h-60 overflow-y-auto shadow-[var(--shadow-pop)] animate-scale-in py-1">
           {filtered.length === 0 ? (
             <div className="px-4 py-2.5 text-[13px] text-[#a3a5b3]">No matches</div>
           ) : filtered.map((o, i) => (
             <button
               key={o.value}
               type="button"
+              data-combo-idx={i}
               onMouseEnter={() => setHl(i)}
               onMouseDown={e => { e.preventDefault(); pick(o.value); }}
               className={cn(
