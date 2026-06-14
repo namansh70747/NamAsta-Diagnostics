@@ -96,7 +96,7 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
   );
 }
 
-function RestoreWizard({ onInfo }: { onToast: (m: string) => void; onInfo: (m: string) => void }) {
+function RestoreWizard({ onToast: _onToast, onInfo }: { onToast: (m: string) => void; onInfo: (m: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<string | null>(null);
 

@@ -545,7 +545,9 @@ export function ResultEntryPage() {
         <textarea
           value={comment}
           onChange={e => setComment(e.target.value)}
-          onBlur={() => saveReportComment(pid, comment).then(() => qc.invalidateQueries({ queryKey: ['comment', pid] }))}
+          onBlur={() => saveReportComment(pid, comment)
+            .then(() => qc.invalidateQueries({ queryKey: ['comment', pid] }))
+            .catch(e => toast.error(e))}
           rows={3}
           placeholder="Optional comments for the report…"
           className="field resize-y"

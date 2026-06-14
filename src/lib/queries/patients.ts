@@ -141,12 +141,13 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
   if (isNum) {
     sql = `SELECT p.*, d.name as doctor_name,
              b.total, b.concession, b.net, b.received, b.balance, b.mode,
-             COUNT(o.id) as test_count,
-             SUM(CASE WHEN r.approved_at IS NOT NULL THEN 1 ELSE 0 END) as approved_count
+             COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
+             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
            FROM patients p
            LEFT JOIN doctors d ON p.doctor_id=d.id
            LEFT JOIN bills b ON b.patient_id=p.id
            LEFT JOIN orders o ON o.patient_id=p.id
+           LEFT JOIN tests t ON t.id=o.test_id
            LEFT JOIN results r ON r.order_id=o.id
            WHERE p.test_no=?
            GROUP BY p.id ORDER BY p.registered_at DESC LIMIT ?`;
@@ -154,12 +155,13 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
   } else {
     sql = `SELECT p.*, d.name as doctor_name,
              b.total, b.concession, b.net, b.received, b.balance, b.mode,
-             COUNT(o.id) as test_count,
-             SUM(CASE WHEN r.approved_at IS NOT NULL THEN 1 ELSE 0 END) as approved_count
+             COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
+             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
            FROM patients p
            LEFT JOIN doctors d ON p.doctor_id=d.id
            LEFT JOIN bills b ON b.patient_id=p.id
            LEFT JOIN orders o ON o.patient_id=p.id
+           LEFT JOIN tests t ON t.id=o.test_id
            LEFT JOIN results r ON r.order_id=o.id
            WHERE p.name LIKE ? OR p.phone LIKE ?
            GROUP BY p.id ORDER BY p.registered_at DESC LIMIT ?`;
@@ -179,12 +181,13 @@ export async function getTodayPatients(): Promise<PatientWithStatus[]> {
   const rows = await dbQuery<PatientWithStatus & { test_count: number; approved_count: number; doctor_name: string; total: number; concession: number; net: number; received: number; balance: number; mode: string }>(
     `SELECT p.*, d.name as doctor_name,
        b.total, b.concession, b.net, b.received, b.balance, b.mode,
-       COUNT(o.id) as test_count,
-       SUM(CASE WHEN r.approved_at IS NOT NULL THEN 1 ELSE 0 END) as approved_count
+       COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
+       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
      FROM patients p
      LEFT JOIN doctors d ON p.doctor_id=d.id
      LEFT JOIN bills b ON b.patient_id=p.id
      LEFT JOIN orders o ON o.patient_id=p.id
+     LEFT JOIN tests t ON t.id=o.test_id
      LEFT JOIN results r ON r.order_id=o.id
      WHERE date(p.registered_at,'localtime')=date('now','localtime')
      GROUP BY p.id ORDER BY p.registered_at DESC`
@@ -219,12 +222,13 @@ export async function updatePatient(id: number, data: Partial<Patient>, userId: 
 export async function getPatientHistory(name: string, phone: string): Promise<PatientWithStatus[]> {
   const rows = await dbQuery<Patient & { doctor_name: string; total: number; net: number; received: number; balance: number; concession: number; mode: string; test_count: number; approved_count: number }>(
     `SELECT p.*, d.name as doctor_name, b.total, b.concession, b.net, b.received, b.balance, b.mode,
-       COUNT(o.id) as test_count,
-       SUM(CASE WHEN r.approved_at IS NOT NULL THEN 1 ELSE 0 END) as approved_count
+       COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
+       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
      FROM patients p
      LEFT JOIN doctors d ON p.doctor_id=d.id
      LEFT JOIN bills b ON b.patient_id=p.id
      LEFT JOIN orders o ON o.patient_id=p.id
+     LEFT JOIN tests t ON t.id=o.test_id
      LEFT JOIN results r ON r.order_id=o.id
      WHERE p.name=? AND (
         (?<>'' AND p.phone=?)                              -- has a phone: same name + same phone
