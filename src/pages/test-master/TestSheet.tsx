@@ -291,13 +291,30 @@ function RangesTab({
   });
 
   function handleAdd() {
+    // Validate STRICTLY — a NaN low/high silently disables H/L flagging (num < NaN is always
+    // false), so a clearly-abnormal result would print with no flag. That's a patient-safety
+    // hole, so reject bad input here instead of writing NaN into a reference range.
+    const aMin = ageMin.trim() === "" ? 0 : Number(ageMin);
+    const aMax = ageMax.trim() === "" ? 0 : Number(ageMax);
+    const lowN = low.trim() === "" ? null : Number(low);
+    const highN = high.trim() === "" ? null : Number(high);
+
+    if (!Number.isInteger(aMin) || aMin < 0) return onError("Age (min days) must be a whole number ≥ 0.");
+    if (!Number.isInteger(aMax) || aMax < 0) return onError("Age (max days) must be a whole number ≥ 0.");
+    if (aMin > aMax) return onError("Age (min days) cannot be greater than age (max days).");
+    if (lowN !== null && !Number.isFinite(lowN)) return onError("Low value must be a number, or left blank.");
+    if (highN !== null && !Number.isFinite(highN)) return onError("High value must be a number, or left blank.");
+    if (lowN !== null && highN !== null && lowN > highN) return onError("Low value cannot be greater than the high value.");
+    if (lowN === null && highN === null && !rangeText.trim() && !bandText.trim())
+      return onError("Enter a numeric low/high, or a range text (e.g. \"Negative\").");
+
     add.mutate({
       test_id: test.id,
       sex,
-      age_min_days: Number(ageMin) || 0,
-      age_max_days: Number(ageMax) || 0,
-      low: low.trim() === "" ? null : Number(low),
-      high: high.trim() === "" ? null : Number(high),
+      age_min_days: aMin,
+      age_max_days: aMax,
+      low: lowN,
+      high: highN,
       range_text: rangeText.trim() || null,
       band_text: bandText.trim() || null,
     });
