@@ -107,6 +107,12 @@ pub fn run() {
             sql: include_str!("../migrations/0017_lipid_auto_and_interpretation.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 18,
+            description: "exact_lipid_hba1c_text",
+            sql: include_str!("../migrations/0018_exact_lipid_hba1c_text.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
