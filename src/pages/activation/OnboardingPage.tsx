@@ -52,6 +52,11 @@ export function OnboardingPage({ licensed, needSetup, status, onDone, preview }:
         {preview && (
           <div className="mt-4 flex items-center gap-2 text-[11px]">
             <span className="px-2.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-200">Developer preview — real flow: pay → key → set up</span>
+            {import.meta.env.DEV && step === "activate" && (
+              <button onClick={() => setStep("setup")} className="px-2.5 py-1 rounded-full border border-[#818cf8]/40 bg-[#6366f1]/10 text-[#c7cbff] hover:bg-[#6366f1]/20">
+                Skip to setup page →
+              </button>
+            )}
             <button onClick={exitPreview} className="ml-auto px-2.5 py-1 rounded-full border border-white/15 text-white/50 hover:text-white/80">Exit preview →</button>
           </div>
         )}

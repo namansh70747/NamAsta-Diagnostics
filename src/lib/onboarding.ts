@@ -9,6 +9,25 @@ export async function needsSetup(): Promise<boolean> {
 }
 
 /**
+ * DEV/testing only — returns the install to genuine first-run state so the full
+ * pay → activation key → set-up-lab → dashboard flow can be walked through again.
+ * Clears the setup flag + stored licence and resets the admin to the seeded placeholder.
+ * Guarded by import.meta.env.DEV at every call site, so it never ships to customers.
+ */
+export async function resetInstallForTesting(): Promise<void> {
+  await dbExecute("DELETE FROM settings WHERE key IN ('setup_done','license_key')");
+  const admins = await dbQuery<{ id: number }>("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
+  if (admins[0]?.id) {
+    await dbExecute(
+      `UPDATE users SET username='admin', display_name='Administrator',
+       password_hash='$argon2id$placeholder$changeme', force_password_change=1, active=1, updated_at=CURRENT_TIMESTAMP
+       WHERE id=?`,
+      [admins[0].id]
+    );
+  }
+}
+
+/**
  * Complete first-run setup: the lab names itself and creates its own admin login (replacing
  * the seeded placeholder admin). Writes are ungated (there's no session yet). Returns the
  * new admin user for immediate sign-in.
