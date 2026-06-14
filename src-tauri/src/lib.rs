@@ -101,6 +101,12 @@ pub fn run() {
             sql: include_str!("../migrations/0016_fix_setup_and_sharma_text.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 17,
+            description: "lipid_auto_and_interpretation",
+            sql: include_str!("../migrations/0017_lipid_auto_and_interpretation.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
