@@ -359,8 +359,10 @@ export function ReportPreviewPage() {
     if (!patient?.phone) return;
     const msg = buildWhatsAppMessage({
       title: patient.title, name: patient.name, tests: panelSummary(),
-      technicianName: settings.technician_name ?? 'Rajesh Kumar (Vicky)',
-      technicianQual: settings.technician_qual ?? 'DMLT', labName: settings.lab_name || 'the laboratory',
+      // Sign with the lab's own signatory, falling back to the lab name — NEVER a hardcoded
+      // person (that leaked one tenant's signatory onto every other lab's messages).
+      technicianName: settings.technician_name || settings.lab_name || 'the laboratory',
+      technicianQual: settings.technician_qual ?? '', labName: settings.lab_name || 'the laboratory',
     });
     // Fully-automatic Cloud API path (sends the actual PDF) when configured.
     const apiReady = settings.whatsapp_mode === 'api' && settings.bsp_api_key && settings.wa_phone_id;
