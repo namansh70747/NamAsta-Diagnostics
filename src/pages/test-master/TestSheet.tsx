@@ -202,8 +202,8 @@ function DetailsTab({
         </Field>
       )}
       {resultType === "calculated" && (
-        <Field label="Formula" hint="Calculation expression.">
-          <TextInput value={formula} onChange={setFormula} disabled={!canEdit} />
+        <Field label="Formula" hint="Use other tests' Codes with + − * /, e.g. 2 * CHOL + TG  or  TPN - ALB. The Code is the small grey text shown next to each test in the list. It auto-fills on the report; staff can't type it.">
+          <TextInput value={formula} onChange={setFormula} disabled={!canEdit} placeholder="e.g. 2 * CHOL + TG" />
         </Field>
       )}
       <label className="flex items-center gap-2 text-[13px] text-[#54555f] cursor-pointer select-none">

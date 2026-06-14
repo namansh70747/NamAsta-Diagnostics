@@ -129,8 +129,8 @@ export function AddTestDialog({
         )}
         {resultType === "calculated" && (
           <div className="col-span-2">
-            <Field label="Formula" hint="Uses other test codes, e.g. TPN - ALB. Leave blank for built-in formulas (A:G, LDL…).">
-              <TextInput value={formula} onChange={setFormula} placeholder="e.g. TPN - ALB" />
+            <Field label="Formula" hint="Use other tests' Codes with + − * /, e.g. 2 * CHOL + TG  or  TPN - ALB. It auto-fills on the report — staff can't type it.">
+              <TextInput value={formula} onChange={setFormula} placeholder="e.g. 2 * CHOL + TG" />
             </Field>
           </div>
         )}
