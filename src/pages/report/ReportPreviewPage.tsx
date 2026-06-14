@@ -608,7 +608,11 @@ export function ReportPreviewPage() {
                     data-report-page
                     className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
                     style={{
-                      width: '210mm', minHeight: '297mm', padding: '12mm',
+                      width: '210mm',
+                      height: '297mm',          // exact A4 — footer pinned to bottom
+                      overflow: 'hidden',        // never spill outside A4
+                      padding: '12mm',
+                      boxSizing: 'border-box',
                       marginBottom: isLast ? 0 : '18px',
                       fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif',
                       color: '#111', WebkitFontSmoothing: 'antialiased',

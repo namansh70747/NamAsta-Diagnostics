@@ -18,30 +18,38 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
   const targets = pages.length ? pages : [el];
 
   for (let p = 0; p < targets.length; p++) {
-    const canvas = await html2canvas(targets[p], {
+    const target = targets[p];
+
+    // Pin the page to exactly A4 (297mm at 96dpi ≈ 1122px) for the capture so:
+    // (a) short pages fill to A4 — footer sits at the very bottom of the sheet.
+    // (b) the rasterised image is always exactly 210×297mm — no extra blank pages.
+    const prevH = target.style.height;
+    const prevMinH = target.style.minHeight;
+    const prevOverflow = target.style.overflow;
+    const A4_PX = Math.round((297 / 25.4) * 96);   // 297mm → px at 96dpi
+    target.style.height = `${A4_PX}px`;
+    target.style.minHeight = `${A4_PX}px`;
+    target.style.overflow = "hidden";
+
+    const canvas = await html2canvas(target, {
       scale: 2,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
+      width: target.offsetWidth,
+      height: A4_PX,
     });
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    const img = canvas.toDataURL("image/jpeg", 0.95);
 
+    // Restore
+    target.style.height = prevH;
+    target.style.minHeight = prevMinH;
+    target.style.overflow = prevOverflow;
+
+    const imgW = pageW;   // 210mm
+    const img = canvas.toDataURL("image/jpeg", 0.95);
     if (p > 0) pdf.addPage();
-    // Normally one sheet = one page; if a single profile overflows A4, slice it (rare).
-    // 2mm tolerance so a sub-millimetre overshoot from rasterisation rounding doesn't
-    // append an almost-blank extra page.
-    let remaining = imgH;
-    let position = 0;
-    pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
-    remaining -= pageH;
-    while (remaining > 2) {
-      position -= pageH;
-      pdf.addPage();
-      pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
-      remaining -= pageH;
-    }
+    // Image is exactly A4 — place it at (0,0) filling the full page.
+    pdf.addImage(img, "JPEG", 0, 0, imgW, pageH);
   }
   return pdf;
 }
