@@ -243,17 +243,22 @@ export function NewPatientPage() {
 
   const quickPanels = ['CBC', 'LFT', 'KFT', 'LIPID', 'DIAB', 'URINE', 'THY', 'SERO'];
 
-  // Enter = advance to the next field (skips textareas; the test search handles its own Enter).
+  // Enter / ↓ → next field, ↑ → previous field (fast keyboard entry, no mouse). Skips
+  // textareas and the test-search box (which uses arrows to move through its own dropdown).
+  // Fields opted out with tabIndex=-1 (Title, Age unit, the date picker) keep their native
+  // arrow behaviour and are never landed on.
   function handleEnterNext(e: React.KeyboardEvent) {
-    if (e.key !== 'Enter' || e.metaKey || e.ctrlKey) return;   // Cmd/Ctrl+Enter is "save", not "advance"
+    if (e.metaKey || e.ctrlKey) return;   // Cmd/Ctrl+Enter is "save", not "advance"
+    if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     const t = e.target as HTMLElement;
     if (t.tagName === 'TEXTAREA' || t.getAttribute('data-search') === '1') return;
-    e.preventDefault();
     const fields = Array.from(
       e.currentTarget.querySelectorAll<HTMLElement>('input, select')
     ).filter(el => !(el as HTMLInputElement).disabled && el.tabIndex !== -1);
     const idx = fields.indexOf(t);
-    if (idx >= 0 && idx < fields.length - 1) fields[idx + 1].focus();
+    if (idx < 0) return;
+    const target = e.key === 'ArrowUp' ? fields[idx - 1] : fields[idx + 1];
+    if (target) { e.preventDefault(); target.focus(); }
   }
 
   const todayStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });

@@ -212,16 +212,19 @@ export function ResultEntryPage() {
     return () => window.removeEventListener('keydown', h);
   }, [showApprove]);
 
-  // Enter / Down → save current and jump to the next editable result field (fast keyboard entry).
+  // Keyboard-first entry: Enter / ↓ jump to the next editable result field, ↑ to the previous
+  // one — so staff can run up and down the column without touching the mouse. The arrows are
+  // intentionally hijacked from the number-spinner / select-option default; values are typed,
+  // not nudged, in this workflow.
   function focusNextField(e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) {
-    if (e.key !== 'Enter' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    // Skip disabled (approved) fields so Enter never lands focus on a non-editable input.
+    if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    // Skip disabled (approved) fields so focus never lands on a non-editable input.
     const fields = Array.from(document.querySelectorAll<HTMLElement>('[data-rinput]:not([disabled])'));
     const i = fields.indexOf(e.currentTarget);
-    const next = fields[i + 1];
-    if (next) next.focus();
-    else e.currentTarget.blur();
+    if (i === -1) return;
+    const target = e.key === 'ArrowUp' ? fields[i - 1] : fields[i + 1];
+    if (target) { e.preventDefault(); target.focus(); }
+    else if (e.key !== 'ArrowUp') { e.preventDefault(); e.currentTarget.blur(); }
   }
 
   const handleBlur = (o: OrderWithResult) => {
