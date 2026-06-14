@@ -2,6 +2,11 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.1
+
+- Fix the app icon: a proper macOS-style rounded "squircle" with the NamAsta blood-tube mark
+  centred and correct margins (the v1.0.0 icon rendered as a tiny mark in a blank square).
+
 ## v1.0.0 — first public release
 
 - Production release: signed Windows installer + automatic in-app updates over GitHub Releases.
