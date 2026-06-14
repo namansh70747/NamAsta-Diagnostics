@@ -26,10 +26,12 @@ function recordFail(username: string) {
 }
 function clearFails(username: string) { attempts.delete(username.trim().toLowerCase()); }
 
-/** Active usernames for the login account picker (prevents username typos). */
+/** Active usernames for the login account picker (prevents username typos).
+ *  Admins first (the lab's main account), then by username. ORDER BY role text would
+ *  sort 'technician' ahead of 'admin', so the discipline is made explicit with a CASE. */
 export async function listLoginAccounts(): Promise<{ username: string; display_name: string; role: string }[]> {
   return dbQuery<{ username: string; display_name: string; role: string }>(
-    'SELECT username, display_name, role FROM users WHERE active=1 ORDER BY role DESC, username'
+    "SELECT username, display_name, role FROM users WHERE active=1 ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, username"
   );
 }
 
@@ -73,9 +75,11 @@ export async function getUserById(id: number): Promise<User | null> {
 }
 
 export async function getUserByUsername(username: string): Promise<User | null> {
+  // Case-insensitive: usernames are stored lowercase, but a user typing "Admin" or "VICKY"
+  // must still sign in. COLLATE NOCASE matches regardless of the case they enter.
   const rows = await dbQuery<User>(
-    'SELECT * FROM users WHERE username=? AND active=1',
-    [username]
+    'SELECT * FROM users WHERE username=? COLLATE NOCASE AND active=1',
+    [username.trim()]
   );
   return rows[0] ?? null;
 }
