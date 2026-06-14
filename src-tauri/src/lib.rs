@@ -95,6 +95,12 @@ pub fn run() {
             sql: include_str!("../migrations/0015_sharma_doctors.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 16,
+            description: "fix_setup_and_sharma_text",
+            sql: include_str!("../migrations/0016_fix_setup_and_sharma_text.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
