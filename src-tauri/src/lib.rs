@@ -119,6 +119,12 @@ pub fn run() {
             sql: include_str!("../migrations/0019_bun_auto.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 20,
+            description: "glucose_interpretations",
+            sql: include_str!("../migrations/0020_glucose_interpretations.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
