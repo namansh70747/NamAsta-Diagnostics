@@ -187,8 +187,8 @@ export function NewPatientPage() {
     const e: Record<string, string> = {};
     const ageNum = parseFloat(age);
     if (!name.trim()) e.name = "Patient name is required";
-    if (!age || !Number.isFinite(ageNum) || ageNum <= 0) e.age = "Valid age is required";
-    else if (ageNum > 120 && ageUnit === 'YRS') e.age = "Age cannot exceed 120 years";
+    if (!age || !Number.isFinite(ageNum) || (ageUnit === 'DAYS' ? ageNum < 0 : ageNum <= 0)) e.age = "Valid age is required";
+    else if (ageUnit === 'YRS' && ageNum > 120) e.age = "Age cannot exceed 120 years";
     if (phone && !/^\d{10}$/.test(phone)) e.phone = "Phone must be 10 digits";
     if (selectedTests.length === 0) e.tests = "Select at least one test";
     if (concession > total) e.concession = "Concession cannot exceed total";

@@ -11,7 +11,7 @@ export type AgeUnit = 'YRS' | 'MTH' | 'DAYS';
 export function validateAge(age: number, unit: AgeUnit): string | null {
   if (age == null || Number.isNaN(age)) return 'Age is required';
   if (unit === 'DAYS') {
-    if (age < 0) return 'Age must be greater than 0';
+    if (age < 0) return 'Age cannot be negative';
   } else {
     // YRS or MTH: 0 (or negative) not allowed
     if (age <= 0) return 'Age must be greater than 0';

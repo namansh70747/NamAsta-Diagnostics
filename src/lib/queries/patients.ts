@@ -365,7 +365,7 @@ export async function getDashboardStats(): Promise<{
     // rows never carry an approved result. Money totals use bills-only subqueries.
     `SELECT
        COUNT(DISTINCT p.id) as total_patients,
-       COUNT(DISTINCT CASE WHEN p.report_time IS NULL AND o.id IS NOT NULL THEN p.id END) as pending,
+       COUNT(DISTINCT CASE WHEN p.report_time IS NULL AND o.not_done=0 THEN p.id END) as pending,
        COUNT(DISTINCT CASE WHEN p.report_time IS NOT NULL THEN p.id END) as approved,
        (SELECT COALESCE(SUM(b2.received),0) FROM bills b2 JOIN patients p2 ON p2.id=b2.patient_id
           WHERE date(p2.registered_at,'localtime')=date('now','localtime')) as collection,

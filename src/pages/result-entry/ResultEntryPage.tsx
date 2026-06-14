@@ -69,7 +69,10 @@ export function ResultEntryPage() {
 
   useEffect(() => { if (savedComment != null) setComment(savedComment); }, [savedComment]);
 
-  const isApproved = orders.length > 0 && orders.every(o => o.order.not_done || o.test.is_panel || o.test.result_type === 'calculated' || o.result?.approved_at);
+  // A patient is approved iff the DB has set report_time (done by approvePatient atomically).
+  // The old every(not_done || is_panel || ...) check incorrectly returned true when ALL tests
+  // were marked not-done before formal approval, permanently hiding the Approve button.
+  const isApproved = !!patient?.report_time;
 
   // Group orders by panel (bundle rows are billing artifacts — never shown here)
   const visibleOrders = orders.filter(o => !o.test.is_panel);
