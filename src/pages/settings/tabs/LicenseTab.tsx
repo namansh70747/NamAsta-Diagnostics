@@ -70,7 +70,7 @@ export function LicenseTab() {
               </PrimaryButton>
             </div>
             <p className="mt-2 text-[12px] text-[#8a8b97]">
-              Pay your yearly subscription, then paste the key sent to you. Renewing before expiry extends from the new key's date.
+              Pay ₹1,000 annual renewal to Naman Sharma (namsh70747@oksbi), send the screenshot to NamAsta, then paste the key received. Your lab data is never affected by renewal.
             </p>
           </div>
 

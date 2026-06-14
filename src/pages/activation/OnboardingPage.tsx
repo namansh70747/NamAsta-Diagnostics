@@ -14,12 +14,9 @@ const UPI_ID = "namsh70747@oksbi";
 const PAYEE = "Naman Sharma";
 const VENDOR_CONTACT = "the NamAsta team";
 
-interface Plan { id: string; label: string; price: number; per: string; note?: string; best?: boolean; }
-const PLANS: Plan[] = [
-  { id: "monthly", label: "Monthly", price: 500, per: "/ month" },
-  { id: "yearly", label: "Yearly", price: 3000, per: "/ year", note: "Save ₹3,000 vs monthly", best: true },
-  { id: "triennial", label: "3 Years", price: 8000, per: "/ 3 years", note: "Best value" },
-];
+// Pricing: ₹5000 for the first year (new lab), ₹1000 for each renewal.
+const PRICE_NEW     = 5000;   // first-time registration
+const PRICE_RENEWAL = 1000;   // every subsequent year
 
 const fieldLabel = "block text-[12px] font-medium text-white/60 mb-1.5";
 
@@ -68,7 +65,7 @@ export function OnboardingPage({ licensed, status, onDone, preview }: {
 
         {/* Strict order: credentials (setup) are only reachable AFTER a valid activation key. */}
         {step === "activate"
-          ? <ActivateStep status={status} onActivated={afterActivate} />
+          ? <ActivateStep status={status} isRenewal={!!(preview || status.expired)} onActivated={afterActivate} />
           : <SetupStep onDone={finishOnboarding} />}
       </div>
     </div>
@@ -92,8 +89,12 @@ function Stepper({ step, showActivate }: { step: string; showActivate: boolean }
   );
 }
 
-function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActivated: () => void }) {
-  const [plan, setPlan] = useState<Plan>(PLANS[1]);
+function ActivateStep({ status, isRenewal, onActivated }: {
+  status: LicenseStatus; isRenewal: boolean; onActivated: () => void;
+}) {
+  const price = isRenewal ? PRICE_RENEWAL : PRICE_NEW;
+  const upiNote = isRenewal ? "NamAsta Annual Renewal" : "NamAsta New Lab";
+
   const [qr, setQr] = useState("");
   const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
@@ -101,12 +102,11 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const upi = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent("NamAsta " + plan.label)}`;
+    const upi = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${price}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
     QRCode.toDataURL(upi, { errorCorrectionLevel: "M", margin: 1, width: 240, color: { dark: "#14151c", light: "#ffffff" } })
       .then(setQr).catch(() => setQr(""));
-  }, [plan]);
+  }, [price, upiNote]);
 
-  // This PC's device id — the lab sends it with payment so the key is locked to this computer.
   useEffect(() => { getDeviceFingerprint().then(setDeviceId).catch(() => {}); }, []);
 
   function copyDeviceId() {
@@ -125,77 +125,88 @@ function ActivateStep({ status, onActivated }: { status: LicenseStatus; onActiva
 
   return (
     <div className="mt-7 grid lg:grid-cols-2 gap-6 items-start">
+      {/* ── Left: what they're paying for ── */}
       <div className="rounded-3xl border border-white/10 glass-dark p-7">
         <div className="flex items-center gap-2 text-[#c7cbff] text-[12px] font-semibold uppercase tracking-[0.15em]">
-          <Sparkles size={14} /> Register your laboratory
+          <Sparkles size={14} /> {isRenewal ? "Renew your subscription" : "Register your laboratory"}
         </div>
         <h1 className="mt-3 text-[1.9rem] font-extrabold leading-tight">
-          Get started — <span style={{ background: "linear-gradient(120deg,#818cf8,#c7cbff 50%,#67e8f9)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>activate your lab.</span>
+          {isRenewal
+            ? <>Renew for another year —{" "}<span style={{ background: "linear-gradient(120deg,#818cf8,#c7cbff 50%,#67e8f9)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>stay active.</span></>
+            : <>Get started —{" "}<span style={{ background: "linear-gradient(120deg,#818cf8,#c7cbff 50%,#67e8f9)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>activate your lab.</span></>}
         </h1>
-        <p className="mt-3 text-white/55 text-[14px] leading-relaxed">
-          NamAsta needs an <b className="text-white/80">active subscription</b> to run. Choose a
-          plan, pay below, and you'll get an activation key to unlock the app. Everything works
-          offline after that — results, reports, WhatsApp/email delivery, analyzer import &amp; backups.
-        </p>
+
+        {isRenewal ? (
+          <p className="mt-3 text-white/55 text-[14px] leading-relaxed">
+            Pay the annual renewal fee and you'll receive a new activation key. Your lab profile,
+            login, patient history and all data are completely safe — renewing never touches them.
+          </p>
+        ) : (
+          <p className="mt-3 text-white/55 text-[14px] leading-relaxed">
+            NamAsta needs an <b className="text-white/80">active subscription</b> to run.
+            Pay the one-time first-year fee, send your payment screenshot and Device ID,
+            and you'll get an activation key. Everything works fully offline after that.
+          </p>
+        )}
+
+        {/* Price card — single, clear */}
+        <div className="mt-6 rounded-2xl border border-[#818cf8] bg-[#6366f1]/15 shadow-[0_8px_30px_-10px_rgba(99,102,241,0.6)] px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-[15px] font-bold text-white">
+              {isRenewal ? "Annual Renewal" : "First Year"}
+            </p>
+            <p className="text-[12px] text-white/45 mt-0.5">
+              {isRenewal ? "Valid for 1 year from activation" : "Includes setup + 1 year access"}
+            </p>
+            {!isRenewal && (
+              <p className="text-[11.5px] text-[#a5f3fc] mt-1">Renew every year at just ₹1,000</p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-[2.2rem] font-extrabold tabular-nums leading-none">₹{price.toLocaleString("en-IN")}</p>
+            <p className="text-[11px] text-white/45">/ year</p>
+          </div>
+        </div>
+
         {status.expired && (
-          <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">
-            Your {status.plan} subscription for <b>{status.lab}</b> has expired. Renew below to continue — <b>your lab profile, login and data are safe</b>, renewing won't ask for them again.
+          <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">
+            Your subscription for <b>{status.lab}</b> has expired. Renew below — <b>your data is safe</b>.
           </div>
         )}
         {status.deviceMismatch && (
-          <div className="mt-5 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-200">
-            This key isn't registered for <b>this computer</b>. Each key works on up to 2 PCs — send this PC's Device ID (below) to {VENDOR_CONTACT} to add it.
+          <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-200">
+            This key isn't registered for <b>this computer</b>. Each key works on up to 2 PCs — send this PC's Device ID to {VENDOR_CONTACT} to add it.
           </div>
         )}
-        <div className="mt-6 space-y-2.5">
-          {PLANS.map(p => (
-            <button key={p.id} onClick={() => setPlan(p)}
-              className={cn("relative w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all",
-                plan.id === p.id ? "border-[#818cf8] bg-[#6366f1]/15 shadow-[0_8px_30px_-10px_rgba(99,102,241,0.6)]" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]")}>
-              <span className="flex items-center gap-3">
-                <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border", plan.id === p.id ? "border-[#818cf8] bg-[#6366f1]" : "border-white/25")}>
-                  {plan.id === p.id && <Check size={12} strokeWidth={3} />}
-                </span>
-                <span>
-                  <span className="block text-[14px] font-semibold">{p.label}</span>
-                  {p.note && <span className="block text-[11.5px] text-white/45">{p.note}</span>}
-                </span>
-              </span>
-              <span className="text-right">
-                <span className="text-[18px] font-extrabold tabular-nums">₹{p.price.toLocaleString("en-IN")}</span>
-                <span className="block text-[11px] text-white/45">{p.per}</span>
-              </span>
-              {p.best && <span className="absolute right-3 -top-2 chip chip-blue !text-[10px]">Popular</span>}
-            </button>
-          ))}
-        </div>
       </div>
 
+      {/* ── Right: pay + steps ── */}
       <div className="rounded-3xl border border-white/10 glass-dark p-7">
-        <div className="flex items-baseline justify-between">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 1 — Pay to unlock</div>
-          <div className="text-[26px] font-extrabold tabular-nums">₹{plan.price.toLocaleString("en-IN")}<span className="text-[12px] font-medium text-white/45"> {plan.per}</span></div>
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 1 — Pay</div>
+          <div className="text-[26px] font-extrabold tabular-nums">₹{price.toLocaleString("en-IN")}</div>
         </div>
-        <div className="mt-4 flex items-center gap-5">
+        <div className="flex items-center gap-5">
           <div className="rounded-2xl bg-white p-2.5 shrink-0">
             {qr ? <img src={qr} alt="UPI QR" width={132} height={132} /> : <div className="w-[132px] h-[132px] skeleton" />}
           </div>
           <div className="min-w-0 text-[13px] text-white/70 leading-relaxed">
             <p>Scan with any UPI app (GPay / PhonePe / Paytm), or tap:</p>
             <a
-              href={`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent("NamAsta " + plan.label)}`}
+              href={`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${price}&cu=INR&tn=${encodeURIComponent(upiNote)}`}
               className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#16a34a] to-[#15803d] px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_14px_-4px_rgba(21,128,61,0.7)]"
             >
-              <Wallet size={15} /> Pay ₹{plan.price.toLocaleString("en-IN")}
+              <Wallet size={15} /> Pay ₹{price.toLocaleString("en-IN")}
             </a>
             <p className="mt-2.5 text-white/45">Paying <span className="font-semibold text-white">{PAYEE}</span></p>
             <p className="font-mono text-[12px] text-[#c7cbff] break-all">{UPI_ID}</p>
           </div>
         </div>
-        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Send your Device ID</div>
+
+        <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Send your Device ID with payment screenshot</div>
         <p className="mt-2 text-[13px] text-white/55 leading-relaxed">
-          Your key is locked to this computer. Send this <b className="text-white/85">Device ID</b> with your
-          payment screenshot — each key works on up to <b className="text-white/85">2 PCs</b>.
+          Your key is locked to this computer (up to <b className="text-white/85">2 PCs</b> per key).
+          Copy this Device ID and send it to {VENDOR_CONTACT} along with your payment screenshot.
         </p>
         <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
           <Monitor size={16} className="text-[#c7cbff] shrink-0" />

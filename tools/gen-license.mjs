@@ -6,11 +6,15 @@
  * The app embeds only the matching PUBLIC key and can VERIFY keys but never mint them —
  * so a customer cannot forge their own.
  *
+ * Pricing model:
+ *   New lab (first registration) : ₹5,000  → 1 year  → use "yearly"
+ *   Annual renewal               : ₹1,000  → 1 year  → use "yearly"
+ *   Your own labs                : lifetime → use "lifetime"
+ *
  * Usage:
- *   node tools/gen-license.mjs "Lab Name" yearly
- *   node tools/gen-license.mjs "City Diagnostics" monthly
+ *   node tools/gen-license.mjs "City Diagnostics" yearly          (new lab OR renewal)
  *   node tools/gen-license.mjs "Sharma Clinical Laboratory" lifetime
- *   node tools/gen-license.mjs "Some Lab" 90        (custom: 90 days)
+ *   node tools/gen-license.mjs "Some Lab" 90                      (custom: 90 days)
  *
  * Device-locking (recommended for PAID keys — max 2 PCs per key):
  *   node tools/gen-license.mjs "City Diagnostics" yearly A3F90C12B4D7
