@@ -125,6 +125,12 @@ pub fn run() {
             sql: include_str!("../migrations/0020_glucose_interpretations.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 21,
+            description: "more_interpretations",
+            sql: include_str!("../migrations/0021_more_interpretations.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
