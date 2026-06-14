@@ -91,7 +91,11 @@ export function ReportPreviewPage() {
   // Calculated rows (e.g. A/G Ratio) are derived and may be blank when their inputs don't
   // allow a value — they must NOT gate approval. Only entered (non-calculated) tests do.
   const gatingOrders = activeOrders.filter(o => o.test.result_type !== 'calculated');
-  const isApproved = gatingOrders.length > 0 && gatingOrders.every(o => o.result?.approved_at);
+  // report_time is the authoritative approval flag (set atomically by approvePatient, cleared
+  // by unlock). Keying off it — instead of re-deriving from every row's approved_at — keeps the
+  // report page consistent with result-entry and stays correct even for all-not-done patients
+  // (where there are no gating rows to inspect). handleApprove still guards the zero-result case.
+  const isApproved = !!patient?.report_time;
 
   // Auto-deliver the report ONCE, right after it is approved — emailed to every patient who
   // has an email + SMTP set up, and (when the WhatsApp Cloud API is configured) sent on
