@@ -495,7 +495,7 @@ export function ReportPreviewPage() {
           <div className="flex items-start justify-between gap-2">
             <h1 className="report-title text-[#7b1b1b]">{labName}</h1>
             {settings.address_line && (
-              <p className="text-right text-[10.5px] font-bold text-gray-900 leading-tight pt-1 max-w-[210px]">
+              <p className="text-right text-[10.5px] font-bold uppercase text-gray-900 leading-tight pt-1 max-w-[210px]">
                 {settings.address_line}
               </p>
             )}
@@ -509,7 +509,11 @@ export function ReportPreviewPage() {
         <p className="font-bold text-[#7b1b1b] leading-snug whitespace-pre-line">
           {settings.phones ? `Mob : ${settings.phones.replace(/^\s*mob\s*:?\s*/i, '').replace(/\s*\/\s*/, '\n')}` : ''}
         </p>
-        <p className="text-center leading-snug">{settings.timings ?? ''}</p>
+        {settings.timings && (
+          <p className="text-center leading-snug whitespace-pre-line">
+            {"Timing : " + settings.timings.replace(/\s*\|\s*/, "\n")}
+          </p>
+        )}
         <div className="text-right leading-tight">
           <p className="report-script text-[#7b1b1b] text-[16px]">{settings.technician_name ?? ''}</p>
           <p className="text-[10px]">{settings.technician_qual ?? ''}</p>
@@ -553,9 +557,8 @@ export function ReportPreviewPage() {
       </div>
       {isLast && (
         <>
-          <div className="text-center text-[11px] font-bold text-gray-700 mt-2 mb-1">*** End Of Report ***</div>
           {/* navy rule + standard footer lines, matching the printed letterhead */}
-          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
+          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 mt-2 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
             <span>NOT FOR MEDICO LEGAL PURPOSE</span>
             <span>ALL TEST ARE AVAILABLE HERE</span>
           </div>
