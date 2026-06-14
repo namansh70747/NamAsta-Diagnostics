@@ -1,5 +1,5 @@
 import { dbQuery, dbExecute, getDb } from '@/lib/db';
-import { Patient, PatientWithStatus, NewPatientInput, Bill, PaymentMode } from '@/types';
+import { Patient, PatientWithStatus, NewPatientInput, Bill, PaymentMode, PatientStatus } from '@/types';
 import { getSetting, setSetting } from './settings';
 import { writeAudit } from './audit';
 import { nowISO } from '@/lib/format';
@@ -142,7 +142,8 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
     sql = `SELECT p.*, d.name as doctor_name,
              b.total, b.concession, b.net, b.received, b.balance, b.mode,
              COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
-             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
+             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count,
+             ${DELIVERED_FLAG_SQL}
            FROM patients p
            LEFT JOIN doctors d ON p.doctor_id=d.id
            LEFT JOIN bills b ON b.patient_id=p.id
@@ -156,7 +157,8 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
     sql = `SELECT p.*, d.name as doctor_name,
              b.total, b.concession, b.net, b.received, b.balance, b.mode,
              COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
-             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
+             SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count,
+             ${DELIVERED_FLAG_SQL}
            FROM patients p
            LEFT JOIN doctors d ON p.doctor_id=d.id
            LEFT JOIN bills b ON b.patient_id=p.id
@@ -168,21 +170,22 @@ export async function searchPatients(query: string, limit = 50): Promise<Patient
     params = [`${query}%`, `${query}%`, limit];
   }
 
-  type FlatRow = Patient & { doctor_name: string; total: number; concession: number; net: number; received: number; balance: number; mode: string; test_count: number; approved_count: number };
+  type FlatRow = Patient & { doctor_name: string; total: number; concession: number; net: number; received: number; balance: number; mode: string; test_count: number; approved_count: number; delivered: number };
   const rows = await dbQuery<FlatRow>(sql, params);
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: (r.mode as PaymentMode) ?? 'CASH' } as Bill,
-    status: deriveStatus(r.test_count, r.report_time),
+    status: deriveStatus(r.test_count, r.report_time, !!r.delivered),
   }));
 }
 
 export async function getTodayPatients(): Promise<PatientWithStatus[]> {
-  const rows = await dbQuery<PatientWithStatus & { test_count: number; approved_count: number; doctor_name: string; total: number; concession: number; net: number; received: number; balance: number; mode: string }>(
+  const rows = await dbQuery<PatientWithStatus & { test_count: number; approved_count: number; doctor_name: string; total: number; concession: number; net: number; received: number; balance: number; mode: string; delivered: number }>(
     `SELECT p.*, d.name as doctor_name,
        b.total, b.concession, b.net, b.received, b.balance, b.mode,
        COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
-       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
+       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count,
+       ${DELIVERED_FLAG_SQL}
      FROM patients p
      LEFT JOIN doctors d ON p.doctor_id=d.id
      LEFT JOIN bills b ON b.patient_id=p.id
@@ -195,7 +198,7 @@ export async function getTodayPatients(): Promise<PatientWithStatus[]> {
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: r.mode as never ?? 'CASH' },
-    status: deriveStatus(r.test_count, r.report_time),
+    status: deriveStatus(r.test_count, r.report_time, !!r.delivered),
   }));
 }
 
@@ -220,10 +223,11 @@ export async function updatePatient(id: number, data: Partial<Patient>, userId: 
 /** All past visits for a returning patient (matched by name + phone) — for the
  *  history Sheet and "copy from previous visit". */
 export async function getPatientHistory(name: string, phone: string): Promise<PatientWithStatus[]> {
-  const rows = await dbQuery<Patient & { doctor_name: string; total: number; net: number; received: number; balance: number; concession: number; mode: string; test_count: number; approved_count: number }>(
+  const rows = await dbQuery<Patient & { doctor_name: string; total: number; net: number; received: number; balance: number; concession: number; mode: string; test_count: number; approved_count: number; delivered: number }>(
     `SELECT p.*, d.name as doctor_name, b.total, b.concession, b.net, b.received, b.balance, b.mode,
        COUNT(CASE WHEN t.is_panel=0 AND o.not_done=0 THEN 1 END) as test_count,
-       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count
+       SUM(CASE WHEN r.approved_at IS NOT NULL AND t.is_panel=0 AND o.not_done=0 THEN 1 ELSE 0 END) as approved_count,
+       ${DELIVERED_FLAG_SQL}
      FROM patients p
      LEFT JOIN doctors d ON p.doctor_id=d.id
      LEFT JOIN bills b ON b.patient_id=p.id
@@ -240,7 +244,7 @@ export async function getPatientHistory(name: string, phone: string): Promise<Pa
   return rows.map(r => ({
     ...r,
     bill: { id: 0, patient_id: r.id, total: r.total ?? 0, concession: r.concession ?? 0, net: r.net ?? 0, received: r.received ?? 0, balance: r.balance ?? 0, mode: (r.mode as PaymentMode) ?? 'CASH' },
-    status: deriveStatus(r.test_count, r.report_time),
+    status: deriveStatus(r.test_count, r.report_time, !!r.delivered),
   }));
 }
 
@@ -337,12 +341,22 @@ export async function updateBill(patientId: number, data: Partial<Bill>): Promis
  * Approval status from report_time — set by approvePatient. Counting approved results
  * against COUNT(orders) was wrong: bundle rows, not-done rows and uncomputable calculated
  * rows never get an approved result, so multi-test patients were stuck on "results pending".
+ * Once a report has actually been sent to the patient (WhatsApp/Email/SMS, tracked in
+ * delivery_log) it reads "delivered" — otherwise the "Delivered" filter/chip were dead UI.
  */
-function deriveStatus(testCount: number, reportTime: string | null): 'registered' | 'results_pending' | 'approved' {
-  if (reportTime) return 'approved';
+function deriveStatus(testCount: number, reportTime: string | null, delivered = false): PatientStatus {
+  if (reportTime) return delivered ? 'delivered' : 'approved';
   if (testCount === 0) return 'registered';
   return 'results_pending';
 }
+
+// A correlated subquery flag: 1 when the patient has had at least one successful
+// patient-facing delivery (printing / local PDF do NOT count — they aren't "sent").
+const DELIVERED_FLAG_SQL = `EXISTS(
+  SELECT 1 FROM delivery_log dl
+   WHERE dl.patient_id = p.id AND dl.status IN ('sent','delivered')
+     AND dl.channel IN ('whatsapp_api','whatsapp_semi','email','sms')
+) AS delivered`;
 
 export async function getDashboardStats(): Promise<{
   todayCount: number;
