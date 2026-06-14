@@ -113,6 +113,12 @@ pub fn run() {
             sql: include_str!("../migrations/0018_exact_lipid_hba1c_text.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 19,
+            description: "bun_auto",
+            sql: include_str!("../migrations/0019_bun_auto.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
