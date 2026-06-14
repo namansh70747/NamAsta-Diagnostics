@@ -143,6 +143,12 @@ pub fn run() {
             sql: include_str!("../migrations/0023_age_group_ranges.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 24,
+            description: "complete_ranges",
+            sql: include_str!("../migrations/0024_complete_ranges.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
