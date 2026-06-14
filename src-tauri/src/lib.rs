@@ -137,6 +137,12 @@ pub fn run() {
             sql: include_str!("../migrations/0022_soften_interpretations.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 23,
+            description: "age_group_ranges",
+            sql: include_str!("../migrations/0023_age_group_ranges.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -228,6 +228,17 @@ function DetailsTab({
   );
 }
 
+function ageLabel(min: number, max: number): string {
+  if (min === 0 && max >= 36500) return "All ages";
+  if (min === 0 && max <= 28)   return "Neonate (0–28 d)";
+  if (min <= 29 && max <= 366)  return "Infant (1–12 mo)";
+  if (min <= 366 && max <= 4380) return "Child (1–12 yr)";
+  if (min <= 4381 && max <= 6570) return "Adolescent (12–18 yr)";
+  if (min >= 6000 && max >= 36500) return "Adult (18+ yr)";
+  const d = (days: number) => days < 30 ? `${days}d` : days < 365 ? `${Math.round(days/30)}mo` : `${Math.round(days/365)}yr`;
+  return `${d(min)} – ${d(max)}`;
+}
+
 function sexChip(sex: TestRange["sex"]) {
   if (sex === "M") return { cls: "chip-blue", label: "M" };
   if (sex === "F") return { cls: "chip-red", label: "F" };
@@ -257,6 +268,18 @@ function RangesTab({
   const [sex, setSex] = useState<"M" | "F" | "ANY">("ANY");
   const [ageMin, setAgeMin] = useState("0");
   const [ageMax, setAgeMax] = useState("36500");
+
+  // Age-group presets so the lab can pick "Child" / "Adult" without calculating days.
+  const AGE_GROUPS = [
+    { label: "All ages",            min: 0,     max: 36500 },
+    { label: "Neonate (0–28 d)",    min: 0,     max: 28    },
+    { label: "Infant (1–12 mo)",    min: 29,    max: 365   },
+    { label: "Child (1–12 yr)",     min: 366,   max: 4380  },
+    { label: "Adolescent (12–18 yr)",min: 4381, max: 6570  },
+    { label: "Adult (18+ yr)",      min: 6571,  max: 36500 },
+    { label: "Adult Male",          min: 6571,  max: 36500 },
+    { label: "Adult Female",        min: 6571,  max: 36500 },
+  ];
   const [low, setLow] = useState("");
   const [high, setHigh] = useState("");
   const [rangeText, setRangeText] = useState("");
@@ -353,8 +376,8 @@ function RangesTab({
                         </>
                       )}
                     </div>
-                    <div className="text-[11.5px] text-[#8a8b97] tabular-nums mt-0.5">
-                      {r.age_min_days}–{r.age_max_days} days
+                    <div className="text-[11.5px] text-[#8a8b97] mt-0.5">
+                      {ageLabel(r.age_min_days, r.age_max_days)}
                     </div>
                     {r.band_text && (
                       <div className="text-[11.5px] text-[#8a8b97] mt-0.5 truncate">{r.band_text}</div>
@@ -381,18 +404,37 @@ function RangesTab({
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-3">
             Add Range
           </p>
+          {/* Age-group preset — fills min/max days automatically */}
+          <div className="mb-1">
+            <p className="text-[11px] font-medium text-[#8a8b97] mb-2">Age group (quick fill)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {AGE_GROUPS.map(g => (
+                <button
+                  key={g.label}
+                  type="button"
+                  onClick={() => { setAgeMin(String(g.min)); setAgeMax(String(g.max)); }}
+                  className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium border transition-colors
+                    ${ageMin === String(g.min) && ageMax === String(g.max)
+                      ? "bg-[#eef0fe] border-[#6366f1] text-[#4338ca]"
+                      : "bg-white border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff]"}`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-4 gap-3">
             <Field label="Sex">
               <Select value={sex} onChange={(v) => setSex(v as "M" | "F" | "ANY")}>
                 <option value="ANY">Any</option>
-                <option value="M">M</option>
-                <option value="F">F</option>
+                <option value="M">M (Male)</option>
+                <option value="F">F (Female)</option>
               </Select>
             </Field>
-            <Field label="Age min (d)">
+            <Field label="Age from (days)" hint="0 = birth">
               <TextInput value={ageMin} onChange={setAgeMin} type="number" numeric />
             </Field>
-            <Field label="Age max (d)">
+            <Field label="Age to (days)" hint="36500 = no limit">
               <TextInput value={ageMax} onChange={setAgeMax} type="number" numeric />
             </Field>
             <Field label="Low">
@@ -402,7 +444,7 @@ function RangesTab({
               <TextInput value={high} onChange={setHigh} type="number" numeric placeholder="—" />
             </Field>
             <div className="col-span-3">
-              <Field label="Range text" hint="Overrides low/high.">
+              <Field label="Range text" hint="Overrides low/high on the report (e.g. 70 - 110).">
                 <TextInput value={rangeText} onChange={setRangeText} placeholder="e.g. < 40" />
               </Field>
             </div>
