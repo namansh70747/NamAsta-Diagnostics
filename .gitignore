@@ -32,3 +32,6 @@ this-is-a-plan-logical-blum.md
 
 # license signing private key — NEVER commit
 tools/license-key.secret
+
+# update-signing private key — NEVER commit (used to sign auto-update packages)
+.secrets/

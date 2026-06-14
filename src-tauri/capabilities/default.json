@@ -14,6 +14,8 @@
     "sql:allow-select",
     "sql:allow-close",
     "fs:default",
-    "shell:default"
+    "shell:default",
+    "updater:default",
+    "process:default"
   ]
 }

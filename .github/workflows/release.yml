@@ -1,4 +1,8 @@
-name: Release Windows Installer
+name: Release (Windows)
+
+# Builds the signed Windows installer + auto-update artifacts and publishes a GitHub Release
+# whenever a version tag is pushed (e.g. `git tag v1.0.1 && git push origin v1.0.1`).
+# The release includes `latest.json`, which installed apps poll to auto-update themselves.
 
 on:
   push:
@@ -29,21 +33,28 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Build Tauri Windows app
+      - name: Build & publish (signed installer + updater artifacts)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The updater private key + password. Set these in the repo's
+          # Settings → Secrets and variables → Actions. Without them the build fails,
+          # because the app only trusts updates signed by the matching public key.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'SCL Lab App ${{ github.ref_name }}'
+          releaseName: 'NamAsta Diagnostics ${{ github.ref_name }}'
           releaseBody: |
-            Sharma Clinical Laboratory — Lab Management System
+            ## NamAsta Diagnostics ${{ github.ref_name }}
 
-            **Installation:** Download `scl-lab-app_x.x.x_x64-setup.exe` and run it on the lab PC.
+            **New install:** download the `.exe` setup file below and run it on the lab PC.
 
-            See the [changelog](CHANGELOG.md) for details.
+            **Existing labs:** you don't need to do anything — the app checks for updates
+            automatically. Or open **Settings → System → Check for updates** to install now.
+            Your patients, doctors, tests and reports are never affected by an update.
+
+            See the [changelog](https://github.com/namansh70747/scl-lab-app/blob/master/CHANGELOG.md) for details.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, AlertTriangle } from "lucide-react";
+import { Save, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
 import { Card, TabHeader, TextField, PrimaryButton, SecondaryButton, NoteBox } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
 import { invoke, isTauri } from "@/lib/tauri";
 import { confirmDialog } from "@/lib/dialog";
+import { checkForUpdate, installUpdate } from "@/lib/updates";
 
 const KEYS = ["next_test_no", "financial_year", "backup_retention_days"];
 
 export function SystemTab({ settings }: { settings: Record<string, string> }) {
   const f = useSettingsForm(settings, KEYS);
   const [version, setVersion] = useState("…");
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,8 +48,38 @@ export function SystemTab({ settings }: { settings: Record<string, string> }) {
     if (await f.save()) f.toast.success("System settings saved.");
   }
 
-  function checkUpdates() {
-    f.toast.success("Updates are handled automatically by the auto-updater in the packaged app.");
+  async function checkUpdates() {
+    if (!isTauri()) {
+      setUpdateStatus("Update checks run in the installed desktop app.");
+      return;
+    }
+    setUpdateBusy(true);
+    setUpdateStatus("Checking for updates…");
+    try {
+      const update = await checkForUpdate();
+      if (!update) {
+        setUpdateStatus(`You're on the latest version (v${version}).`);
+        return;
+      }
+      const ok = await confirmDialog({
+        title: `Update available — v${update.version}`,
+        message: `A new version (v${update.version}) is ready to install.${update.body ? `\n\nWhat's new:\n${update.body}` : ""}\n\nThe app will download it and restart. Your data is not affected.`,
+        confirmText: "Update & restart",
+      });
+      if (!ok) {
+        setUpdateStatus(`Update v${update.version} is available — run the check again when you're ready.`);
+        return;
+      }
+      setUpdateStatus("Downloading update… 0%");
+      await installUpdate(update, (pct) => setUpdateStatus(`Downloading update… ${pct}%`));
+      // installUpdate relaunches the app on success, so this point is normally not reached.
+      setUpdateStatus("Update installed — restarting…");
+    } catch (e) {
+      setUpdateStatus(null);
+      f.toast.error(`Update check failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setUpdateBusy(false);
+    }
   }
 
   return (
@@ -100,11 +133,14 @@ export function SystemTab({ settings }: { settings: Record<string, string> }) {
           <span className="text-[#54555f]">App version</span>
           <span className="font-mono text-[#14151c] tabular-nums">{version}</span>
         </div>
-        <div>
-          <SecondaryButton onClick={checkUpdates}>
-            <RefreshCw size={15} strokeWidth={1.8} />
-            Check for updates
+        <div className="space-y-2">
+          <SecondaryButton onClick={checkUpdates} disabled={updateBusy}>
+            {updateBusy
+              ? <Loader2 size={15} strokeWidth={1.8} className="animate-spin" />
+              : <RefreshCw size={15} strokeWidth={1.8} />}
+            {updateBusy ? "Working…" : "Check for updates"}
           </SecondaryButton>
+          {updateStatus && <p className="text-[12.5px] text-[#54555f]">{updateStatus}</p>}
         </div>
       </Card>
     </div>

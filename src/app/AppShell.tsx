@@ -12,6 +12,8 @@ import { maybeDailyBackup } from "@/lib/backup";
 import { NamAstaMark, NamAstaWordmark } from "@/components/common/NamAstaLogo";
 import { getUserById } from "@/lib/queries/auth";
 import { getLicenseStatus, type LicenseStatus } from "@/lib/license";
+import { checkForUpdate } from "@/lib/updates";
+import { toast } from "@/lib/toast";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", key: "D" },
@@ -44,6 +46,23 @@ export function AppShell() {
     window.addEventListener("offline", off);
     void maybeDailyBackup();
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+
+  // Quietly check for a new version on app open. Admins (who own Settings, where the install
+  // button lives) get a one-line nudge; we never auto-install mid-session. Failures are silent
+  // — an offline lab must never be nagged about update checks it can't make.
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    let cancelled = false;
+    checkForUpdate()
+      .then((update) => {
+        if (!cancelled && update) {
+          toast.info(`Update available (v${update.version}). Open Settings → System to install it.`);
+        }
+      })
+      .catch(() => { /* offline / endpoint unreachable — stay quiet */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-validate the persisted session against the DB on app open: if the user was
