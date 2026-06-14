@@ -493,7 +493,9 @@ export function ResultEntryPage() {
                         />
                       )}
                     </td>
-                    <td className="px-5 py-2.5 text-[12.5px] text-[#8a8b97]">{o.test.unit}</td>
+                    <td className="px-5 py-2.5 text-[12.5px] text-[#8a8b97]">
+                      {range?.unit || o.test.unit}
+                    </td>
                     <td className="px-5 py-2.5 text-[12.5px] text-[#8a8b97] tabular-nums">
                       {displayRange(range) || (range?.band_text ? <span className="italic">{range.band_text.split(' / ')[0]}</span> : '')}
                     </td>

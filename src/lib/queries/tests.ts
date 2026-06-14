@@ -111,10 +111,11 @@ export async function upsertRange(range: Omit<TestRange, 'id' | 'created_at'>): 
     throw new Error('Minimum age cannot be greater than maximum age.');
   }
   await dbExecute(
-    `INSERT INTO test_ranges(test_id,sex,age_min_days,age_max_days,low,high,range_text,band_text)
-     VALUES(?,?,?,?,?,?,?,?)`,
+    `INSERT INTO test_ranges(test_id,sex,age_min_days,age_max_days,low,high,range_text,band_text,unit)
+     VALUES(?,?,?,?,?,?,?,?,?)`,
     [range.test_id, range.sex, range.age_min_days, range.age_max_days,
-     range.low ?? null, range.high ?? null, range.range_text ?? null, range.band_text ?? null]
+     range.low ?? null, range.high ?? null, range.range_text ?? null, range.band_text ?? null,
+     range.unit?.trim() || null]
   );
   await writeAudit(currentUserId(), 'range.create', 'test_ranges', range.test_id, null, range);
 }

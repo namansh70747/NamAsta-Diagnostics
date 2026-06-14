@@ -58,6 +58,7 @@ export interface TestRange {
   high: number | null;
   range_text: string | null;
   band_text: string | null;
+  unit?: string | null;   // overrides the test's default unit for this age group; null = use test default
 }
 
 export interface Doctor {

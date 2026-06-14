@@ -149,6 +149,12 @@ pub fn run() {
             sql: include_str!("../migrations/0024_complete_ranges.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 25,
+            description: "range_unit",
+            sql: include_str!("../migrations/0025_range_unit.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -242,7 +242,15 @@ export function ReportPreviewPage() {
         <td className={cn("py-[3px] px-2 align-top tabular-nums text-gray-950", abnormal && "font-bold")}>
           {value || '—'}{abnormal && <span className="font-bold">{marker}</span>}
         </td>
-        <td className="py-[3px] px-2 align-top text-gray-800">{o.test.unit && o.test.unit !== '—' ? o.test.unit : ''}</td>
+        <td className="py-[3px] px-2 align-top text-gray-800">
+          {(() => {
+            const matchedRange = patient
+              ? findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit))
+              : null;
+            const unit = matchedRange?.unit || o.test.unit;
+            return unit && unit !== '—' ? unit : '';
+          })()}
+        </td>
         <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
       </tr>
     );

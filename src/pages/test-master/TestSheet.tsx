@@ -284,6 +284,7 @@ function RangesTab({
   const [high, setHigh] = useState("");
   const [rangeText, setRangeText] = useState("");
   const [bandText, setBandText] = useState("");
+  const [rangeUnit, setRangeUnit] = useState("");
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["test-ranges", test.id] });
 
@@ -296,6 +297,7 @@ function RangesTab({
       setHigh("");
       setRangeText("");
       setBandText("");
+      setRangeUnit("");
     },
     onError: (e: unknown) => onError(e instanceof Error ? e.message : "Failed to add range."),
   });
@@ -340,6 +342,7 @@ function RangesTab({
       high: highN,
       range_text: rangeText.trim() || null,
       band_text: bandText.trim() || null,
+      unit: rangeUnit.trim() || null,
     });
   }
 
@@ -379,6 +382,9 @@ function RangesTab({
                     <div className="text-[11.5px] text-[#8a8b97] mt-0.5">
                       {ageLabel(r.age_min_days, r.age_max_days)}
                     </div>
+                    {r.unit && (
+                      <div className="text-[11.5px] font-medium text-[#4f46e5] mt-0.5">Unit: {r.unit}</div>
+                    )}
                     {r.band_text && (
                       <div className="text-[11.5px] text-[#8a8b97] mt-0.5 truncate">{r.band_text}</div>
                     )}
@@ -449,9 +455,14 @@ function RangesTab({
               </Field>
             </div>
           </div>
-          <Field label="Band text" hint="Multi-band / interpretation line (optional).">
-            <TextInput value={bandText} onChange={setBandText} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Unit for this age group" hint="Leave blank to use the test's default unit. E.g. set '/cumm' for adults and '10^3/µL' for paediatric.">
+              <TextInput value={rangeUnit} onChange={setRangeUnit} placeholder="e.g. /cumm" />
+            </Field>
+            <Field label="Band text" hint="Multi-band / interpretation line (optional).">
+              <TextInput value={bandText} onChange={setBandText} />
+            </Field>
+          </div>
           <div className="flex justify-end">
             <button onClick={handleAdd} disabled={add.isPending} className="btn btn-primary">
               <Plus size={15} strokeWidth={2.2} /> {add.isPending ? "Adding…" : "Add Range"}
