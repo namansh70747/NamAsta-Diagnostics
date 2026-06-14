@@ -559,8 +559,9 @@ export function ReportPreviewPage() {
       </div>
       {isLast && (
         <>
+          <div className="text-center text-[12px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
           {/* navy rule + standard footer lines, matching the printed letterhead */}
-          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 mt-2 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
+          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
             <span>NOT FOR MEDICO LEGAL PURPOSE</span>
             <span>ALL TEST ARE AVAILABLE HERE</span>
           </div>
