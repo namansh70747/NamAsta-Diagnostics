@@ -8,7 +8,7 @@ import { User } from "@/types";
 import { cn } from "@/lib/utils";
 import {
   Eye, EyeOff, Lock, ShieldCheck, Zap, Database, Loader2,
-  ArrowRight, AlertCircle, CheckCircle2, UserRound, Building2,
+  ArrowRight, AlertCircle, CheckCircle2, UserRound, Building2, KeyRound,
 } from "lucide-react";
 import { NamAstaMark, NamAstaWordmark } from "@/components/common/NamAstaLogo";
 import { getAllSettings } from "@/lib/queries/settings";
@@ -201,21 +201,33 @@ export function LoginPage() {
                 </button>
               </form>
 
-              {/* Only show registration CTA if this is a fresh install (setup not done yet).
-                  A logged-out lab should never see this — it would let them accidentally
-                  wipe their own identity and doctor list. */}
-              {settings.setup_done !== '1' && (
-                <div className="mt-6 pt-5 border-t border-white/10">
-                  <p className="text-[13px] text-white/55 mb-2.5">First time here? Don't have a lab account yet?</p>
+              {/* Entry to the pay/activate + setup wizard. Always reachable.
+                  • Fresh install (no setup yet) → prominent "Register your laboratory" CTA.
+                  • Already-registered lab → a quieter "Renew / manage subscription" link.
+                  It is SAFE for a registered lab: the data-writing setup step is only reachable
+                  when the lab still needs setup, so this can never wipe an existing lab. */}
+              <div className="mt-6 pt-5 border-t border-white/10">
+                {settings.setup_done !== '1' ? (
+                  <>
+                    <p className="text-[13px] text-white/55 mb-2.5">First time here? Don't have a lab account yet?</p>
+                    <button
+                      type="button"
+                      onClick={() => { localStorage.setItem('namasta_show_onboard', '1'); window.location.reload(); }}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#818cf8]/40 bg-[#6366f1]/10 px-4 py-3 text-[14px] font-semibold text-[#c7cbff] hover:bg-[#6366f1]/20 transition-colors"
+                    >
+                      <Building2 size={17} /> Register your laboratory
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
                     onClick={() => { localStorage.setItem('namasta_show_onboard', '1'); window.location.reload(); }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#818cf8]/40 bg-[#6366f1]/10 px-4 py-3 text-[14px] font-semibold text-[#c7cbff] hover:bg-[#6366f1]/20 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 text-[13px] text-white/45 hover:text-white/75 transition-colors"
                   >
-                    <Building2 size={17} /> Register your laboratory
+                    <KeyRound size={14} /> Renew or manage subscription
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           ) : (
             <>
