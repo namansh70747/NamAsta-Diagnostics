@@ -1,6 +1,7 @@
 import { Save } from "lucide-react";
 import { Card, TabHeader, TextField, PrimaryButton } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
+import { SCLLogo } from "@/components/common/SCLLogo";
 
 const KEYS = [
   "lab_name",
@@ -67,6 +68,7 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
       <Card>
         <TabHeader title="Live preview" subtitle="Approximate report header using the values above." />
         <HeaderPreview
+          logo={settings.logo_data}
           labName={f.get("lab_name") || "SHARMA CLINICAL LABORATORY"}
           address={f.get("address_line")}
           phones={f.get("phones")}
@@ -82,6 +84,7 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
 }
 
 function HeaderPreview(props: {
+  logo?: string;
   labName: string;
   address: string;
   phones: string;
@@ -95,7 +98,9 @@ function HeaderPreview(props: {
     <div className="mt-3 border border-[#e6e7ee] rounded-xl overflow-hidden bg-white shadow-[var(--shadow-card)]">
       <div className="px-5 pt-4 pb-3 text-center">
         <div className="flex items-start justify-between gap-3 text-left">
-          <div className="w-12 h-12 rounded-full bg-blue-700 text-white flex items-center justify-center font-bold text-sm shrink-0">SCL</div>
+          {props.logo
+            ? <img src={props.logo} alt="lab logo" className="h-12 w-auto object-contain shrink-0" />
+            : <SCLLogo height={40} className="shrink-0" />}
           <div className="flex-1 text-center">
             <div className="text-xl font-extrabold text-[#7b1b1b] leading-tight">{props.labName}</div>
             <div className="inline-block mt-1 border border-[#7b1b1b] text-[#7b1b1b] text-[10px] font-bold px-2 py-0.5 rounded">
