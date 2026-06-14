@@ -20,9 +20,12 @@ const PRICE_RENEWAL = 1000;   // every subsequent year
 
 const fieldLabel = "block text-[12px] font-medium text-white/60 mb-1.5";
 
-export function OnboardingPage({ licensed, status, onDone, preview }: {
+export function OnboardingPage({ licensed, needSetup, status, onDone, preview }: {
   licensed: boolean; needSetup: boolean; status: LicenseStatus; onDone: () => void; preview?: boolean;
 }) {
+  // A lab that still needs setup = brand new (first year ₹5000). A lab already set up = a
+  // returning lab that's renewing (₹1000). This is the single source of truth for the price.
+  const isRenewal = !needSetup;
   const [step, setStep] = useState<"activate" | "setup">(licensed && !preview ? "setup" : "activate");
   // Always clear the "show onboarding" request once we leave, so the next launch behaves normally.
   const finishOnboarding = () => { localStorage.removeItem("namasta_show_onboard"); onDone(); };
@@ -55,7 +58,7 @@ export function OnboardingPage({ licensed, status, onDone, preview }: {
         {preview && (
           <div className="mt-4 flex items-center gap-2 text-[11px]">
             <span className="px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.05] text-white/50">
-              Subscription management — pay to renew, then enter your new key
+              {isRenewal ? "Subscription management — pay to renew, then enter your new key" : "Register a new laboratory — pay, then set it up"}
             </span>
             <button onClick={exitPreview} className="ml-auto px-2.5 py-1 rounded-full border border-white/15 text-white/45 hover:text-white/80 transition-colors">
               ← Back to sign in
@@ -65,7 +68,7 @@ export function OnboardingPage({ licensed, status, onDone, preview }: {
 
         {/* Strict order: credentials (setup) are only reachable AFTER a valid activation key. */}
         {step === "activate"
-          ? <ActivateStep status={status} isRenewal={!!(preview || status.expired)} onActivated={afterActivate} />
+          ? <ActivateStep status={status} isRenewal={isRenewal} onActivated={afterActivate} />
           : <SetupStep onDone={finishOnboarding} />}
       </div>
     </div>
