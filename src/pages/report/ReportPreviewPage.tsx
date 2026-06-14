@@ -228,41 +228,43 @@ export function ReportPreviewPage() {
       </tr>
     </thead>
   );
-  const renderRows = (rows: OrderWithResult[]) => rows.map(o => {
+  const renderRows = (rows: OrderWithResult[]) => rows.flatMap(o => {
     const value = resultValue(o);
     const flag = flagOf(o);
     const abnormal = flag !== '';
     // High/Low get an arrow so the direction is unmistakable; qualitative-abnormal gets a *.
     const marker = flag === 'H' ? ' ↑ H' : flag === 'L' ? ' ↓ L' : flag === 'A' ? ' *' : '';
-    return (
+    // Multi-part ranges (e.g. "Normal <200 / Borderline 200-239 / High ≥240") print one per line.
+    const range = rangeText(o);
+    return [
       <tr key={o.order.id}>
-        <td className="py-[3px] pr-2 text-gray-950">{o.test.name}</td>
-        <td className={cn("py-[3px] px-2 tabular-nums text-gray-950", abnormal && "font-bold")}>
+        <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
+        <td className={cn("py-[3px] px-2 align-top tabular-nums text-gray-950", abnormal && "font-bold")}>
           {value || '—'}{abnormal && <span className="font-bold">{marker}</span>}
         </td>
-        <td className="py-[3px] px-2 text-gray-800">{o.test.unit && o.test.unit !== '—' ? o.test.unit : ''}</td>
-        <td className="py-[3px] pl-2 text-gray-800">{rangeText(o)}</td>
-      </tr>
-    );
+        <td className="py-[3px] px-2 align-top text-gray-800">{o.test.unit && o.test.unit !== '—' ? o.test.unit : ''}</td>
+        <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
+      </tr>,
+      // Per-test interpretation box, printed right under the test (matches the pad's glucose layout).
+      o.test.interpretation_note ? (
+        <tr key={o.order.id + '-note'}>
+          <td colSpan={4} className="pt-1 pb-2">
+            <div className="border border-gray-700 px-2.5 py-1.5 text-[9.5px] text-gray-900 leading-[1.5] whitespace-pre-line">
+              {o.test.interpretation_note}
+            </div>
+          </td>
+        </tr>
+      ) : null,
+    ].filter(Boolean);
   });
   const renderNotes = (rows: OrderWithResult[]) => {
-    const note = rows.find(r => r.test.interpretation_note)?.test.interpretation_note;
-    // Resolve the band text from the patient-matched range, not ranges[0] — otherwise a
-    // male patient could get the female band, or an adult the neonatal band.
+    // Interpretation boxes now print per-test inside the table (see renderRows). Here we only
+    // emit the patient-matched band text, resolved for THIS patient's sex/age (never ranges[0]).
     const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
     const band = patient
       ? rows.map(r => findRange(r.ranges, patient.sex, ageDays)?.band_text).find(Boolean)
       : undefined;
-    return (
-      <>
-        {band && <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div>}
-        {note && (
-          <div className="mt-2 border border-gray-700 px-2.5 py-1.5 text-[9.5px] text-gray-900 leading-[1.5] whitespace-pre-line">
-            {note}
-          </div>
-        )}
-      </>
-    );
+    return band ? <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div> : null;
   };
 
   async function withLog(channel: 'print' | 'pdf' | 'whatsapp_semi' | 'whatsapp_api' | 'email' | 'sms', target: string, key: string, fn: () => Promise<void> | void) {
