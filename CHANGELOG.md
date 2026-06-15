@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.1
+
+- CBC analyzer now reads the Dymind DH3x (and other HL7 v2 cell counters). Previously the app
+  only understood ASTM "R|" records, so it received the data but matched zero parameters
+  ("Data received, but no parameters matched"). It now parses HL7 OBX result lines (WBC, HGB,
+  RBC, PLT, LYM%/GRAN%/MID% and the rest), which map straight onto the lab's CBC test codes.
+
 ## v1.1.0
 
 - Editable reports: an "Edit report" button on the report preview makes it editable like a

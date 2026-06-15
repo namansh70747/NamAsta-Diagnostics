@@ -67,6 +67,29 @@ export function parseAnalyzer(raw: string): AnalyzerReading {
   const lines = cleaned.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
   const values: Record<string, AnalyzerValue> = {};
 
+  // ── HL7 v2 (Dymind / Mindray-style cell counters) ──
+  // e.g.  OBX|7|NM|6690-2^WBC^LN||9.31|10*3/uL|3.50-9.50|~N|||F
+  //   field 2 = value type (NM numeric, IS coded), field 3 = id "code^NAME^system",
+  //   field 5 = value, field 6 = unit. We take the NAME (2nd component) as the parameter.
+  if (lines.some((l) => /^MSH\|/i.test(l) || /^OBX\|/i.test(l))) {
+    for (const line of lines) {
+      const f = line.split("|");
+      if (!/^OBX$/i.test(f[0] ?? "")) continue;
+      const vtype = (f[2] ?? "").toUpperCase();
+      const idParts = (f[3] ?? "").split("^").filter(Boolean);
+      const label = idParts[1] || idParts[0] || "";   // prefer the human label (WBC, HGB, …)
+      const value = (f[5] ?? "").trim();
+      const unit = (f[6] ?? "").trim();
+      if (!label || value === "") continue;
+      const num = /^-?\d+(?:\.\d+)?$/.exec(value);
+      // Only real measurements — skip coded modes/remarks (IS, non-numeric).
+      if (vtype === "NM" || num) {
+        values[normKey(label)] = { value: num ? num[0] : value, unit };
+      }
+    }
+    return { values, histograms: parseHistograms(lines), raw };
+  }
+
   let sawAstmResult = false;
   for (const line of lines) {
     // ASTM result record:  R|seq|^^^WBC|6.5|10^3/uL|...   (a frame number may prefix the R)

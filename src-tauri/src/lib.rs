@@ -167,6 +167,12 @@ pub fn run() {
             sql: include_str!("../migrations/0027_report_override.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 28,
+            description: "urine_quantity",
+            sql: include_str!("../migrations/0028_urine_quantity.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

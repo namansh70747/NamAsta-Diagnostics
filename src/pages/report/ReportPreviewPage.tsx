@@ -236,10 +236,10 @@ export function ReportPreviewPage() {
   const renderHead = () => (
     <thead>
       <tr>
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[34%]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[18%]">Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[14%]">Units</th>
-        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[34%]">Normal Ranges</th>
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[38%]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[14%]">Results</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[10%]">Units</th>
+        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[38%]">Normal Ranges</th>
       </tr>
     </thead>
   );
