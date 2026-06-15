@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.4
+
+- Reports no longer print High / Low (↑H ↓L) flags or abnormal-value bolding — the result
+  column is clean. (Flags are still computed and stored internally; they just aren't shown.)
+- Widal is now reported in full: the four agglutinin-titre lines (S. Typhi "O" & "H",
+  S. Paratyphi "AH" & "BH", each selectable 1:20 → 1:640) plus separate Widal IgG / IgM lines.
+  The existing "Widal Test" / "Widal Test (Tube Method)" stay as the billable items.
+
 ## v1.1.3
 
 - Settings → Analyzer → Capture raw: added a "Copy all" button on the raw-output box (and the

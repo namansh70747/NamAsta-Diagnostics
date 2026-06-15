@@ -7,7 +7,7 @@ import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
-import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
+import { patientAgeDays, findRange, displayRange } from "@/lib/flags";
 import { generateReportQR } from "@/lib/qr";
 import { revealInFolder } from "@/lib/printing";
 import { saveReportPdf, printReportPdf } from "@/lib/pdf";
@@ -220,13 +220,6 @@ export function ReportPreviewPage() {
     return o.result?.value ?? '';
   }
 
-  function flagOf(o: OrderWithResult): '' | 'H' | 'L' | 'A' {
-    if (!patient) return '';
-    const v = resultValue(o);
-    if (!v) return '';
-    return computeFlag(o.test.result_type, v, o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit));
-  }
-
   function rangeText(o: OrderWithResult): string {
     if (!patient) return '';
     return displayRange(findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit)));
@@ -245,17 +238,17 @@ export function ReportPreviewPage() {
   );
   const renderRows = (rows: OrderWithResult[]) => rows.map(o => {
     const value = resultValue(o);
-    const flag = flagOf(o);
-    const abnormal = flag !== '';
-    // High/Low get an arrow so the direction is unmistakable; qualitative-abnormal gets a *.
-    const marker = flag === 'H' ? ' ↑ H' : flag === 'L' ? ' ↓ L' : flag === 'A' ? ' *' : '';
+    // High/Low (↑H ↓L) and qualitative-abnormal (*) markers are intentionally NOT printed on
+    // the report — the lab prefers a clean result column with no flags. Out-of-range emphasis
+    // (bold) is dropped for the same reason. (The flag is still computed & stored on save for
+    // internal use; it just isn't shown on the printed/sent report.)
     // Multi-part ranges (e.g. "Normal <200 / Borderline 200-239 / High ≥240") print one per line.
     const range = rangeText(o);
     return (
       <tr key={o.order.id}>
         <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
-        <td className={cn("py-[3px] px-2 align-top tabular-nums text-gray-950", abnormal && "font-bold")}>
-          {value || '—'}{abnormal && <span className="font-bold">{marker}</span>}
+        <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
+          {value || '—'}
         </td>
         <td className="py-[3px] px-2 align-top text-gray-800">
           {(() => {
