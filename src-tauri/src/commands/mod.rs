@@ -680,9 +680,15 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
                 if e.kind() == std::io::ErrorKind::WouldBlock
                     || e.kind() == std::io::ErrorKind::TimedOut =>
             {
+                // Completion is normally signalled by the analyzer CLOSING the connection
+                // (the Ok(0) arm above). This idle timer is only a fallback for machines that
+                // keep the socket open. It must be generous: a cell counter sends the numeric
+                // results, then PAUSES while it renders the histogram bitmap, then sends that.
+                // A short timeout (the old 2 s) ended the capture in that gap and lost the
+                // graphs. 24 × 500 ms = 12 s of continuous silence before we give up.
                 if !acc.is_empty() {
                     idle_after_data += 1;
-                    if idle_after_data >= 4 {
+                    if idle_after_data >= 24 {
                         break;
                     }
                 }

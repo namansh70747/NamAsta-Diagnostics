@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.2
+
+- Analyzer capture no longer cuts off early. The cell counter sends the numeric results, then
+  pauses while it renders the histogram, then sends it — the old 2-second idle timeout ended the
+  capture in that gap (losing the graphs and the last few values). It now waits up to 12 seconds
+  of silence (and stops instantly when the machine closes the connection), so the full
+  transmission — including the histogram — comes through.
+
 ## v1.1.1
 
 - CBC analyzer now reads the Dymind DH3x (and other HL7 v2 cell counters). Previously the app

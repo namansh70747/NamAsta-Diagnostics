@@ -173,6 +173,12 @@ pub fn run() {
             sql: include_str!("../migrations/0028_urine_quantity.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 29,
+            description: "iggm_split",
+            sql: include_str!("../migrations/0029_iggm_split.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
