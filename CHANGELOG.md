@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.3
+
+- Settings → Analyzer → Capture raw: added a "Copy all" button on the raw-output box (and the
+  text is now one-click select-all), so the machine's raw transmission can be copied easily for
+  support / format checks.
+
 ## v1.1.2
 
 - Analyzer capture no longer cuts off early. The cell counter sends the numeric results, then

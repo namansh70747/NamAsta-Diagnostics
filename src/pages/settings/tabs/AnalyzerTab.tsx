@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Cable } from "lucide-react";
+import { Save, RefreshCw, Cable, Copy, Check } from "lucide-react";
 import { Card, TabHeader, TextField, SelectField, PrimaryButton, SecondaryButton, NoteBox } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
 import { listSerialPorts, readSerialRaw, readTcpRaw, localIps } from "@/lib/serial";
@@ -15,6 +15,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
   const [busy, setBusy] = useState(false);
   const [raw, setRaw] = useState<string>("");
   const [pcIps, setPcIps] = useState<string[]>([]);
+  const [rawCopied, setRawCopied] = useState(false);
 
   const conn = f.get("analyzer_conn") || "network";
   const tcpMode = f.get("analyzer_tcp_mode") || "listen";
@@ -146,8 +147,21 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
 
       {raw && (
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1.5">Raw output</div>
-          <pre className="max-h-56 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[11px] leading-relaxed p-3 whitespace-pre-wrap break-all">{raw}</pre>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Raw output</div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(raw)
+                  .then(() => { setRawCopied(true); setTimeout(() => setRawCopied(false), 1500); })
+                  .catch(() => f.toast.error("Could not copy — select the text and press Ctrl+C."));
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-[#fafafe] transition-colors"
+            >
+              {rawCopied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy all</>}
+            </button>
+          </div>
+          <pre className="max-h-56 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[11px] leading-relaxed p-3 whitespace-pre-wrap break-all select-all">{raw}</pre>
         </div>
       )}
     </Card>
