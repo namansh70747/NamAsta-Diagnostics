@@ -7,7 +7,7 @@ import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
-import { patientAgeDays, findRange, displayRange } from "@/lib/flags";
+import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
 import { generateReportQR } from "@/lib/qr";
 import { revealInFolder } from "@/lib/printing";
 import { saveReportPdf, printReportPdf } from "@/lib/pdf";
@@ -49,6 +49,16 @@ const DEPARTMENT: Record<string, string> = {
   MISC: 'MISCELLANEOUS',
 };
 const deptOf = (p: Panel): string => DEPARTMENT[p.code] ?? p.report_heading;
+
+/** CBC test-code → section header (LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES). */
+const CBC_SECTION: Record<string, string> = {
+  WBC: 'LEUKOCYTES', LYM_PCT: 'LEUKOCYTES', MID_PCT: 'LEUKOCYTES', GRAN_PCT: 'LEUKOCYTES',
+  LYM_NUM: 'LEUKOCYTES', MID_NUM: 'LEUKOCYTES', GRAN_NUM: 'LEUKOCYTES',
+  RBC_CNT: 'ERYTHROCYTES', HGB: 'ERYTHROCYTES', HCT: 'ERYTHROCYTES', MCV: 'ERYTHROCYTES',
+  MCH: 'ERYTHROCYTES', MCHC: 'ERYTHROCYTES', RDW_SD: 'ERYTHROCYTES', RDW_CV: 'ERYTHROCYTES',
+  PLT_CBC: 'THROMBOCYTES', MPV: 'THROMBOCYTES', PCT_CBC: 'THROMBOCYTES',
+  PDW_SD: 'THROMBOCYTES', PDW_CV: 'THROMBOCYTES', PLCR: 'THROMBOCYTES', PLCC: 'THROMBOCYTES',
+};
 
 export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -238,31 +248,66 @@ export function ReportPreviewPage() {
   );
   const renderRows = (rows: OrderWithResult[]) => rows.map(o => {
     const value = resultValue(o);
-    // High/Low (↑H ↓L) and qualitative-abnormal (*) markers are intentionally NOT printed on
-    // the report — the lab prefers a clean result column with no flags. Out-of-range emphasis
-    // (bold) is dropped for the same reason. (The flag is still computed & stored on save for
-    // internal use; it just isn't shown on the printed/sent report.)
-    // Multi-part ranges (e.g. "Normal <200 / Borderline 200-239 / High ≥240") print one per line.
+    const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
+    const flag = patient ? computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays) : '';
+    const isAbnormal = flag === 'H' || flag === 'L';
     const range = rangeText(o);
+    const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
+    const unit = matchedRange?.unit || o.test.unit;
     return (
       <tr key={o.order.id}>
         <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
-        <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
+        <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
           {value || '—'}
         </td>
         <td className="py-[3px] px-2 align-top text-gray-800">
-          {(() => {
-            const matchedRange = patient
-              ? findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit))
-              : null;
-            const unit = matchedRange?.unit || o.test.unit;
-            return unit && unit !== '—' ? unit : '';
-          })()}
+          {unit && unit !== '—' ? unit : ''}
         </td>
         <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
       </tr>
     );
   });
+
+  /** CBC-specific renderer: inserts LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES section headers
+   *  and bolds out-of-range values — matching the H360's own printed layout. */
+  const renderCbcRows = (rows: OrderWithResult[]) => {
+    if (!patient) return renderRows(rows);
+    const ageDays = patientAgeDays(patient.age, patient.age_unit);
+    const out: React.ReactNode[] = [];
+    let currentSection = '';
+    for (const o of rows) {
+      const section = CBC_SECTION[o.test.code] ?? '';
+      if (section && section !== currentSection) {
+        currentSection = section;
+        out.push(
+          <tr key={`hdr-${section}`}>
+            <td colSpan={4} className="pt-2 pb-[2px] text-[11px] font-bold text-black uppercase tracking-wide border-b border-gray-500">
+              {section}
+            </td>
+          </tr>
+        );
+      }
+      const value = resultValue(o);
+      const flag = computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays);
+      const isAbnormal = flag === 'H' || flag === 'L';
+      const range = rangeText(o);
+      const matchedRange = findRange(o.ranges, patient.sex, ageDays);
+      const unit = matchedRange?.unit || o.test.unit;
+      out.push(
+        <tr key={o.order.id}>
+          <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
+          <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+            {value || '—'}
+          </td>
+          <td className="py-[3px] px-2 align-top text-gray-800">
+            {unit && unit !== '—' ? unit : ''}
+          </td>
+          <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
+        </tr>
+      );
+    }
+    return out;
+  };
   const renderNotes = (rows: OrderWithResult[]) => {
     // Interpretation boxes print AFTER the whole test table (never between rows) — one box per
     // test that carries an interpretation, in order. Plus the patient-matched band text.
@@ -694,7 +739,7 @@ export function ReportPreviewPage() {
                             )}
                             <table className="w-full table-fixed text-[12px] border-collapse">
                               {renderHead()}
-                              <tbody>{renderRows(pg.orders)}</tbody>
+                              <tbody>{pg.panel.code === 'CBC' ? renderCbcRows(pg.orders) : renderRows(pg.orders)}</tbody>
                             </table>
                             {renderNotes(pg.orders)}
                             {pg.panel.code === 'CBC' && <HistogramRow histos={histograms} />}

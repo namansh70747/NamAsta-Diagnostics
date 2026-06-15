@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.5
+
+- CBC report now matches the H360's own printed layout: results are grouped under
+  LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES section headers with a divider line, and
+  out-of-range values are printed in bold (no ↑H / ↓L text — just bold), exactly as the
+  machine's own printout shows.
+
 ## v1.1.4
 
 - Reports no longer print High / Low (↑H ↓L) flags or abnormal-value bolding — the result
