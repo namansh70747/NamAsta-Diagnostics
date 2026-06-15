@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.3
+
+- Fix the window not fitting / not scrolling on smaller or display-scaled laptops (e.g.
+  1366×768 or 125–150% scaling): the window now opens maximized and allows a much smaller
+  minimum size, so its bottom edge can't fall off-screen. Also made the login screen scroll
+  on short windows instead of clipping its content.
+
 ## v1.0.2
 
 - App icon: transparent corners restored (v1.0.1 rendered the squircle on an opaque white
