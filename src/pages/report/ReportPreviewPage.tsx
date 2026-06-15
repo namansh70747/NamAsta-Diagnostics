@@ -2,7 +2,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/lib/session";
 import { getPatientById, getBill } from "@/lib/queries/patients";
-import { getOrdersWithResults, getReportComment, approvePatient } from "@/lib/queries/results";
+import { getOrdersWithResults, getReportComment, approvePatient, getReportOverride, saveReportOverride, clearReportOverride } from "@/lib/queries/results";
 import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { HistogramRow } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2 } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -62,6 +62,12 @@ export function ReportPreviewPage() {
   const [showWatermark, setShowWatermark] = useState(true);
   const [showSignature, setShowSignature] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  // In-app report editing: when `editing`, the report sheet is contentEditable seeded with
+  // `editSeed`; saving stores the edited HTML so the report screen (and every print/send)
+  // shows the edited version until "Revert to original".
+  const [editing, setEditing] = useState(false);
+  const [editSeed, setEditSeed] = useState("");
+  const editRef = useRef<HTMLDivElement>(null);
   // Pre-printed letterhead paper: when OFF, the physical print drops the header/footer
   // and shifts the body down so the data lands inside the paper's printed frame. Digital
   // copies (PDF, WhatsApp, email) always include the full letterhead.
@@ -81,6 +87,7 @@ export function ReportPreviewPage() {
   const { data: bill } = useQuery({ queryKey: ['bill', pid], queryFn: () => getBill(pid) });
   const { data: comment = '' } = useQuery({ queryKey: ['comment', pid], queryFn: () => getReportComment(pid) });
   const { data: histograms } = useQuery({ queryKey: ['histograms', pid], queryFn: () => getHistograms(pid) });
+  const { data: reportOverride } = useQuery({ queryKey: ['report-override', pid], queryFn: () => getReportOverride(pid) });
   const { data: qr = '' } = useQuery({
     queryKey: ['qr', pid, patient?.test_no, patient?.report_time],
     queryFn: () => generateReportQR(patient!.test_no, patient!.name, patient!.report_time),
@@ -489,6 +496,33 @@ export function ReportPreviewPage() {
     }
   }
 
+  // ── In-app report editing ──
+  function startEdit() {
+    // Seed the editor with whatever is on screen now (the saved edit if any, else the
+    // freshly-generated report). The user then edits it like a document.
+    const el = document.getElementById('report-print-area');
+    setEditSeed(reportOverride ?? el?.innerHTML ?? "");
+    setEditing(true);
+  }
+  async function saveEdit() {
+    const html = editRef.current?.innerHTML ?? "";
+    if (!html.trim()) { setEditing(false); return; }
+    try {
+      await saveReportOverride(pid, html);
+      await qc.invalidateQueries({ queryKey: ['report-override', pid] });
+      setEditing(false);
+      toast.success("Saved. This edited report is what prints & sends.");
+    } catch (e) { toast.error(e); }
+  }
+  async function revertEdit() {
+    try {
+      await clearReportOverride(pid);
+      await qc.invalidateQueries({ queryKey: ['report-override', pid] });
+      setEditing(false);
+      toast.success("Reverted to the original report.");
+    } catch (e) { toast.error(e); }
+  }
+
   if (!patient) return <div className="p-8 text-center text-gray-400">Loading…</div>;
 
   const genderLabel = patient.sex === 'MALE' ? 'Male' : patient.sex === 'FEMALE' ? 'Female' : 'Other';
@@ -612,6 +646,24 @@ export function ReportPreviewPage() {
 
         <div className="overflow-auto pb-8">
           <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
+            {editing ? (
+              <div
+                id="report-print-area"
+                ref={editRef}
+                contentEditable
+                suppressContentEditableWarning
+                className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
+                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, outline: '2px dashed #6366f1' }}
+                dangerouslySetInnerHTML={{ __html: editSeed }}
+              />
+            ) : reportOverride ? (
+              <div
+                id="report-print-area"
+                className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
+                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
+                dangerouslySetInnerHTML={{ __html: reportOverride }}
+              />
+            ) : (
             <div
               id="report-print-area"
               className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
@@ -667,6 +719,7 @@ export function ReportPreviewPage() {
                 );
               })}
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -691,12 +744,48 @@ export function ReportPreviewPage() {
               <div className="h-px bg-[#eef0f4] my-1" />
             </>
           )}
-          <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved} busy={busy === 'print'} primary />
-          <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved} busy={busy === 'pdf'} />
-          <OutputBtn icon={MessageCircle} label="WhatsApp" onClick={handleWhatsApp} done={sent.whatsapp} disabled={!isApproved || !patient?.phone} busy={busy === 'whatsapp'} green />
-          <OutputBtn icon={Mail} label="Email" onClick={handleEmail} done={sent.email} disabled={!isApproved || !patient?.email} busy={busy === 'email'} />
-          <OutputBtn icon={Smartphone} label="SMS" onClick={handleSms} done={sent.sms} disabled={!isApproved || !patient?.phone} busy={busy === 'sms'} />
+          <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
+          <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
+          <OutputBtn icon={MessageCircle} label="WhatsApp" onClick={handleWhatsApp} done={sent.whatsapp} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'whatsapp'} green />
+          <OutputBtn icon={Mail} label="Email" onClick={handleEmail} done={sent.email} disabled={!isApproved || editing || !patient?.email} busy={busy === 'email'} />
+          <OutputBtn icon={Smartphone} label="SMS" onClick={handleSms} done={sent.sms} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'sms'} />
         </div>
+
+        {isApproved && (
+          <div className="card p-4 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Edit report</p>
+            {editing ? (
+              <>
+                <p className="text-[12px] text-[#54555f] leading-snug">
+                  Click into the report and change any text — add lines, fix wording, delete what
+                  you don't need. Then Save; the edited report is what prints &amp; sends.
+                </p>
+                <button onClick={saveEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white btn-success">
+                  <Save size={16} strokeWidth={1.8} /> Save edits
+                </button>
+                <button onClick={() => setEditing(false)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#54555f] border border-[#e6e7ee] hover:bg-[#fafafe]">
+                  <X size={15} strokeWidth={1.8} /> Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                {reportOverride && (
+                  <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
+                    This report has manual edits — they're what print &amp; send.
+                  </p>
+                )}
+                <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
+                  <Pencil size={15} strokeWidth={1.8} /> Edit report
+                </button>
+                {reportOverride && (
+                  <button onClick={revertEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#b91c1c] border border-[#f0d3d3] hover:bg-[#fdf6f6]">
+                    <RotateCcw size={15} strokeWidth={1.8} /> Revert to original
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="card p-4 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Layout</p>

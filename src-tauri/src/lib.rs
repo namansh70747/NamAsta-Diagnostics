@@ -161,6 +161,12 @@ pub fn run() {
             sql: include_str!("../migrations/0026_typhidot.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 27,
+            description: "report_override",
+            sql: include_str!("../migrations/0027_report_override.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

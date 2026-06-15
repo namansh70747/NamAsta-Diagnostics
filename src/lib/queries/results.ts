@@ -105,21 +105,10 @@ export async function saveResult(orderId: number, value: string, flag: string, u
 export async function approvePatient(patientId: number, userId: number): Promise<void> {
   assertCan('approve');
 
-  // Integrity gate (§4.14): every active ordered test must have a saved result.
-  // Tests with no value must be explicitly marked "not done" first.
-  const missing = await dbQuery<{ name: string }>(
-    `SELECT t.name FROM orders o
-     JOIN tests t ON o.test_id = t.id
-     LEFT JOIN results r ON r.order_id = o.id
-     WHERE o.patient_id = ? AND o.not_done = 0 AND t.result_type != 'calculated'
-       AND (r.id IS NULL OR r.value IS NULL OR TRIM(r.value) = '')`,
-    [patientId]
-  );
-  if (missing.length > 0) {
-    throw new Error(
-      `Cannot approve — no result entered for: ${missing.map(m => m.name).join(', ')}. Enter values or mark them "not done".`
-    );
-  }
+  // No "every test must be filled" gate: the lab often runs only some of an ordered panel and
+  // leaves the rest blank on purpose. Blank tests are simply left OFF the printed report (the
+  // report prints only filled rows), so approving with blanks is allowed — only the values that
+  // were actually entered get approved and printed.
 
   const db = await getDb();
   // The pool has no real transaction, so guard against a half-applied approval (results
@@ -196,4 +185,25 @@ export async function saveReportComment(patientId: number, comment: string): Pro
      ON CONFLICT(patient_id) DO UPDATE SET comment=excluded.comment, updated_at=CURRENT_TIMESTAMP`,
     [patientId, comment]
   );
+}
+
+/** Edited-report HTML for a patient (null = none; show the auto-generated report). */
+export async function getReportOverride(patientId: number): Promise<string | null> {
+  const rows = await dbQuery<{ html: string }>('SELECT html FROM report_overrides WHERE patient_id=?', [patientId]);
+  return rows[0]?.html ?? null;
+}
+
+/** Save the user's edited report HTML — printed & delivered in place of the generated one. */
+export async function saveReportOverride(patientId: number, html: string): Promise<void> {
+  await dbExecute(
+    `INSERT INTO report_overrides(patient_id, html, updated_at)
+     VALUES(?,?,CURRENT_TIMESTAMP)
+     ON CONFLICT(patient_id) DO UPDATE SET html=excluded.html, updated_at=CURRENT_TIMESTAMP`,
+    [patientId, html]
+  );
+}
+
+/** Discard edits — the report reverts to the auto-generated version. */
+export async function clearReportOverride(patientId: number): Promise<void> {
+  await dbExecute('DELETE FROM report_overrides WHERE patient_id=?', [patientId]);
 }

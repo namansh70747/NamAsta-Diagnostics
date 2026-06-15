@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.0
+
+- Editable reports: an "Edit report" button on the report preview makes it editable like a
+  document — change/add/delete any text, then Save. The edited version is stored and is what
+  prints, WhatsApps and emails. "Revert to original" restores the auto-generated report.
+- Approve with blanks: you no longer have to fill every ordered test. Approve any time; tests
+  left blank are simply omitted from the printed report (they don't show as empty rows).
+
 ## v1.0.9
 
 - "Read from analyzer": when the H360 sends data that doesn't match the patient's ordered tests,

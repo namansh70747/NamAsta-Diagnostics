@@ -198,7 +198,7 @@ export function ResultEntryPage() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const s = f9StateRef.current;
-      if (e.key === 'F9' && !s.isApproved && s.allHaveValues && !s.showAddTest && !s.analyzer && !s.showApprove) {
+      if (e.key === 'F9' && !s.isApproved && !s.showAddTest && !s.analyzer && !s.showApprove) {
         e.preventDefault(); setShowApprove(true);
       }
     };
@@ -406,8 +406,7 @@ export function ResultEntryPage() {
                 </button>
                 <button
                   onClick={() => setShowApprove(true)}
-                  disabled={!allHaveValues}
-                  title={!allHaveValues ? 'Enter all results, or mark missing tests "not done"' : undefined}
+                  title="Approve — blank tests are simply left off the report"
                   className="btn btn-success"
                 >
                   <CheckCircle size={15} strokeWidth={1.8} /> Approve
