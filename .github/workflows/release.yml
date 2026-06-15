@@ -17,6 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Clear old Rust caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh cache list --limit 100 --json id --jq '.[].id' |
+            ConvertFrom-Json |
+            ForEach-Object { gh cache delete $_ } 2>$null || true
+        shell: pwsh
+        continue-on-error: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
