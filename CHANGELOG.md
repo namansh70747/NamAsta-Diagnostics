@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.9
+
+- "Read from analyzer": when the H360 sends data that doesn't match the patient's ordered tests,
+  the app now shows the exact raw text the machine sent in a dialog with a "Copy raw text" button,
+  instead of a dead-end error. Makes it easy to capture an analyzer's format for support without
+  the timed Settings → Analyzer capture.
+
 ## v1.0.8
 
 - Reports now print only the tests that have a value — blank / un-entered rows (and any panel

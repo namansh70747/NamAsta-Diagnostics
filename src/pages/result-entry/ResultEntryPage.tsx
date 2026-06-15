@@ -41,6 +41,8 @@ export function ResultEntryPage() {
   const [localValues, setLocalValues] = useState<Record<number, string>>({});
   const [reading, setReading] = useState(false);
   const [analyzer, setAnalyzer] = useState<{ matches: AnalyzerMatch[]; reading: AnalyzerReading } | null>(null);
+  const [rawCapture, setRawCapture] = useState<{ text: string; valueCount: number } | null>(null);
+  const [rawCopied, setRawCopied] = useState(false);
   const [showAddTest, setShowAddTest] = useState(false);
   const [addQuery, setAddQuery] = useState('');
   const [addResults, setAddResults] = useState<Test[]>([]);
@@ -256,7 +258,10 @@ export function ResultEntryPage() {
       const r = await readAnalyzerConfigured(settings);
       const matches = matchToOrders(r, orders, localValues);
       if (!matches.length) {
-        toast.error('Data received, but no parameters matched this patient\'s tests. Use Settings → Analyzer → Capture raw to check the format.');
+        // No match — show the exact raw text the analyzer sent so the format can be
+        // diagnosed right here, instead of sending the user off to a timed re-capture.
+        setRawCopied(false);
+        setRawCapture({ text: r.raw ?? '', valueCount: Object.keys(r.values).length });
         return;
       }
       setAnalyzer({ matches, reading: r });
@@ -647,6 +652,46 @@ export function ResultEntryPage() {
             <div className="flex gap-2.5 justify-end mt-5">
               <button onClick={() => setAnalyzer(null)} className="btn btn-secondary">Cancel</button>
               <button onClick={applyAnalyzer} className="btn btn-primary">Apply {analyzer.matches.length} value{analyzer.matches.length !== 1 ? 's' : ''}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raw analyzer output — shown when data arrived but no parameter matched this
+          patient's tests, so the exact format can be copied and the parser tuned. */}
+      {rawCapture && (
+        <div
+          className="fixed inset-0 z-50 bg-[#0e0f16]/40 backdrop-blur-[2px] animate-fade-in flex items-center justify-center p-4"
+          onClick={() => setRawCapture(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg p-6 animate-scale-in shadow-[var(--shadow-pop)]"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Raw data from analyzer</h3>
+            <p className="text-[13px] text-[#54555f] mb-3">
+              {rawCapture.text.trim()
+                ? <>Data arrived, but none of it matched this patient's ordered tests. Copy the text below and send it to support so the format can be added.</>
+                : <>The analyzer connected but sent no data within the listening window. Re-send the result from the H360 and try again.</>}
+            </p>
+            <pre className="max-h-72 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[11px] leading-relaxed p-3 whitespace-pre-wrap break-all">
+              {rawCapture.text.trim() || '(nothing received)'}
+            </pre>
+            <div className="flex gap-2.5 justify-end mt-5">
+              <button onClick={() => setRawCapture(null)} className="btn btn-secondary">Close</button>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(rawCapture.text)
+                    .then(() => { setRawCopied(true); toast.success('Raw data copied — paste it to support.'); })
+                    .catch(() => toast.error('Could not copy. Select the text and copy manually.'));
+                }}
+                disabled={!rawCapture.text.trim()}
+                className="btn btn-primary"
+              >
+                {rawCopied ? 'Copied ✓' : 'Copy raw text'}
+              </button>
             </div>
           </div>
         </div>
