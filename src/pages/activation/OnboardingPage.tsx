@@ -41,7 +41,7 @@ export function OnboardingPage({ licensed, needSetup, status, onDone, preview }:
   const exitPreview = () => finishOnboarding();
 
   return (
-    <div className="relative min-h-screen w-full overflow-y-auto text-white"
+    <div className="relative min-h-screen w-full text-white"
          style={{ background: "linear-gradient(150deg, #14161f 0%, #0e0f16 55%, #0a0b10 100%)" }}>
       <div className="pointer-events-none fixed -top-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-[#6366f1]/25 blur-3xl animate-float" />
       <div className="pointer-events-none fixed top-1/3 right-[-10rem] w-[30rem] h-[30rem] rounded-full bg-[#7c3aed]/30 blur-3xl" />

@@ -112,7 +112,12 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-size: 15px;
-    overflow: hidden; /* the app shell scrolls, not the window */
+    /* Let the WINDOW scroll vertically whenever a page is taller than the screen (e.g. the
+       onboarding/login screens on a small or display-scaled laptop like 1366x768). The app
+       shell stays exactly 100vh and scrolls inside itself, so it never triggers window scroll.
+       overflow-x stays hidden so decorative blobs can't cause a sideways scrollbar. */
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   ::selection { background: rgba(99, 102, 241, 0.18); }

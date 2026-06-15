@@ -105,7 +105,7 @@ export function LoginPage() {
   const pwMatch = confirmPw.length > 0 && newPw === confirmPw;
 
   return (
-    <div className="relative min-h-screen w-full grid lg:grid-cols-2 overflow-x-hidden overflow-y-auto text-white"
+    <div className="relative min-h-screen w-full grid lg:grid-cols-2 text-white"
          style={{ background: "linear-gradient(150deg, #14161f 0%, #0e0f16 55%, #0a0b10 100%)" }}>
       {/* aurora background — fixed so the decorative blobs never add scroll height on short screens */}
       <div className="pointer-events-none fixed -top-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-[#6366f1]/25 blur-3xl animate-float" />

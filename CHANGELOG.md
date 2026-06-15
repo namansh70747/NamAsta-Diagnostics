@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.4
+
+- Actually fix scrolling on small / 1366×768 / display-scaled screens. `body` had
+  `overflow:hidden`, so any page taller than the screen (the onboarding "Set up your lab"
+  form, login) was clipped with no way to scroll to the fields/buttons at the bottom. The
+  window now scrolls vertically when a page is taller than the viewport; the app shell still
+  scrolls inside itself. (v1.0.3 only resized the window — the content still couldn't scroll.)
+
 ## v1.0.3
 
 - Fix the window not fitting / not scrolling on smaller or display-scaled laptops (e.g.
