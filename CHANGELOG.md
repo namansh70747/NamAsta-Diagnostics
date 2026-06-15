@@ -2,6 +2,16 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.8
+
+- Reports now print only the tests that have a value — blank / un-entered rows (and any panel
+  whose tests are all blank) are left off the printed report.
+- Report table columns balanced: Test Name and Normal Ranges are equal width, closing the wide
+  gap between Test Name and Results.
+- Result-entry fields accept text as well as numbers (Trace, <5, "1.2 (repeat)", etc.).
+- Added Typhidot as two lines — Salmonella Typhi IgG and IgM (Reactive / Non-Reactive) — with
+  the standard interpretation note.
+
 ## v1.0.7
 
 - Analyzer setup: "This PC's IP" now lists every network address the PC has (e.g. the Wi-Fi

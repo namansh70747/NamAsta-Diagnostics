@@ -188,9 +188,13 @@ export function ReportPreviewPage() {
     : undefined;
   const valuesMap = resolveCalculated(enteredMap, calcTests, calcCtx);
 
-  // Group active orders by panel, preserving panel sort order.
+  // Group active orders by panel, preserving panel sort order. Only tests that actually have a
+  // value are printed — un-entered / blank rows (e.g. a calculated row whose inputs are missing,
+  // or a sub-test the lab chose to leave empty) are left off the report entirely. A panel whose
+  // every test is blank therefore drops off too.
   const panelMap = new Map<string, { panel: Panel; orders: OrderWithResult[] }>();
   for (const o of activeOrders) {
+    if (!resultValue(o).trim()) continue;
     const code = o.test.panel_code ?? 'MISC';
     if (!panelMap.has(code)) {
       const p = panels.find(pp => pp.code === code)

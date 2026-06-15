@@ -155,6 +155,12 @@ pub fn run() {
             sql: include_str!("../migrations/0025_range_unit.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 26,
+            description: "typhidot",
+            sql: include_str!("../migrations/0026_typhidot.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
