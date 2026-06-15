@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.5
+
+- Enable Ctrl +/− (and Ctrl+0) zoom on Windows — the webview zoom hotkeys were off by default,
+  so zooming out to fit a small screen did nothing.
+- Fuller app icon so it stays crisp and legible at small Windows taskbar sizes (the previous
+  macOS-style icon had large transparent margins that made the mark tiny on Windows).
+
 ## v1.0.4
 
 - Actually fix scrolling on small / 1366×768 / display-scaled screens. `body` had
