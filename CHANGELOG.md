@@ -2,6 +2,16 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.6
+
+- Fix the app freezing ("not responding") during "Read from analyzer", and during email /
+  WhatsApp / SMS sends and backups. Those native operations ran on the UI thread and blocked
+  it for the whole network/serial window; they now run on a background thread.
+- Result-entry fields accept text as well as numbers (e.g. "Trace", "<5", "1.2 (repeat)").
+  Numeric tests still get a number keypad and H/L flags read the numeric part.
+- Report table: Test Name and Normal Ranges columns are now equal width with a fixed layout,
+  tightening the gap between Test Name and Results.
+
 ## v1.0.5
 
 - Enable Ctrl +/− (and Ctrl+0) zoom on Windows — the webview zoom hotkeys were off by default,

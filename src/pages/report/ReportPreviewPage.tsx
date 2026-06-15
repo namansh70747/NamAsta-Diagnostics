@@ -225,10 +225,10 @@ export function ReportPreviewPage() {
   const renderHead = () => (
     <thead>
       <tr>
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-28">Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-20">Units</th>
-        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-36">Normal Ranges</th>
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[34%]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[18%]">Results</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[14%]">Units</th>
+        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[34%]">Normal Ranges</th>
       </tr>
     </thead>
   );
@@ -643,7 +643,7 @@ export function ReportPreviewPage() {
                             {pg.panel.report_heading !== dept && (
                               <div className="text-center font-semibold text-[12px] text-black mb-1.5">{pg.panel.report_heading}</div>
                             )}
-                            <table className="w-full text-[12px] border-collapse">
+                            <table className="w-full table-fixed text-[12px] border-collapse">
                               {renderHead()}
                               <tbody>{renderRows(pg.orders)}</tbody>
                             </table>

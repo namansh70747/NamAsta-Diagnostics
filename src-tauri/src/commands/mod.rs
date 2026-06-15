@@ -100,7 +100,25 @@ pub fn open_path(path: String) -> Result<(), String> {
 
 /// Send an email over SMTP (STARTTLS) with an optional PDF attachment.
 #[tauri::command]
-pub fn send_email(
+pub async fn send_email(
+    host: String,
+    port: u16,
+    username: String,
+    password: String,
+    to: String,
+    subject: String,
+    body_html: String,
+    pdf_path: Option<String>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        send_email_blocking(host, port, username, password, to, subject, body_html, pdf_path)
+    })
+    .await
+    .map_err(|e| format!("Email task failed to start: {e}"))?
+}
+
+#[allow(clippy::too_many_arguments)]
+fn send_email_blocking(
     host: String,
     port: u16,
     username: String,
@@ -180,7 +198,18 @@ pub fn send_email(
 /// `scl-backup-YYYY-MM-DD.db`, pruning backups older than 30 days. Returns the
 /// list of written backup paths.
 #[tauri::command]
-pub fn backup_now(
+pub async fn backup_now(
+    app: tauri::AppHandle,
+    dest1: String,
+    dest2: Option<String>,
+    retention_days: Option<u64>,
+) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || backup_now_blocking(app, dest1, dest2, retention_days))
+        .await
+        .map_err(|e| format!("Backup task failed to start: {e}"))?
+}
+
+fn backup_now_blocking(
     app: tauri::AppHandle,
     dest1: String,
     dest2: Option<String>,
@@ -313,7 +342,24 @@ pub fn save_pdf_bytes(base64_data: String, out_path: String) -> Result<String, S
 /// `vars` are the ordered values for the DLT-approved template variables.
 /// Returns the gateway's raw response on success so the UI can surface delivery ids.
 #[tauri::command]
-pub fn send_sms(
+pub async fn send_sms(
+    provider: String,
+    api_key: String,
+    sender_id: String,
+    dlt_template_id: String,
+    phone: String,
+    message: String,
+    vars: Vec<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        send_sms_blocking(provider, api_key, sender_id, dlt_template_id, phone, message, vars)
+    })
+    .await
+    .map_err(|e| format!("SMS task failed to start: {e}"))?
+}
+
+#[allow(clippy::too_many_arguments)]
+fn send_sms_blocking(
     provider: String,
     api_key: String,
     sender_id: String,
@@ -392,8 +438,15 @@ pub fn serial_list_ports() -> Result<Vec<String>, String> {
 /// Open the analyzer's serial port and read whatever it transmits within `window_ms`,
 /// returning the raw text. The frontend parses it (ASTM) and shows the values for the
 /// technician to confirm before they touch the patient's result — nothing is auto-saved.
+/// Async wrapper (see tcp_capture) — run the blocking serial read off the UI thread.
 #[tauri::command]
-pub fn serial_read(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
+pub async fn serial_read(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || serial_read_blocking(port, baud, window_ms))
+        .await
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?
+}
+
+fn serial_read_blocking(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
     use std::io::Read;
     let mut sp = serialport::new(&port, baud)
         .timeout(std::time::Duration::from_millis(400))
@@ -519,8 +572,17 @@ pub fn device_id() -> String {
 ///
 /// Returns the raw text; the frontend parses it (ASTM) and the technician confirms the
 /// values before they are applied — nothing is auto-saved.
+/// Async wrapper so the long listen window (the operator walks to the analyzer and presses
+/// transmit) runs on a worker thread and never freezes the UI. A sync command would block the
+/// main thread for the whole window and the app would appear to "stop responding".
 #[tauri::command]
-pub fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
+pub async fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || tcp_capture_blocking(mode, host, port, window_ms))
+        .await
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?
+}
+
+fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream, ToSocketAddrs};
     use std::time::{Duration, Instant};
@@ -618,7 +680,24 @@ pub fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) -> Res
 /// Uploads the PDF as media, then sends it as a document message with a caption.
 /// `to` must be the recipient in international format without '+' (e.g. 919876543210).
 #[tauri::command]
-pub fn whatsapp_send_document(
+pub async fn whatsapp_send_document(
+    token: String,
+    phone_number_id: String,
+    to: String,
+    pdf_path: String,
+    filename: String,
+    caption: String,
+    api_version: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        whatsapp_send_document_blocking(token, phone_number_id, to, pdf_path, filename, caption, api_version)
+    })
+    .await
+    .map_err(|e| format!("WhatsApp task failed to start: {e}"))?
+}
+
+#[allow(clippy::too_many_arguments)]
+fn whatsapp_send_document_blocking(
     token: String,
     phone_number_id: String,
     to: String,

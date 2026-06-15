@@ -485,7 +485,11 @@ export function ResultEntryPage() {
                       ) : (
                         <input
                           data-rinput
-                          type={o.test.result_type === 'numeric' ? 'number' : 'text'}
+                          // Always a text field so staff can type notes/qualifiers ("Trace",
+                          // "<5", "1.2 (repeat)") alongside numbers. Numeric tests still get a
+                          // number-friendly keyboard; H/L flags read the numeric part as before.
+                          type="text"
+                          inputMode={o.test.result_type === 'numeric' ? 'decimal' : 'text'}
                           value={localValues[o.order.id] ?? ''}
                           onChange={e => setLocalValues(prev => ({ ...prev, [o.order.id]: e.target.value }))}
                           onBlur={() => handleBlur(o)}
