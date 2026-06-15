@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.7
+
+- CBC report now shows WBC / RBC / PLT histogram charts to the right of the test table,
+  matching the layout of the H360/DH3x own printout. Charts are generated from the patient's
+  own differential % (WBC), MCV + RDW-SD (RBC), and MPV + PDW-SD (PLT), so the curve
+  shape reflects the actual patient result. Real captured histogram data is used when
+  available; synthetic curves are the fallback.
+
 ## v1.1.6
 
 - Alkaline Phosphatase (ALP) reference ranges corrected to the lab's validated values:

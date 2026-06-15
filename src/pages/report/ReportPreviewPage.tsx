@@ -15,7 +15,7 @@ import { sendEmail } from "@/lib/email";
 import { buildWhatsAppMessage, sendWhatsAppSemi } from "@/lib/whatsapp";
 import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
-import { HistogramRow } from "@/components/report/Histogram";
+import { CbcHistogramPanel } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
 import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -735,12 +735,26 @@ export function ReportPreviewPage() {
                             {pg.panel.report_heading !== dept && (
                               <div className="text-center font-semibold text-[12px] text-black mb-1.5">{pg.panel.report_heading}</div>
                             )}
-                            <table className="w-full table-fixed text-[12px] border-collapse">
-                              {renderHead()}
-                              <tbody>{pg.panel.code === 'CBC' ? renderCbcRows(pg.orders) : renderRows(pg.orders)}</tbody>
-                            </table>
-                            {renderNotes(pg.orders)}
-                            {pg.panel.code === 'CBC' && <HistogramRow histos={histograms} />}
+                            {pg.panel.code === 'CBC' ? (
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5mm' }}>
+                                <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                  <table className="w-full table-fixed text-[12px] border-collapse">
+                                    {renderHead()}
+                                    <tbody>{renderCbcRows(pg.orders)}</tbody>
+                                  </table>
+                                  {renderNotes(pg.orders)}
+                                </div>
+                                <CbcHistogramPanel orders={pg.orders} histos={histograms} />
+                              </div>
+                            ) : (
+                              <>
+                                <table className="w-full table-fixed text-[12px] border-collapse">
+                                  {renderHead()}
+                                  <tbody>{renderRows(pg.orders)}</tbody>
+                                </table>
+                                {renderNotes(pg.orders)}
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="text-center text-gray-400 py-10 text-[12px]">No results entered yet.</div>
