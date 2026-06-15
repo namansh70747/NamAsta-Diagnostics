@@ -242,9 +242,9 @@ export function ReportPreviewPage() {
   // Shared report-table fragments (used by both grouped and one-per-page layouts).
   const renderHead = () => (
     <thead>
-      <tr>
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[38%]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[14%]">Results</th>
+      <tr className="border-b border-gray-400">
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[34%]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[18%]">Results</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[12%]">Units</th>
         <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[36%]">Normal Ranges</th>
       </tr>
