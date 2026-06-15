@@ -249,15 +249,13 @@ export function ReportPreviewPage() {
   const renderRows = (rows: OrderWithResult[]) => rows.map(o => {
     const value = resultValue(o);
     const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
-    const flag = patient ? computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays) : '';
-    const isAbnormal = flag === 'H' || flag === 'L';
     const range = rangeText(o);
     const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
     const unit = matchedRange?.unit || o.test.unit;
     return (
       <tr key={o.order.id}>
         <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
-        <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+        <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
           {value || '—'}
         </td>
         <td className="py-[3px] px-2 align-top text-gray-800">

@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.6
+
+- Alkaline Phosphatase (ALP) reference ranges corrected to the lab's validated values:
+  0–15 years 210–810 U/L, adults (15+) 100–306 U/L.
+  (Previous entries used generic textbook ranges that did not match the lab's practice.)
+
 ## v1.1.5
 
 - CBC report now matches the H360's own printed layout: results are grouped under

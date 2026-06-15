@@ -185,6 +185,12 @@ pub fn run() {
             sql: include_str!("../migrations/0030_widal_split.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 31,
+            description: "alp_ranges",
+            sql: include_str!("../migrations/0031_alp_ranges.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
