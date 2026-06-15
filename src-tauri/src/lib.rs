@@ -197,6 +197,12 @@ pub fn run() {
             sql: include_str!("../migrations/0032_rft_restructure.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 33,
+            description: "footer_settings",
+            sql: include_str!("../migrations/0033_footer_settings.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

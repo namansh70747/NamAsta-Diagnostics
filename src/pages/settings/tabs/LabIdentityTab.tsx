@@ -12,6 +12,8 @@ const KEYS = [
   "technician_qual",
   "equipment_line",
   "footer_tests_line",
+  "footer_left_text",
+  "footer_right_text",
 ];
 
 export function LabIdentityTab({ settings }: { settings: Record<string, string> }) {
@@ -63,6 +65,20 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
           placeholder="T3, T4, TSH (THYROID)… TESTS AVAILABLES"
           multiline
         />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <TextField
+            label="Footer — Left Text"
+            value={f.get("footer_left_text")}
+            onChange={(v) => f.set("footer_left_text", v)}
+            placeholder="NOT FOR MEDICO LEGAL PURPOSE"
+          />
+          <TextField
+            label="Footer — Right Text"
+            value={f.get("footer_right_text")}
+            onChange={(v) => f.set("footer_right_text", v)}
+            placeholder="ALL TEST ARE AVAILABLE HERE"
+          />
+        </div>
       </Card>
 
       <Card>
