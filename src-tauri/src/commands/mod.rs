@@ -490,14 +490,35 @@ fn serial_read_blocking(port: String, baud: u32, window_ms: u64) -> Result<Strin
 /// (no packet is actually sent) and works offline.
 #[tauri::command]
 pub fn local_ips() -> Vec<String> {
-    use std::net::UdpSocket;
-    let mut ips = Vec::new();
-    if let Ok(sock) = UdpSocket::bind("0.0.0.0:0") {
-        // Connecting a UDP socket just selects the outbound interface; nothing is transmitted.
-        if sock.connect("192.168.1.1:80").is_ok() || sock.connect("8.8.8.8:80").is_ok() {
-            if let Ok(addr) = sock.local_addr() {
-                let ip = addr.ip().to_string();
-                if ip != "0.0.0.0" { ips.push(ip); }
+    // List EVERY non-loopback IPv4 the PC has, so a machine with both Wi-Fi and a wired
+    // analyzer link shows BOTH addresses — the operator can then pick the one on the
+    // analyzer's network. (The old single-IP "route to 8.8.8.8" trick returned only the
+    // internet-facing card, which on a dual-NIC lab PC is the wrong one for the analyzer.)
+    let mut ips: Vec<String> = Vec::new();
+    if let Ok(ifaces) = if_addrs::get_if_addrs() {
+        for iface in ifaces {
+            if iface.is_loopback() {
+                continue;
+            }
+            if let std::net::IpAddr::V4(v4) = iface.ip() {
+                let s = v4.to_string();
+                if !ips.contains(&s) {
+                    ips.push(s);
+                }
+            }
+        }
+    }
+    // Fallback: if enumeration found nothing, use the outbound-route trick.
+    if ips.is_empty() {
+        use std::net::UdpSocket;
+        if let Ok(sock) = UdpSocket::bind("0.0.0.0:0") {
+            if sock.connect("192.168.1.1:80").is_ok() || sock.connect("8.8.8.8:80").is_ok() {
+                if let Ok(addr) = sock.local_addr() {
+                    let ip = addr.ip().to_string();
+                    if ip != "0.0.0.0" {
+                        ips.push(ip);
+                    }
+                }
             }
         }
     }

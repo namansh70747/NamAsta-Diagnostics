@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.0.7
+
+- Analyzer setup: "This PC's IP" now lists every network address the PC has (e.g. the Wi-Fi
+  card AND the wired card connected to the analyzer), instead of guessing one — so you can
+  pick the address on the analyzer's network. The old guess showed the internet card, which
+  on a dual-network lab PC is the wrong one for the H360.
+
 ## v1.0.6
 
 - Fix the app freezing ("not responding") during "Read from analyzer", and during email /
