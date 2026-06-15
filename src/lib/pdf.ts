@@ -17,39 +17,61 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
   const pages = Array.from(el.querySelectorAll<HTMLElement>("[data-report-page]"));
   const targets = pages.length ? pages : [el];
 
+  const A4_PX = Math.round((297 / 25.4) * 96);   // 297mm → px at 96dpi
+
   for (let p = 0; p < targets.length; p++) {
     const target = targets[p];
+    const naturalH = target.scrollHeight;
 
-    // Pin the page to exactly A4 (297mm at 96dpi ≈ 1122px) for the capture so:
-    // (a) short pages fill to A4 — footer sits at the very bottom of the sheet.
-    // (b) the rasterised image is always exactly 210×297mm — no extra blank pages.
-    const prevH = target.style.height;
-    const prevMinH = target.style.minHeight;
-    const prevOverflow = target.style.overflow;
-    const A4_PX = Math.round((297 / 25.4) * 96);   // 297mm → px at 96dpi
-    target.style.height = `${A4_PX}px`;
-    target.style.minHeight = `${A4_PX}px`;
-    target.style.overflow = "hidden";
+    if (naturalH > A4_PX * 1.1) {
+      // Compact/tall page: render at full natural height, then slice into A4 chunks.
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: target.offsetWidth,
+        height: naturalH,
+      });
+      const SCALE = 2;
+      const sliceH = A4_PX * SCALE;
+      const numChunks = Math.ceil(canvas.height / sliceH);
+      for (let chunk = 0; chunk < numChunks; chunk++) {
+        if (p > 0 || chunk > 0) pdf.addPage();
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = sliceH;
+        const ctx = slice.getContext("2d")!;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, -chunk * sliceH);
+        pdf.addImage(slice.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, pageH);
+      }
+    } else {
+      // Short page: pin to exactly A4 so the footer sits at the very bottom.
+      const prevH = target.style.height;
+      const prevMinH = target.style.minHeight;
+      const prevOverflow = target.style.overflow;
+      target.style.height = `${A4_PX}px`;
+      target.style.minHeight = `${A4_PX}px`;
+      target.style.overflow = "hidden";
 
-    const canvas = await html2canvas(target, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-      width: target.offsetWidth,
-      height: A4_PX,
-    });
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: target.offsetWidth,
+        height: A4_PX,
+      });
 
-    // Restore
-    target.style.height = prevH;
-    target.style.minHeight = prevMinH;
-    target.style.overflow = prevOverflow;
+      target.style.height = prevH;
+      target.style.minHeight = prevMinH;
+      target.style.overflow = prevOverflow;
 
-    const imgW = pageW;   // 210mm
-    const img = canvas.toDataURL("image/jpeg", 0.95);
-    if (p > 0) pdf.addPage();
-    // Image is exactly A4 — place it at (0,0) filling the full page.
-    pdf.addImage(img, "JPEG", 0, 0, imgW, pageH);
+      if (p > 0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, pageH);
+    }
   }
   return pdf;
 }

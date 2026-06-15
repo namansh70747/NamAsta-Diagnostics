@@ -86,6 +86,8 @@ export function ReportPreviewPage() {
   const [printLetterhead, setPrintLetterhead] = useState(() => localStorage.getItem('scl_print_letterhead') === '1');
   const [preTop, setPreTop] = useState(() => Number(localStorage.getItem('scl_pre_top') ?? 40));
   const [preBottom, setPreBottom] = useState(() => Number(localStorage.getItem('scl_pre_bottom') ?? 24));
+  // Compact = all panels on one page (matches the old system format). Per-page = one A4 per panel.
+  const [compactReport, setCompactReport] = useState(() => localStorage.getItem('scl_compact_report') !== '0');
   const autoDeliverTried = useRef(false);
   const autoSendTried = useRef(false);
   const [searchParams] = useSearchParams();
@@ -241,8 +243,8 @@ export function ReportPreviewPage() {
       <tr>
         <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[38%]">Test Name</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[14%]">Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[10%]">Units</th>
-        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[38%]">Normal Ranges</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[12%]">Units</th>
+        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px] w-[36%]">Normal Ranges</th>
       </tr>
     </thead>
   );
@@ -258,7 +260,7 @@ export function ReportPreviewPage() {
         <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
           {value || '—'}
         </td>
-        <td className="py-[3px] px-2 align-top text-gray-800">
+        <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
           {unit && unit !== '—' ? unit : ''}
         </td>
         <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
@@ -297,7 +299,7 @@ export function ReportPreviewPage() {
           <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
             {value || '—'}
           </td>
-          <td className="py-[3px] px-2 align-top text-gray-800">
+          <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
             {unit && unit !== '—' ? unit : ''}
           </td>
           <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
@@ -705,7 +707,78 @@ export function ReportPreviewPage() {
               className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
               style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
             >
-              {pageList.map((pg, idx) => {
+              {compactReport ? (() => {
+                // Compact mode: all panels on one flowing A4+ page — matches the lab's existing format.
+                // Group consecutive same-department panels together.
+                const deptGroups: { dept: string; panels: typeof sortedPanels }[] = [];
+                for (const pg of sortedPanels) {
+                  const d = deptOf(pg.panel);
+                  const last = deptGroups[deptGroups.length - 1];
+                  if (last && last.dept === d) last.panels.push(pg);
+                  else deptGroups.push({ dept: d, panels: [pg] });
+                }
+                return (
+                  <div
+                    data-report-page
+                    className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
+                    style={{
+                      width: '210mm',
+                      minHeight: '297mm',   // at least A4; grows with content
+                      height: 'auto',
+                      padding: '12mm',
+                      boxSizing: 'border-box',
+                      fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif',
+                      color: '#111', WebkitFontSmoothing: 'antialiased',
+                    }}
+                  >
+                    <Watermark />
+                    <Letterhead />
+                    <div className="report-body relative flex-1">
+                      <PatientStrip />
+                      <section className="relative mt-3">
+                        {sortedPanels.length === 0 ? (
+                          <div className="text-center text-gray-400 py-10 text-[12px]">No results entered yet.</div>
+                        ) : deptGroups.map(({ dept, panels }, di) => (
+                          <div key={dept + di} className={di > 0 ? "mt-5" : ""}>
+                            <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
+                            {panels.map((pg, pi) => (
+                              <div key={pg.panel.code + pi}>
+                                {/* Panel sub-heading for 2nd+ panel in same department */}
+                                {(pi > 0 || pg.panel.report_heading !== dept) && pg.panel.report_heading !== dept && (
+                                  <div className="font-bold text-[12px] text-black underline underline-offset-2 mt-2 mb-1">{pg.panel.report_heading}</div>
+                                )}
+                                {pg.panel.code === 'CBC' ? (
+                                  <div style={{ display: 'flex', alignItems: 'stretch', gap: '5mm' }}>
+                                    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                      <table className="w-full table-fixed text-[12px] border-collapse">
+                                        {pi === 0 && renderHead()}
+                                        <tbody>{renderCbcRows(pg.orders)}</tbody>
+                                      </table>
+                                      {renderNotes(pg.orders)}
+                                    </div>
+                                    <CbcHistogramPanel orders={pg.orders} histos={histograms} />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <table className="w-full table-fixed text-[12px] border-collapse">
+                                      {pi === 0 && renderHead()}
+                                      <tbody>{renderRows(pg.orders)}</tbody>
+                                    </table>
+                                    {renderNotes(pg.orders)}
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                        {comment && <div className="mt-3 text-[11px]"><strong>Comments :</strong> {comment}</div>}
+                      </section>
+                    </div>
+                    <PageFooter pageIndex={0} total={1} isLast={true} />
+                  </div>
+                );
+              })() : pageList.map((pg, idx) => {
+                // Per-page mode: one A4 sheet per panel.
                 const dept = pg ? deptOf(pg.panel) : '';
                 const isLast = idx === pageList.length - 1;
                 return (
@@ -715,8 +788,8 @@ export function ReportPreviewPage() {
                     className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
                     style={{
                       width: '210mm',
-                      height: '297mm',          // exact A4 — footer pinned to bottom
-                      overflow: 'hidden',        // never spill outside A4
+                      height: '297mm',
+                      overflow: 'hidden',
                       padding: '12mm',
                       boxSizing: 'border-box',
                       marginBottom: isLast ? 0 : '18px',
@@ -733,10 +806,10 @@ export function ReportPreviewPage() {
                           <div>
                             <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
                             {pg.panel.report_heading !== dept && (
-                              <div className="text-center font-semibold text-[12px] text-black mb-1.5">{pg.panel.report_heading}</div>
+                              <div className="text-center font-semibold text-[12px] text-black underline underline-offset-2 mb-1.5">{pg.panel.report_heading}</div>
                             )}
                             {pg.panel.code === 'CBC' ? (
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5mm' }}>
+                              <div style={{ display: 'flex', alignItems: 'stretch', gap: '5mm' }}>
                                 <div style={{ flex: '1 1 0', minWidth: 0 }}>
                                   <table className="w-full table-fixed text-[12px] border-collapse">
                                     {renderHead()}
@@ -839,6 +912,7 @@ export function ReportPreviewPage() {
 
         <div className="card p-4 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Layout</p>
+          <Toggle label="All panels on one page" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={(v) => { setPrintLetterhead(v); localStorage.setItem('scl_print_letterhead', v ? '1' : '0'); }} />
           {!printLetterhead && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">

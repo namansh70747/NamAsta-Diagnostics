@@ -223,27 +223,30 @@ export function CbcHistogramPanel({
   const pltData = histos?.plt?.length ? histos.plt : pltCurve(mpv, pdwSd);
 
   return (
-    <div style={{ width: '62mm', flexShrink: 0, paddingTop: '2mm' }}>
+    <div style={{
+      width: '62mm', flexShrink: 0,
+      display: 'flex', flexDirection: 'column',
+      justifyContent: 'space-between',
+      alignSelf: 'stretch',
+    }}>
       <HistogramChart
         data={wbcData} title="WBC Histogram"
         xTicks={[0, 100, 200, 300]} xMax={300}
-        vlines={[100, 200]}
+        vlines={[35, 100, 150]}
         color="#1e3f8f"
       />
-      <div style={{ marginTop: '2mm' }}>
-        <HistogramChart
-          data={rbcData} title="RBC Histogram"
-          xTicks={[0, 100, 200, 300]} xMax={300}
-          color="#7b1b1b"
-        />
-      </div>
-      <div style={{ marginTop: '2mm' }}>
-        <HistogramChart
-          data={pltData} title="PLT Histogram"
-          xTicks={[0, 10, 20, 35]} xMax={36}
-          color="#14743a"
-        />
-      </div>
+      <HistogramChart
+        data={rbcData} title="RBC Histogram"
+        xTicks={[0, 100, 200, 300]} xMax={300}
+        vlines={[36, 100]}
+        color="#7b1b1b"
+      />
+      <HistogramChart
+        data={pltData} title="PLT Histogram"
+        xTicks={[0, 10, 20, 35]} xMax={36}
+        vlines={[2, 35]}
+        color="#14743a"
+      />
     </div>
   );
 }

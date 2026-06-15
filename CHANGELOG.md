@@ -2,6 +2,21 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.8
+
+- Reports now show all panels together on one page by default — exactly like the old system.
+  Tests from different departments (HAEMATOLOGY, BIOCHEMISTRY, etc.) appear in sequence with
+  department headings, and a bold underlined panel sub-heading separates panels within the
+  same department. A "All panels on one page" toggle in Layout switches back to the old
+  one-panel-per-page format.
+- CBC histograms are now vertically aligned beside their sections: WBC Histogram sits next to
+  LEUKOCYTES, RBC Histogram next to ERYTHROCYTES, PLT Histogram next to THROMBOCYTES —
+  matching the H360's own printout. All three histograms now show reference dashed lines.
+- Units column widened (was 10%, now 12%) and marked no-wrap — fixes "10^3/µL" breaking
+  across two lines on the CBC report.
+- PDFs of compact (tall) reports are now correctly paginated: the content is rendered at its
+  full height and sliced into A4 pages rather than being clipped at 297mm.
+
 ## v1.1.7
 
 - CBC report now shows WBC / RBC / PLT histogram charts to the right of the test table,
