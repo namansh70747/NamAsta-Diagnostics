@@ -1,7 +1,7 @@
 // All derived value formulas for calculated tests
 // Returns null if inputs unavailable (blank on report, never NaN)
 
-export type ResultMap = Record<string, number | null>;
+export type ResultMap = Record<string, number | string | null>;
 
 function safeDiv(a: number | null, b: number | null): number | null {
   if (a == null || b == null || b === 0) return null;
@@ -20,8 +20,8 @@ export interface CalcContext {
   sex?: 'MALE' | 'FEMALE' | 'OTHER';
 }
 
-export function computeCalculated(code: string, formula: string, values: ResultMap, ctx?: CalcContext): number | null {
-  const g = (c: string) => values[c] ?? null;
+export function computeCalculated(code: string, formula: string, values: ResultMap, ctx?: CalcContext): number | string | null {
+  const g = (c: string) => { const v = values[c]; return typeof v === 'number' ? v : null; };
 
   switch (code) {
     case 'BBI': {
@@ -70,6 +70,16 @@ export function computeCalculated(code: string, formula: string, values: ResultM
       const crt = g('CRT');
       if (crt == null || crt <= 0 || !ctx?.ageYears || ctx.ageYears <= 0) return null;
       return computeGFR(crt, ctx.ageYears, ctx.sex === 'FEMALE' ? 'FEMALE' : 'MALE');
+    }
+    case 'GFR_CAT': {
+      const gfr = g('GFR');
+      if (gfr == null) return null;
+      if (gfr >= 90) return 'G1 — Normal / High';
+      if (gfr >= 60) return 'G2 — Mildly Decreased';
+      if (gfr >= 45) return 'G3a — Mildly to Moderately Decreased';
+      if (gfr >= 30) return 'G3b — Moderately to Severely Decreased';
+      if (gfr >= 15) return 'G4 — Severely Decreased';
+      return 'G5 — Kidney Failure';
     }
     default: {
       // Try to evaluate a simple formula like "BBT - BBD" or "28.7 * HBA1C - 46.7".

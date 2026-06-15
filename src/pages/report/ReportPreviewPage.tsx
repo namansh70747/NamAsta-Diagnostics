@@ -15,7 +15,7 @@ import { sendEmail } from "@/lib/email";
 import { buildWhatsAppMessage, sendWhatsAppSemi } from "@/lib/whatsapp";
 import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
-import { CbcHistogramPanel } from "@/components/report/Histogram";
+import { CbcSectionHistogram } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
 import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -227,7 +227,9 @@ export function ReportPreviewPage() {
   function resultValue(o: OrderWithResult): string {
     if (o.test.result_type === 'calculated' && o.test.formula) {
       const c = computeCalculated(o.test.code, o.test.formula, valuesMap, calcCtx);
-      return c != null ? c.toFixed(safeDecimals(o.test.decimals)) : '';
+      if (c == null) return '';
+      if (typeof c === 'string') return c;
+      return c.toFixed(safeDecimals(o.test.decimals));
     }
     return o.result?.value ?? '';
   }
@@ -268,45 +270,75 @@ export function ReportPreviewPage() {
     );
   });
 
-  /** CBC-specific renderer: inserts LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES section headers
-   *  and bolds out-of-range values — matching the H360's own printed layout. */
-  const renderCbcRows = (rows: OrderWithResult[]) => {
-    if (!patient) return renderRows(rows);
+  /** Column header row for CBC tables — 5 columns (4 data + 1 histogram). */
+  const renderCbcHead = () => (
+    <thead>
+      <tr>
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px]" style={{ width: '18mm' }}>Results</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px]" style={{ width: '16mm' }}>Units</th>
+        <th className="text-left pb-1 pl-2 font-bold text-black text-[12.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
+        <th style={{ width: '62mm' }}></th>
+      </tr>
+    </thead>
+  );
+
+  /** CBC renderer: each section's histogram sits in a rowspan cell next to its rows,
+   *  so WBC/RBC/PLT charts align exactly with LEUKOCYTES/ERYTHROCYTES/THROMBOCYTES. */
+  const renderCbcWithHistograms = (allRows: OrderWithResult[]) => {
+    if (!patient) return renderRows(allRows);
     const ageDays = patientAgeDays(patient.age, patient.age_unit);
-    const out: React.ReactNode[] = [];
-    let currentSection = '';
-    for (const o of rows) {
-      const section = CBC_SECTION[o.test.code] ?? '';
-      if (section && section !== currentSection) {
-        currentSection = section;
-        out.push(
-          <tr key={`hdr-${section}`}>
-            <td colSpan={4} className="pt-2 pb-[2px] text-[11px] font-bold text-black uppercase tracking-wide border-b border-gray-500">
-              {section}
+
+    type SGroup = { section: string; rows: OrderWithResult[] };
+    const groups: SGroup[] = [];
+    for (const o of allRows) {
+      const sec = CBC_SECTION[o.test.code] ?? '';
+      const last = groups[groups.length - 1];
+      if (!last || last.section !== sec) groups.push({ section: sec, rows: [o] });
+      else last.rows.push(o);
+    }
+
+    return groups.flatMap(({ section, rows: sRows }) => {
+      const hasChart = section === 'LEUKOCYTES' || section === 'ERYTHROCYTES' || section === 'THROMBOCYTES';
+      const spanCount = sRows.length + 1; // section header + its data rows
+      const headerRow = section ? (
+        <tr key={`hdr-${section}`}>
+          <td colSpan={4} className="pt-2 pb-[2px] text-[11px] font-bold text-black uppercase tracking-wide border-b border-gray-500">
+            {section}
+          </td>
+          {hasChart && (
+            <td rowSpan={spanCount} style={{ verticalAlign: 'top', paddingLeft: '4mm' }}>
+              <CbcSectionHistogram section={section} orders={allRows} histos={histograms} />
+            </td>
+          )}
+        </tr>
+      ) : null;
+      const dataRows = sRows.map(o => {
+        const value = resultValue(o);
+        const flag = computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays);
+        const isAbnormal = flag === 'H' || flag === 'L';
+        const range = rangeText(o);
+        const matchedRange = findRange(o.ranges, patient.sex, ageDays);
+        const unit = matchedRange?.unit || o.test.unit;
+        return (
+          <tr key={o.order.id}>
+            <td className={cn("py-[3px] pr-2 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+              {o.test.name}
+            </td>
+            <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+              {value || '—'}
+            </td>
+            <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
+              {unit && unit !== '—' ? unit : ''}
+            </td>
+            <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">
+              {range.replace(/\s*\/\s*/g, '\n')}
             </td>
           </tr>
         );
-      }
-      const value = resultValue(o);
-      const flag = computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays);
-      const isAbnormal = flag === 'H' || flag === 'L';
-      const range = rangeText(o);
-      const matchedRange = findRange(o.ranges, patient.sex, ageDays);
-      const unit = matchedRange?.unit || o.test.unit;
-      out.push(
-        <tr key={o.order.id}>
-          <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
-          <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
-            {value || '—'}
-          </td>
-          <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
-            {unit && unit !== '—' ? unit : ''}
-          </td>
-          <td className="py-[3px] pl-2 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
-        </tr>
-      );
-    }
-    return out;
+      });
+      return headerRow ? [headerRow, ...dataRows] : dataRows;
+    });
   };
   const renderNotes = (rows: OrderWithResult[]) => {
     // Interpretation boxes print AFTER the whole test table (never between rows) — one box per
@@ -748,16 +780,13 @@ export function ReportPreviewPage() {
                                   <div className="font-bold text-[12px] text-black underline underline-offset-2 mt-2 mb-1">{pg.panel.report_heading}</div>
                                 )}
                                 {pg.panel.code === 'CBC' ? (
-                                  <div style={{ display: 'flex', alignItems: 'stretch', gap: '5mm' }}>
-                                    <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                                      <table className="w-full table-fixed text-[12px] border-collapse">
-                                        {pi === 0 && renderHead()}
-                                        <tbody>{renderCbcRows(pg.orders)}</tbody>
-                                      </table>
-                                      {renderNotes(pg.orders)}
-                                    </div>
-                                    <CbcHistogramPanel orders={pg.orders} histos={histograms} />
-                                  </div>
+                                  <>
+                                    <table className="w-full text-[12px] border-collapse" style={{ tableLayout: 'fixed' }}>
+                                      {renderCbcHead()}
+                                      <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
+                                    </table>
+                                    {renderNotes(pg.orders)}
+                                  </>
                                 ) : (
                                   <>
                                     <table className="w-full table-fixed text-[12px] border-collapse">
@@ -809,16 +838,13 @@ export function ReportPreviewPage() {
                               <div className="text-center font-semibold text-[12px] text-black underline underline-offset-2 mb-1.5">{pg.panel.report_heading}</div>
                             )}
                             {pg.panel.code === 'CBC' ? (
-                              <div style={{ display: 'flex', alignItems: 'stretch', gap: '5mm' }}>
-                                <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                                  <table className="w-full table-fixed text-[12px] border-collapse">
-                                    {renderHead()}
-                                    <tbody>{renderCbcRows(pg.orders)}</tbody>
-                                  </table>
-                                  {renderNotes(pg.orders)}
-                                </div>
-                                <CbcHistogramPanel orders={pg.orders} histos={histograms} />
-                              </div>
+                              <>
+                                <table className="w-full text-[12px] border-collapse" style={{ tableLayout: 'fixed' }}>
+                                  {renderCbcHead()}
+                                  <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
+                                </table>
+                                {renderNotes(pg.orders)}
+                              </>
                             ) : (
                               <>
                                 <table className="w-full table-fixed text-[12px] border-collapse">

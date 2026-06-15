@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.1.9
+
+- CBC report: abnormal values now bold the **test name** too, not just the result — matching
+  the H360's own printout where the full row stands out for out-of-range results.
+- PLT histogram x-axis corrected to 0 / 10 / 20 / 30 fL (was 0 / 10 / 20 / 35).
+
 ## v1.1.8
 
 - Reports now show all panels together on one page by default — exactly like the old system.

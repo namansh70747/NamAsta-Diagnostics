@@ -109,7 +109,9 @@ export function ResultEntryPage() {
   const getDisplayValue = (o: OrderWithResult): string => {
     if (o.test.result_type === 'calculated' && o.test.formula) {
       const calc = computeCalculated(o.test.code, o.test.formula, valuesMap, calcCtx);
-      return calc != null ? calc.toFixed(safeDecimals(o.test.decimals)) : '';
+      if (calc == null) return '';
+      if (typeof calc === 'string') return calc;
+      return calc.toFixed(safeDecimals(o.test.decimals));
     }
     return localValues[o.order.id] ?? '';
   };

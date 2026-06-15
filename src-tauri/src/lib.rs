@@ -191,6 +191,12 @@ pub fn run() {
             sql: include_str!("../migrations/0031_alp_ranges.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 32,
+            description: "rft_restructure",
+            sql: include_str!("../migrations/0032_rft_restructure.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

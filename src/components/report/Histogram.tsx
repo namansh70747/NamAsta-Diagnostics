@@ -190,63 +190,40 @@ export function HistogramRow({
 }
 
 /**
- * Right-column panel for the CBC report. Uses real captured histogram curves when
- * available (unlikely for HL7 machines that don't transmit them); otherwise generates
- * synthetic curves from the numeric CBC results (differential %, MCV, RDW-SD, MPV,
- * PDW-SD). The shape is derived from actual patient values, not fabricated.
+ * Single histogram chart for one CBC section (LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES).
+ * Placed in a rowspan table cell next to its section, so the chart top always aligns
+ * with the section header row — exact match to the H360's own printout.
  */
-export function CbcHistogramPanel({
+export function CbcSectionHistogram({
+  section,
   orders,
   histos,
 }: {
+  section: string;
   orders: OrderWithResult[];
   histos: { wbc?: number[]; rbc?: number[]; plt?: number[] } | null | undefined;
 }) {
   function num(code: string): number | null {
-    const o = orders.find(o => o.test.code === code);
+    const o = orders.find(x => x.test.code === code);
     const v = o?.result?.value;
     if (!v) return null;
     const n = parseFloat(v);
     return isNaN(n) ? null : n;
   }
-
-  const lymPct  = num('LYM_PCT')  ?? 33;
-  const midPct  = num('MID_PCT')  ?? 8;
-  const granPct = num('GRAN_PCT') ?? 59;
-  const mcv     = num('MCV')      ?? 90;
-  const rdwSd   = num('RDW_SD')   ?? 42;
-  const mpv     = num('MPV')      ?? 10;
-  const pdwSd   = num('PDW_SD')   ?? 12;
-
-  const wbcData = histos?.wbc?.length ? histos.wbc : wbcCurve(lymPct, midPct, granPct);
-  const rbcData = histos?.rbc?.length ? histos.rbc : rbcCurve(mcv, rdwSd);
-  const pltData = histos?.plt?.length ? histos.plt : pltCurve(mpv, pdwSd);
-
-  return (
-    <div style={{
-      width: '62mm', flexShrink: 0,
-      display: 'flex', flexDirection: 'column',
-      justifyContent: 'space-between',
-      alignSelf: 'stretch',
-    }}>
-      <HistogramChart
-        data={wbcData} title="WBC Histogram"
-        xTicks={[0, 100, 200, 300]} xMax={300}
-        vlines={[35, 100, 150]}
-        color="#1e3f8f"
-      />
-      <HistogramChart
-        data={rbcData} title="RBC Histogram"
-        xTicks={[0, 100, 200, 300]} xMax={300}
-        vlines={[36, 100]}
-        color="#7b1b1b"
-      />
-      <HistogramChart
-        data={pltData} title="PLT Histogram"
-        xTicks={[0, 10, 20, 35]} xMax={36}
-        vlines={[2, 35]}
-        color="#14743a"
-      />
-    </div>
-  );
+  if (section === 'LEUKOCYTES') {
+    const data = histos?.wbc?.length ? histos.wbc
+      : wbcCurve(num('LYM_PCT') ?? 33, num('MID_PCT') ?? 8, num('GRAN_PCT') ?? 59);
+    return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[35,100,150]} color="#1e3f8f" />;
+  }
+  if (section === 'ERYTHROCYTES') {
+    const data = histos?.rbc?.length ? histos.rbc
+      : rbcCurve(num('MCV') ?? 90, num('RDW_SD') ?? 42);
+    return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[36,100]} color="#7b1b1b" />;
+  }
+  if (section === 'THROMBOCYTES') {
+    const data = histos?.plt?.length ? histos.plt
+      : pltCurve(num('MPV') ?? 10, num('PDW_SD') ?? 12);
+    return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,35]} color="#14743a" />;
+  }
+  return null;
 }
