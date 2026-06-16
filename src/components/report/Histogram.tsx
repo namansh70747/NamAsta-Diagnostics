@@ -6,39 +6,43 @@ function gauss(x: number, mu: number, sigma: number): number {
   return Math.exp(-((x - mu) ** 2) / (2 * sigma ** 2));
 }
 
-/** WBC: area-normalised Gaussians — peak height ∝ pct/sigma so a narrow
- *  lymphocyte population rises taller than a broad granulocyte population even
- *  when the granulocyte percentage is higher (matches the H360 display). */
+/** WBC: 3-part differential curve matching the H360 display — one dominant,
+ *  narrow lymphocyte peak on the left, then a broad low granulocyte shoulder
+ *  to the right (with a small mid bump between). Peak height ∝ pct/sigma, so a
+ *  narrow lymph population towers over a broad granulocyte population even when
+ *  Gran% > Lym% — exactly how the machine renders it. */
 function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): number[] {
-  const SL = 18, SM = 22, SG = 42; // sigmas (fL) — H360 typical population widths
+  // Lymph: narrow + tall. Mid: small. Gran: broad + low. (sigmas in fL)
+  const peaks = [
+    { pct: lymPct,  mu: 80,  sigma: 14 },
+    { pct: midPct,  mu: 135, sigma: 22 },
+    { pct: granPct, mu: 215, sigma: 48 },
+  ];
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
-    return (
-      (lymPct / SL) * gauss(x, 72,  SL) +
-      (midPct / SM) * gauss(x, 135, SM) +
-      (granPct / SG) * gauss(x, 210, SG)
-    );
+    return peaks.reduce((s, p) => s + (p.pct / p.sigma) * gauss(x, p.mu, p.sigma), 0);
   });
 }
 
-/** RBC: single Gaussian at MCV, width from RDW-CV (%).
- *  sigma = RDW_CV% × MCV / 235  (converts CV to absolute fL width). */
+/** RBC: single Gaussian centred at MCV. RDW-CV is the coefficient of variation
+ *  of the RBC volume distribution, so the actual SD (fL) = RDW_CV% × MCV — no
+ *  extra division. This gives the realistically-wide bell the machine shows
+ *  (a too-thin spike was the old /2.35 bug). */
 function rbcCurve(mcv: number, rdwCv: number, N = 220): number[] {
-  const sigma = Math.max((rdwCv / 100) * mcv / 2.35, 3);
+  const sigma = Math.max((rdwCv / 100) * mcv, 6);
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
     return gauss(x, mcv, sigma);
   });
 }
 
-/** PLT: log-normal (right-skewed), x spans 0–36 fL.
- *  Mode placed at 0.70 × MPV; width from PDW-CV (%). */
+/** PLT: log-normal (right-skewed), x spans 0–36 fL. MPV is the MEAN platelet
+ *  volume so μ = ln(MPV) − σ²/2; width σ from PDW-CV (clamped for a clean,
+ *  defined peak with a long right tail — matching the H360 green curve). */
 function pltCurve(mpv: number, pdwCv: number, N = 220): number[] {
   const safeM = Math.max(mpv, 2);
-  const sigmaLog = Math.max((pdwCv / 100) * 3.0, 0.25);
-  // mode of log-normal = exp(μ - σ²); we want mode ≈ 0.70 × MPV
-  const mode = safeM * 0.70;
-  const muLog = Math.log(mode) + sigmaLog * sigmaLog;
+  const sigmaLog = Math.min(Math.max((pdwCv / 100) * 2.2, 0.3), 0.6);
+  const muLog = Math.log(safeM) - (sigmaLog * sigmaLog) / 2; // MPV = mean
   return Array.from({ length: N }, (_, i) => {
     const x = 0.2 + (i / (N - 1)) * 35.8;
     const lx = Math.log(x);
