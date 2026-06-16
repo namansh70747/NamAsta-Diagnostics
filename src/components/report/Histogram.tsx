@@ -12,11 +12,14 @@ function gauss(x: number, mu: number, sigma: number): number {
  *  narrow lymph population towers over a broad granulocyte population even when
  *  Gran% > Lym% — exactly how the machine renders it. */
 function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): number[] {
-  // Lymph: narrow + tall. Mid: small. Gran: broad + low. (sigmas in fL)
+  // The H360 always renders the lymphocyte population as a tall, sharp spike and
+  // the granulocyte population as a LOW, BROAD shoulder — even when Gran% > Lym% —
+  // because granulocytes spread across a much wider volume range. Peak height ∝
+  // pct/sigma, so the wide gran sigma (60) keeps that shoulder ~⅓ of the lymph peak.
   const peaks = [
-    { pct: lymPct,  mu: 80,  sigma: 14 },
-    { pct: midPct,  mu: 135, sigma: 22 },
-    { pct: granPct, mu: 215, sigma: 48 },
+    { pct: lymPct,  mu: 82,  sigma: 13 },  // lymphocytes: sharp + tall
+    { pct: midPct,  mu: 125, sigma: 18 },  // mid cells: small
+    { pct: granPct, mu: 200, sigma: 60 },  // granulocytes: broad + low shoulder
   ];
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
@@ -109,10 +112,10 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
       })}
 
       {/* Filled area */}
-      <path d={areaPath} fill={color} fillOpacity="0.13" />
+      <path d={areaPath} fill={color} fillOpacity="0.28" />
 
       {/* Curve */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="1.1" strokeLinejoin="round" />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
 
       {/* X-axis ticks and labels */}
       {xTicks.map(tick => {
