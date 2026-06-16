@@ -269,7 +269,7 @@ export function CbcSectionHistogram({
   if (section === 'LEUKOCYTES') {
     const data = histos?.wbc?.length ? histos.wbc
       : wbcCurve(num('LYM_PCT') ?? 33, num('MID_PCT') ?? 8, num('GRAN_PCT') ?? 59);
-    return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[50,110]} color="#1e3f8f" />;
+    return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[50,95]} color="#1e3f8f" />;
   }
   if (section === 'ERYTHROCYTES') {
     const data = histos?.rbc?.length ? histos.rbc
@@ -279,7 +279,7 @@ export function CbcSectionHistogram({
   if (section === 'THROMBOCYTES') {
     const data = histos?.plt?.length ? histos.plt
       : pltCurve(num('MPV') ?? 10, num('PDW_CV') ?? 16);
-    return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,20]} color="#14743a" />;
+    return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,30]} color="#14743a" />;
   }
   return null;
 }
