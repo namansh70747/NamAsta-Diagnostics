@@ -75,6 +75,12 @@ type ChartProps = {
   color?: string;
 };
 
+// Deterministic [0,1) pseudo-noise (stable across re-renders, unlike Math.random).
+function hash(i: number, seed: number): number {
+  const s = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+
 function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }: ChartProps) {
   const W = 160, H = 84;
   const ml = 14, mr = 8, mt = 12, mb = 16;
@@ -86,14 +92,21 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
   // of the chart and made it look flat. Fall back to 1 only if every value is 0.)
   const max = Math.max(...data) || 1;
 
-  const pts = data.map((v, i) => [
-    ml + (i / (N - 1)) * pw,
-    mt + ph - (v / max) * ph,
-  ] as [number, number]);
-
-  const lineParts = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
-  const linePath = `M${lineParts}`;
-  const areaPath = `M${ml},${mt + ph} L${lineParts} L${ml + pw},${mt + ph} Z`;
+  // Render as a solid filled BAR histogram with Poisson-like noise — the authentic
+  // analyzer look. A real cell counter shows per-channel counts whose noise ∝ √count,
+  // so the tails/shoulders look spikier than the smooth peak. We seed the noise from
+  // the data so WBC/RBC/PLT each get a distinct, stable jagged pattern.
+  const B = 72;                                   // number of bars
+  const seed = (Math.round(max * 1000) % 97) + 1; // per-curve seed
+  const bars = Array.from({ length: B }, (_, b) => {
+    const idx = Math.round((b / (B - 1)) * (N - 1));
+    const u = data[idx] / max;                    // 0..1 relative height
+    const noise = 0.14 * Math.sqrt(Math.max(u, 0)) * (hash(b, seed) - 0.5) * 2;
+    const un = Math.max(0, Math.min(1.02, u + noise));
+    return { x: ml + (b / B) * pw, h: un * ph, bw: pw / B };
+  });
+  // Jagged top outline tracing the bar tops, for crisp definition like the machine.
+  const topLine = 'M' + bars.map(d => `${(d.x + d.bw / 2).toFixed(1)},${(mt + ph - d.h).toFixed(1)}`).join(' L');
 
   return (
     <svg
@@ -125,11 +138,14 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
         );
       })}
 
-      {/* Filled area */}
-      <path d={areaPath} fill={color} fillOpacity="0.28" />
+      {/* Solid filled bars */}
+      {bars.map((d, i) => (
+        <rect key={i} x={d.x} y={mt + ph - d.h} width={d.bw * 0.96} height={d.h}
+          fill={color} fillOpacity="0.5" />
+      ))}
 
-      {/* Curve */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+      {/* Jagged top outline */}
+      <path d={topLine} fill="none" stroke={color} strokeWidth="0.8" strokeLinejoin="round" />
 
       {/* X-axis ticks and labels */}
       {xTicks.map(tick => {
