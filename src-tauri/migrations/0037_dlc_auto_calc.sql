@@ -1,10 +1,7 @@
--- 0037_dlc_auto_calc: auto-fill DLC from CBC differential when both are ordered.
--- H360 3-part diff maps directly: LYM_PCT→Lymphocytes, GRAN_PCT→Neutrophils,
--- MID_PCT→Monocytes. The formula evaluator scans all orders in the same visit,
--- so these will auto-populate as soon as CBC values are entered or imported.
--- Eosinophils and Basophils have no 3-part diff equivalent — remain manual entry.
-UPDATE tests SET auto_calc_formula = 'LYM_PCT'  WHERE code = 'DLC_LYMPH';
-UPDATE tests SET auto_calc_formula = 'GRAN_PCT' WHERE code = 'DLC_NEUT';
-UPDATE tests SET auto_calc_formula = 'MID_PCT'  WHERE code = 'DLC_MONO';
+-- 0037: fix DLC normal-range display text — remove leading zeros
+-- (02 - 10 → 2 - 10 etc. for cleaner printed report appearance).
+UPDATE test_ranges SET range_text = '2 - 10' WHERE test_id = (SELECT id FROM tests WHERE code = 'DLC_MONO');
+UPDATE test_ranges SET range_text = '1 - 6'  WHERE test_id = (SELECT id FROM tests WHERE code = 'DLC_EOS');
+UPDATE test_ranges SET range_text = '0 - 1'  WHERE test_id = (SELECT id FROM tests WHERE code = 'DLC_BASO');
 
 INSERT OR IGNORE INTO schema_migrations(version) VALUES('0037');

@@ -95,6 +95,8 @@ export interface Order {
   price_charged: number;
   sample_id: string;
   not_done: number;
+  unit_override?: string | null;   // per-patient unit override (does NOT change the test default)
+  range_override?: string | null;  // per-patient normal-range override (does NOT change the test default)
   test?: Test;
 }
 

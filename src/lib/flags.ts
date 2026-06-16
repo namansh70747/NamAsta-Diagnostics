@@ -89,6 +89,34 @@ export function displayRange(r: TestRange | null): string {
   return '';
 }
 
+/** Parse a free-typed normal-range string ("2 - 8", "2-8", "< 8", "> 2", "0.5 – 1.2")
+ *  into low/high so an overridden range can still produce a correct H/L flag.
+ *  Returns null if it isn't a recognisable numeric range. */
+export function parseRange(text: string): { low: number | null; high: number | null } | null {
+  if (!text) return null;
+  const t = text.replace(/–|—/g, '-').trim();   // normalise en/em dashes to hyphen
+  let m = t.match(/^([0-9]*\.?[0-9]+)\s*-\s*([0-9]*\.?[0-9]+)/);
+  if (m) return { low: parseFloat(m[1]), high: parseFloat(m[2]) };
+  m = t.match(/^<\s*=?\s*([0-9]*\.?[0-9]+)/);
+  if (m) return { low: null, high: parseFloat(m[1]) };
+  m = t.match(/^>\s*=?\s*([0-9]*\.?[0-9]+)/);
+  if (m) return { low: parseFloat(m[1]), high: null };
+  return null;
+}
+
+/** Build the range array to flag against, honouring a per-order override when present.
+ *  Falls back to the test's stored ranges if the override isn't numerically parseable. */
+export function rangesWithOverride(ranges: TestRange[], override: string | null | undefined): TestRange[] {
+  if (override && override.trim()) {
+    const p = parseRange(override);
+    if (p) return [{
+      id: -1, test_id: -1, sex: 'ANY', age_min_days: 0, age_max_days: 54750,
+      low: p.low, high: p.high, range_text: override.trim(), unit: null, band_text: null,
+    } as TestRange];
+  }
+  return ranges;
+}
+
 export function patientAgeDays(age: number, ageUnit: 'YRS' | 'MTH' | 'DAYS'): number {
   switch (ageUnit) {
     case 'YRS': return Math.round(age * 365.25);

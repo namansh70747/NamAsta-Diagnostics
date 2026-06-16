@@ -227,6 +227,30 @@ pub fn run() {
             sql: include_str!("../migrations/0037_dlc_auto_calc.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 38,
+            description: "dlc_remove_auto_calc",
+            sql: include_str!("../migrations/0038_dlc_remove_auto_calc.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 39,
+            description: "dlcp_bundle_test",
+            sql: include_str!("../migrations/0039_dlcp_bundle_test.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 40,
+            description: "order_unit_override",
+            sql: include_str!("../migrations/0040_order_unit_override.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 41,
+            description: "order_range_override",
+            sql: include_str!("../migrations/0041_order_range_override.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

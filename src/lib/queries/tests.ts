@@ -95,6 +95,57 @@ export async function setTestEnabled(testId: number, enabled: number): Promise<v
   await writeAudit(currentUserId(), 'test.enabled', 'tests', testId, null, { enabled });
 }
 
+/** Add a brand-new test (row) to a panel. PERSISTENT: the test becomes a permanent
+ *  member of the panel, so every future patient who gets that panel includes it too.
+ *  Returns the new test id. */
+export async function createPanelTest(input: {
+  panelId: number; name: string; unit?: string; decimals?: number;
+  low?: number | null; high?: number | null; rangeText?: string;
+}): Promise<number> {
+  const name = input.name.trim();
+  if (!name) throw new Error('Test name is required.');
+
+  // Unique, readable code derived from the name + a short timestamp suffix.
+  const slug = name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 16) || 'CUSTOM';
+  const code = `${slug}_${Date.now().toString(36).toUpperCase()}`;
+
+  // Append to the end of the panel.
+  const maxRows = await dbQuery<{ m: number | null }>(
+    'SELECT MAX(sort_order) AS m FROM tests WHERE panel_id=?', [input.panelId]);
+  const sortOrder = (maxRows[0]?.m ?? 0) + 10;
+  const decimals = Math.min(10, Math.max(0, Math.trunc(input.decimals ?? 0)));
+
+  await dbExecute(
+    `INSERT INTO tests(code,name,panel_id,result_type,unit,decimals,price,enabled,sort_order,is_panel)
+     VALUES(?,?,?,?,?,?,?,?,?,?)`,
+    [code, name, input.panelId, 'numeric', input.unit?.trim() ?? '', decimals, 0, 1, sortOrder, 0]
+  );
+  const rows = await dbQuery<{ id: number }>('SELECT id FROM tests WHERE code=?', [code]);
+  const testId = rows[0]?.id ?? 0;
+
+  // Optional normal range.
+  const hasRange = input.low != null || input.high != null || (input.rangeText?.trim());
+  if (testId && hasRange) {
+    const rt = input.rangeText?.trim()
+      || (input.low != null && input.high != null ? `${input.low} - ${input.high}`
+         : input.high != null ? `< ${input.high}`
+         : input.low != null ? `> ${input.low}` : null);
+    await dbExecute(
+      `INSERT INTO test_ranges(test_id,sex,low,high,range_text) VALUES(?,?,?,?,?)`,
+      [testId, 'ANY', input.low ?? null, input.high ?? null, rt]
+    );
+  }
+  return testId;
+}
+
+/** Persist a new row order for a panel's tests (drag-and-drop reorder).
+ *  Assigns sort_order 10,20,30… so the order survives future inserts. */
+export async function reorderPanelTests(orderedTestIds: number[]): Promise<void> {
+  for (let i = 0; i < orderedTestIds.length; i++) {
+    await dbExecute('UPDATE tests SET sort_order=? WHERE id=?', [(i + 1) * 10, orderedTestIds[i]]);
+  }
+}
+
 export async function setInterpretation(testId: number, note: string): Promise<void> {
   assertCan('edit_tests');
   await dbExecute('UPDATE tests SET interpretation_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?', [note, testId]);

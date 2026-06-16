@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPatientById, addTestsToPatient } from "@/lib/queries/patients";
-import { getOrdersWithResults, saveResult, approvePatient, markNotDone, unlockResult, getReportComment, saveReportComment } from "@/lib/queries/results";
-import { listPanels, searchTests } from "@/lib/queries/tests";
+import { getOrdersWithResults, saveResult, approvePatient, markNotDone, unlockResult, getReportComment, saveReportComment, setUnitOverride, setRangeOverride } from "@/lib/queries/results";
+import { listPanels, searchTests, reorderPanelTests, createPanelTest } from "@/lib/queries/tests";
 import { useSession } from "@/lib/session";
 import { OrderWithResult, Panel, Test } from "@/types";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
-import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
+import { computeFlag, patientAgeDays, findRange, displayRange, rangesWithOverride } from "@/lib/flags";
 import { getAllSettings } from "@/lib/queries/settings";
 import { readAnalyzerConfigured } from "@/lib/serial";
 import { matchToOrders, type AnalyzerMatch, type AnalyzerReading } from "@/lib/astm";
@@ -15,7 +15,7 @@ import { saveHistograms } from "@/lib/queries/analyzer";
 import { promptDialog } from "@/lib/dialog";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { Check, CheckCircle, ChevronLeft, FileText, Unlock, X, Cable, Plus } from "lucide-react";
+import { Check, CheckCircle, ChevronLeft, FileText, Unlock, X, Cable, Plus, GripVertical } from "lucide-react";
 
 /** Parse a test's `choices` JSON without ever throwing — malformed/legacy data
  *  ('' instead of '[]', bad JSON) must not crash the whole result-entry page. */
@@ -39,6 +39,13 @@ export function ResultEntryPage() {
   const [showApprove, setShowApprove] = useState(false);
   const [comment, setComment] = useState('');
   const [localValues, setLocalValues] = useState<Record<number, string>>({});
+  // Per-order unit/range edits (in-flight on this screen); committed to the DB on blur.
+  const [localUnits, setLocalUnits] = useState<Record<number, string>>({});
+  const [localRanges, setLocalRanges] = useState<Record<number, string>>({});
+  // "Add row" modal — adds a NEW persistent test to a panel (affects future patients).
+  const [addRowPanel, setAddRowPanel] = useState<Panel | null>(null);
+  const [newRow, setNewRow] = useState({ name: '', unit: '', low: '', high: '' });
+  const [addingRow, setAddingRow] = useState(false);
   const [reading, setReading] = useState(false);
   const [analyzer, setAnalyzer] = useState<{ matches: AnalyzerMatch[]; reading: AnalyzerReading } | null>(null);
   const [rawCapture, setRawCapture] = useState<{ text: string; valueCount: number } | null>(null);
@@ -46,6 +53,12 @@ export function ResultEntryPage() {
   const [showAddTest, setShowAddTest] = useState(false);
   const [addQuery, setAddQuery] = useState('');
   const [addResults, setAddResults] = useState<Test[]>([]);
+  // Drag-to-reorder (pointer-based — HTML5 drag is unreliable in the macOS WebView).
+  // Refs hold the live values for the window listeners; state drives the visual highlight.
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+  const dragIdRef = useRef<number | null>(null);
+  const dragOverIdRef = useRef<number | null>(null);
 
   const { data: patient } = useQuery({ queryKey: ['patient', pid], queryFn: () => getPatientById(pid) });
   const { data: orders = [] } = useQuery({ queryKey: ['orders', pid], queryFn: () => getOrdersWithResults(pid) });
@@ -121,7 +134,9 @@ export function ResultEntryPage() {
     const value = getDisplayValue(o);
     if (!value) return '';
     const ageDays = patientAgeDays(patient.age, patient.age_unit);
-    return computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays);
+    // Flag against the overridden range (live edit → saved override) when present.
+    const override = localRanges[o.order.id] ?? o.order.range_override ?? null;
+    return computeFlag(o.test.result_type, value, rangesWithOverride(o.ranges, override), patient.sex, ageDays);
   };
 
   const [savedTick, setSavedTick] = useState(0);
@@ -229,6 +244,108 @@ export function ResultEntryPage() {
     const target = e.key === 'ArrowUp' ? fields[i - 1] : fields[i + 1];
     if (target) { e.preventDefault(); target.focus(); }
     else if (e.key !== 'ArrowUp') { e.preventDefault(); e.currentTarget.blur(); }
+  }
+
+  async function commitRowReorder(panelOrders: OrderWithResult[], fromOrderId: number, toOrderId: number) {
+    if (fromOrderId === toOrderId) return;
+    const from = panelOrders.findIndex(o => o.order.id === fromOrderId);
+    const to   = panelOrders.findIndex(o => o.order.id === toOrderId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...panelOrders];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    await reorderPanelTests(reordered.map(o => o.test.id));
+    qc.invalidateQueries({ queryKey: ['orders', pid] });
+  }
+
+  // Pointer-based row drag: grip handle starts it, window listeners track the row under
+  // the cursor via elementFromPoint, release commits the new order to the DB.
+  function startRowDrag(panelOrders: OrderWithResult[], orderId: number, e: React.PointerEvent) {
+    e.preventDefault();
+    dragIdRef.current = orderId;
+    dragOverIdRef.current = orderId;
+    setDragId(orderId);
+    setDragOverId(orderId);
+
+    const onMove = (ev: PointerEvent) => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const row = el?.closest('[data-order-row]') as HTMLElement | null;
+      const id = row ? parseInt(row.dataset.orderId || '') : NaN;
+      if (!isNaN(id) && id !== dragOverIdRef.current) {
+        dragOverIdRef.current = id;
+        setDragOverId(id);
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      const from = dragIdRef.current;
+      const to = dragOverIdRef.current;
+      dragIdRef.current = null;
+      dragOverIdRef.current = null;
+      setDragId(null);
+      setDragOverId(null);
+      if (from != null && to != null) commitRowReorder(panelOrders, from, to);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
+  // The effective unit shown for an order: live edit → saved override → age-range unit → test default.
+  const unitOf = (o: OrderWithResult): string =>
+    localUnits[o.order.id] ?? o.order.unit_override ??
+    (patient ? findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit))?.unit : null) ??
+    o.test.unit ?? '';
+
+  const handleUnitBlur = async (o: OrderWithResult) => {
+    const edited = localUnits[o.order.id];
+    if (edited === undefined) return;                       // never touched
+    const current = o.order.unit_override ?? '';
+    if (edited.trim() === current.trim()) return;           // unchanged
+    await setUnitOverride(o.order.id, edited);
+    setLocalUnits(prev => { const n = { ...prev }; delete n[o.order.id]; return n; });
+    qc.invalidateQueries({ queryKey: ['orders', pid] });
+  };
+
+  // The effective normal range shown for an order: live edit → saved override → age-range → ''.
+  const rangeOf = (o: OrderWithResult): string => {
+    if (localRanges[o.order.id] !== undefined) return localRanges[o.order.id];
+    if (o.order.range_override != null) return o.order.range_override;
+    const r = patient ? findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit)) : o.ranges[0];
+    return displayRange(r) || (r?.band_text ? r.band_text.split(' / ')[0] : '');
+  };
+
+  const handleRangeBlur = async (o: OrderWithResult) => {
+    const edited = localRanges[o.order.id];
+    if (edited === undefined) return;                       // never touched
+    const current = o.order.range_override ?? '';
+    if (edited.trim() === current.trim()) return;           // unchanged
+    await setRangeOverride(o.order.id, edited);
+    setLocalRanges(prev => { const n = { ...prev }; delete n[o.order.id]; return n; });
+    qc.invalidateQueries({ queryKey: ['orders', pid] });
+  };
+
+  async function submitAddRow() {
+    if (!addRowPanel || !newRow.name.trim()) return;
+    setAddingRow(true);
+    try {
+      const testId = await createPanelTest({
+        panelId: addRowPanel.id,
+        name: newRow.name,
+        unit: newRow.unit,
+        low: newRow.low.trim() === '' ? null : parseFloat(newRow.low),
+        high: newRow.high.trim() === '' ? null : parseFloat(newRow.high),
+      });
+      await addTestsToPatient(pid, [testId], { [testId]: 0 });
+      await qc.invalidateQueries({ queryKey: ['orders', pid] });
+      setAddRowPanel(null);
+      setNewRow({ name: '', unit: '', low: '', high: '' });
+      toast.success('Row added — it will appear for future patients with this panel too.');
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setAddingRow(false);
+    }
   }
 
   const handleBlur = (o: OrderWithResult) => {
@@ -429,6 +546,7 @@ export function ResultEntryPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#eef0f4]">
+                <th className="pl-2 pr-1 py-3 w-6" />
                 <th className="px-5 py-3 text-left table-head">Test Name</th>
                 <th className="px-5 py-3 text-left table-head w-44">Result</th>
                 <th className="px-5 py-3 text-left table-head w-24">Unit</th>
@@ -444,16 +562,31 @@ export function ResultEntryPage() {
                 const displayVal = getDisplayValue(o);
                 const approved = !!o.result?.approved_at;
                 const range = patient ? findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit)) : o.ranges[0];
+                const isDragOver = dragOverId === o.order.id && dragId !== o.order.id;
+                const isDragging = dragId === o.order.id;
 
                 return (
                   <tr
                     key={o.order.id}
+                    data-order-row
+                    data-order-id={o.order.id}
                     className={cn(
                       "group border-b border-[#f1f1f5] last:border-0 transition-colors",
                       o.order.not_done ? "opacity-40" : "hover:bg-[#fafafe]",
-                      flag && !o.order.not_done && "bg-[#fdf6f6]"
+                      flag && !o.order.not_done && "bg-[#fdf6f6]",
+                      isDragging && "opacity-50",
+                      isDragOver && "border-t-2 border-t-indigo-400 bg-[#eef0fe]"
                     )}
                   >
+                    <td className="pl-2 pr-1 py-2.5">
+                      <div
+                        onPointerDown={e => startRowDrag(panelOrders, o.order.id, e)}
+                        className="cursor-grab active:cursor-grabbing touch-none select-none opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Drag to reorder"
+                      >
+                        <GripVertical size={14} className="text-[#8a8b97]" />
+                      </div>
+                    </td>
                     <td className="px-5 py-2.5 text-[15px] text-[#14151c]">{o.test.name}</td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
@@ -509,11 +642,45 @@ export function ResultEntryPage() {
                         />
                       )}
                     </td>
-                    <td className="px-5 py-2.5 text-[12.5px] text-[#8a8b97]">
-                      {range?.unit || o.test.unit}
+                    <td className="px-5 py-2.5">
+                      {o.order.not_done ? (
+                        <span className="text-[12.5px] text-[#8a8b97]">{unitOf(o)}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={unitOf(o)}
+                          onChange={e => setLocalUnits(prev => ({ ...prev, [o.order.id]: e.target.value }))}
+                          onBlur={() => handleUnitBlur(o)}
+                          disabled={approved}
+                          title="Edit unit for this patient only (does not change the test default)"
+                          className={cn(
+                            "w-20 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#8a8b97]",
+                            "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
+                            o.order.unit_override && "text-[#4f46e5] font-medium",
+                            approved && "cursor-not-allowed"
+                          )}
+                        />
+                      )}
                     </td>
-                    <td className="px-5 py-2.5 text-[12.5px] text-[#8a8b97] tabular-nums">
-                      {displayRange(range) || (range?.band_text ? <span className="italic">{range.band_text.split(' / ')[0]}</span> : '')}
+                    <td className="px-5 py-2.5">
+                      {o.order.not_done ? (
+                        <span className="text-[12.5px] text-[#8a8b97] tabular-nums">{rangeOf(o)}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={rangeOf(o)}
+                          onChange={e => setLocalRanges(prev => ({ ...prev, [o.order.id]: e.target.value }))}
+                          onBlur={() => handleRangeBlur(o)}
+                          disabled={approved}
+                          title="Edit normal range for this patient only (does not change the test default)"
+                          className={cn(
+                            "w-28 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#8a8b97] tabular-nums",
+                            "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
+                            o.order.range_override && "text-[#4f46e5] font-medium",
+                            approved && "cursor-not-allowed"
+                          )}
+                        />
+                      )}
                     </td>
                     <td className="px-5 py-2.5">
                       <span className="inline-flex items-center gap-1.5">
@@ -552,6 +719,17 @@ export function ResultEntryPage() {
               })}
             </tbody>
           </table>
+          {!isApproved && (
+            <div className="px-5 py-2 border-t border-[#f1f1f5]">
+              <button
+                onClick={() => { setAddRowPanel(panel); setNewRow({ name: '', unit: '', low: '', high: '' }); }}
+                className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#4f46e5] hover:underline"
+                title="Add a new test row to this panel (stays for future patients too)"
+              >
+                <Plus size={13} strokeWidth={2} /> Add row
+              </button>
+            </div>
+          )}
         </div>
       ))}
 
@@ -569,6 +747,59 @@ export function ResultEntryPage() {
           className="field resize-y"
         />
       </div>
+
+      {/* Add-row dialog — create a NEW persistent test in a panel (shows for future patients too) */}
+      {addRowPanel && (
+        <div
+          className="fixed inset-0 z-50 bg-[#0e0f16]/40 backdrop-blur-[2px] animate-fade-in flex items-center justify-center p-4"
+          onClick={() => setAddRowPanel(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md p-6 animate-scale-in shadow-[var(--shadow-pop)]"
+            onClick={e => e.stopPropagation()}
+            role="dialog" aria-modal="true"
+          >
+            <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Add row to {addRowPanel.report_heading}</h3>
+            <p className="text-[13px] text-[#54555f] mb-4">
+              This adds a new permanent test to the panel — it will appear for this patient and
+              <span className="font-medium text-[#14151c]"> every future patient</span> who gets this panel.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Test name *</label>
+                <input
+                  autoFocus
+                  value={newRow.name}
+                  onChange={e => setNewRow(r => ({ ...r, name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter' && newRow.name.trim()) submitAddRow(); }}
+                  placeholder="e.g. Atypical Lymphocytes"
+                  className="field w-full"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Unit</label>
+                  <input value={newRow.unit} onChange={e => setNewRow(r => ({ ...r, unit: e.target.value }))} placeholder="%" className="field w-full" />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Range low</label>
+                  <input value={newRow.low} onChange={e => setNewRow(r => ({ ...r, low: e.target.value }))} inputMode="decimal" placeholder="0" className="field w-full" />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Range high</label>
+                  <input value={newRow.high} onChange={e => setNewRow(r => ({ ...r, high: e.target.value }))} inputMode="decimal" placeholder="5" className="field w-full" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setAddRowPanel(null)} className="btn btn-secondary">Cancel</button>
+              <button onClick={submitAddRow} disabled={!newRow.name.trim() || addingRow} className="btn btn-primary">
+                {addingRow ? 'Adding…' : 'Add row'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add-test dialog — append more tests to this patient; the report grows accordingly */}
       {showAddTest && (

@@ -241,7 +241,12 @@ export function NewPatientPage() {
     return () => window.removeEventListener('keydown', h);
   }, []);
 
-  const quickPanels = ['CBC', 'LFT', 'KFT', 'LIPID', 'DIAB', 'URINE', 'THY', 'SERO'];
+  const quickPanels = [
+    { code: 'CBC', label: 'CBC' }, { code: 'DLCP', label: 'DLC' },
+    { code: 'LFT', label: 'LFT' }, { code: 'KFT', label: 'KFT' },
+    { code: 'LIPID', label: 'LIPID' }, { code: 'DIAB', label: 'DIAB' },
+    { code: 'URINE', label: 'URINE' }, { code: 'THY', label: 'THY' }, { code: 'SERO', label: 'SERO' },
+  ];
 
   // Enter / ↓ → next field, ↑ → previous field (fast keyboard entry, no mouse). Skips
   // textareas and the test-search box (which uses arrows to move through its own dropdown).
@@ -443,13 +448,13 @@ export function NewPatientPage() {
             <div className="flex flex-wrap gap-1.5 mb-2.5">
               {quickPanels.map(p => (
                 <button
-                  key={p}
+                  key={p.code}
                   type="button"
                   tabIndex={-1}
-                  onClick={() => addPanel(p)}
+                  onClick={() => addPanel(p.code)}
                   className="rounded-full border border-[#e6e7ee] px-3 py-1 text-[12px] font-medium text-[#54555f] transition-all hover:border-[#c7c9ff] hover:bg-[#eef0fe] hover:text-[#4f46e5]"
                 >
-                  {p}
+                  {p.label}
                 </button>
               ))}
             </div>

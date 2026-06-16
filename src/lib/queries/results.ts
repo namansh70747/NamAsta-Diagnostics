@@ -10,6 +10,8 @@ interface OrderFlatRow {
   price_charged: number;
   sample_id: string;
   not_done: number;
+  unit_override: string | null;
+  range_override: string | null;
   // test
   code: string;
   name: string;
@@ -38,7 +40,7 @@ interface OrderFlatRow {
 
 export async function getOrdersWithResults(patientId: number): Promise<OrderWithResult[]> {
   const rows = await dbQuery<OrderFlatRow>(
-    `SELECT o.id, o.patient_id, o.test_id, o.price_charged, o.sample_id, o.not_done,
+    `SELECT o.id, o.patient_id, o.test_id, o.price_charged, o.sample_id, o.not_done, o.unit_override, o.range_override,
             t.code, t.name, t.result_type, t.unit, t.decimals, t.choices, t.default_value, t.is_panel,
             t.formula, t.interpretation_note, t.panel_id, t.sort_order AS test_sort_order,
             p.code AS panel_code, p.report_heading AS panel_heading, p.sort_order AS panel_sort_order,
@@ -71,6 +73,7 @@ export async function getOrdersWithResults(patientId: number): Promise<OrderWith
     order: {
       id: r.id, patient_id: r.patient_id, test_id: r.test_id,
       price_charged: r.price_charged, sample_id: r.sample_id, not_done: r.not_done,
+      unit_override: r.unit_override, range_override: r.range_override,
     },
     test: {
       id: r.test_id, code: r.code, name: r.name, result_type: r.result_type,
@@ -168,6 +171,20 @@ export async function unlockResult(orderId: number, reason: string, userId: numb
 
 export async function markNotDone(orderId: number, notDone = 1): Promise<void> {
   await dbExecute('UPDATE orders SET not_done=? WHERE id=?', [notDone, orderId]);
+}
+
+/** Per-patient unit override for one order. Empty string clears it (back to test default).
+ *  Never touches the test's own unit — so it can't affect any other patient. */
+export async function setUnitOverride(orderId: number, unit: string): Promise<void> {
+  const v = unit.trim();
+  await dbExecute('UPDATE orders SET unit_override=? WHERE id=?', [v === '' ? null : v, orderId]);
+}
+
+/** Per-patient normal-range override for one order. Empty string clears it.
+ *  Never touches the test's stored range — so it can't affect any other patient. */
+export async function setRangeOverride(orderId: number, range: string): Promise<void> {
+  const v = range.trim();
+  await dbExecute('UPDATE orders SET range_override=? WHERE id=?', [v === '' ? null : v, orderId]);
 }
 
 export async function getReportComment(patientId: number): Promise<string> {

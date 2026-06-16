@@ -7,7 +7,7 @@ import { listPanels } from "@/lib/queries/tests";
 import { getAllSettings } from "@/lib/queries/settings";
 import { logDelivery, hasDelivered } from "@/lib/queries/delivery";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
-import { computeFlag, patientAgeDays, findRange, displayRange } from "@/lib/flags";
+import { computeFlag, patientAgeDays, findRange, displayRange, rangesWithOverride } from "@/lib/flags";
 import { generateReportQR } from "@/lib/qr";
 import { revealInFolder } from "@/lib/printing";
 import { saveReportPdf, printReportPdf } from "@/lib/pdf";
@@ -237,6 +237,7 @@ export function ReportPreviewPage() {
 
   function rangeText(o: OrderWithResult): string {
     if (!patient) return '';
+    if (o.order.range_override) return o.order.range_override;
     return displayRange(findRange(o.ranges, patient.sex, patientAgeDays(patient.age, patient.age_unit)));
   }
 
@@ -256,7 +257,7 @@ export function ReportPreviewPage() {
     const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
     const range = rangeText(o);
     const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
-    const unit = matchedRange?.unit || o.test.unit;
+    const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
     return (
       <tr key={o.order.id}>
         <td className="py-[3px] pr-4 align-top text-gray-950">{o.test.name}</td>
@@ -316,11 +317,11 @@ export function ReportPreviewPage() {
       ) : null;
       const dataRows = sRows.map(o => {
         const value = resultValue(o);
-        const flag = computeFlag(o.test.result_type, value, o.ranges, patient.sex, ageDays);
+        const flag = computeFlag(o.test.result_type, value, rangesWithOverride(o.ranges, o.order.range_override), patient.sex, ageDays);
         const isAbnormal = flag === 'H' || flag === 'L';
         const range = rangeText(o);
         const matchedRange = findRange(o.ranges, patient.sex, ageDays);
-        const unit = matchedRange?.unit || o.test.unit;
+        const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
         return (
           <tr key={o.order.id}>
             <td className={cn("py-[3px] pr-4 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
