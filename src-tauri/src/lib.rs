@@ -221,6 +221,12 @@ pub fn run() {
             sql: include_str!("../migrations/0036_cbc_units_order.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 37,
+            description: "dlc_auto_calc",
+            sql: include_str!("../migrations/0037_dlc_auto_calc.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
