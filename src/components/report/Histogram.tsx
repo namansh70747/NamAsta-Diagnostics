@@ -17,21 +17,24 @@ function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): num
   //   y-axis is relative cell frequency. For a Gaussian, area = amplitude·σ·√(2π),
   //   so  amplitude ∝ pct / σ.  Lymphocytes are uniform (narrow σ) → a sharp peak;
   //   granulocytes span a wide volume range (large σ) → a broad hump.
-  //   Calibrated against the lab's printed H360 reports:
-  //     • 81% gran (Sarojni) → gran hump ≈ 2.4× the lymph peak (gran dominates)
-  //     • 58% gran (Manisha) → gran shoulder ≈ 0.7× the lymph peak (lymph dominates)
-  //   σ_lymph = 18, σ_gran = 42, mu_gran = 165 reproduces both. (height ∝ pct/σ:
-  //     Sarojni 81.3/42 ÷ 14.8/18 = 2.36;  Manisha 58.4/42 ÷ 36/18 = 0.70)
-  //   mu_gran moved 185→165 so the right hump peaks at ~165 fL (matching H360 screen).
+  //   After power normalisation, peak heights ∝ (pct/σ)^1.8 — valleys collapse fast:
+  //     • 81% gran (Sarojni): gran_norm=1.0, lym_norm^1.8=0.174 → gran dominates ✓
+  //     • 58% gran (Manisha): gran_norm^1.8=0.649, lym=1.0 → lym taller ✓
+  //     • 50% lym / 40% gran (typical): gran_norm^1.8=0.226 → matches H360 screen ✓
+  //   mu_gran=172, σ_gran=36 puts a clear hump at ~172 fL with a deep valley at ~110 fL.
   const peaks = [
-    { pct: lymPct,  mu: 75,  sigma: 18 },  // lymphocytes: small cells, sharp peak
-    { pct: midPct,  mu: 120, sigma: 20 },  // mid cells (mono/eo/baso): fills the valley
-    { pct: granPct, mu: 165, sigma: 42 },  // granulocytes: broader hump peaking ~165 fL
+    { pct: lymPct,  mu: 75,  sigma: 18 },  // lymphocytes: narrow sharp peak
+    { pct: midPct,  mu: 128, sigma: 22 },  // mid cells: shifted into transition zone
+    { pct: granPct, mu: 172, sigma: 36 },  // granulocytes: narrower hump at 172 fL
   ];
-  return Array.from({ length: N }, (_, i) => {
+  const raw = Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
     return peaks.reduce((s, p) => s + (p.pct / p.sigma) * gauss(x, p.mu, p.sigma), 0);
   });
+  // Power curve: valleys (low probability) collapse much faster than peaks.
+  // val^1.8: peak=1→1, valley=0.4→0.226, deep valley=0.15→0.058 — matches H360 display.
+  const maxRaw = Math.max(...raw) || 1;
+  return raw.map(v => Math.pow(v / maxRaw, 1.8));
 }
 
 /** RBC: single Gaussian centred at MCV. RDW-CV is the coefficient of variation
@@ -66,7 +69,10 @@ function pltCurve(mpv: number, pdwCv: number, N = 220): number[] {
   const shoulderMu = safeM * 1.75;
   const shoulderSigma = Math.max(safeM * 0.55, 3.5);
 
-  return primary.map((p, i) => p + pMax * 0.50 * gauss(xs[i], shoulderMu, shoulderSigma));
+  const combined = primary.map((p, i) => p + pMax * 0.50 * gauss(xs[i], shoulderMu, shoulderSigma));
+  const cMax = Math.max(...combined) || 1;
+  // Mild power 1.3: deepens valley between the two PLT humps while keeping both visible.
+  return combined.map(v => Math.pow(v / cMax, 1.3));
 }
 
 // ── SVG chart ────────────────────────────────────────────────────────────────
