@@ -244,10 +244,10 @@ export function ReportPreviewPage() {
   const renderHead = () => (
     <thead>
       <tr className="border-b border-gray-400">
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[14.5px] w-[24%]">Test Name</th>
+        <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px] w-[24%]">Test Name</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px] w-[18%]">Results</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px] w-[12%]">Units</th>
-        <th className="text-left pb-1 pl-12 font-bold text-black text-[14.5px] w-[46%]">Normal Ranges</th>
+        <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px] w-[46%]">Normal Ranges</th>
       </tr>
     </thead>
   );
@@ -259,14 +259,14 @@ export function ReportPreviewPage() {
     const unit = matchedRange?.unit || o.test.unit;
     return (
       <tr key={o.order.id}>
-        <td className="py-[3px] pr-2 align-top text-gray-950">{o.test.name}</td>
+        <td className="py-[3px] pr-4 align-top text-gray-950">{o.test.name}</td>
         <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
           {value || '—'}
         </td>
         <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
           {unit && unit !== '—' ? unit : ''}
         </td>
-        <td className="py-[3px] pl-12 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
+        <td className="py-[3px] pl-14 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
       </tr>
     );
   });
@@ -275,10 +275,10 @@ export function ReportPreviewPage() {
   const renderCbcHead = () => (
     <thead>
       <tr>
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[14.5px]">Test Name</th>
+        <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px]">Test Name</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px]" style={{ width: '18mm' }}>Results</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px]" style={{ width: '16mm' }}>Units</th>
-        <th className="text-left pb-1 pl-12 font-bold text-black text-[14.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
+        <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
         <th style={{ width: '62mm' }}></th>
       </tr>
     </thead>
@@ -323,7 +323,7 @@ export function ReportPreviewPage() {
         const unit = matchedRange?.unit || o.test.unit;
         return (
           <tr key={o.order.id}>
-            <td className={cn("py-[3px] pr-2 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+            <td className={cn("py-[3px] pr-4 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
               {o.test.name}
             </td>
             <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
@@ -332,7 +332,7 @@ export function ReportPreviewPage() {
             <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
               {unit && unit !== '—' ? unit : ''}
             </td>
-            <td className="py-[3px] pl-12 align-top text-gray-800 whitespace-pre-line">
+            <td className="py-[3px] pl-14 align-top text-gray-800 whitespace-pre-line">
               {range.replace(/\s*\/\s*/g, '\n')}
             </td>
           </tr>
