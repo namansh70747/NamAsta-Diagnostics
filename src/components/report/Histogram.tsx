@@ -12,14 +12,20 @@ function gauss(x: number, mu: number, sigma: number): number {
  *  narrow lymph population towers over a broad granulocyte population even when
  *  Gran% > Lym% — exactly how the machine renders it. */
 function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): number[] {
-  // The H360 always renders the lymphocyte population as a tall, sharp spike and
-  // the granulocyte population as a LOW, BROAD shoulder — even when Gran% > Lym% —
-  // because granulocytes spread across a much wider volume range. Peak height ∝
-  // pct/sigma, so the wide gran sigma (60) keeps that shoulder ~⅓ of the lymph peak.
+  // MATHEMATICAL MODEL (3-part differential volume histogram, x = cell volume in fL):
+  //   Each population is a Gaussian whose AREA equals its cell fraction, because the
+  //   y-axis is relative cell frequency. For a Gaussian, area = amplitude·σ·√(2π),
+  //   so  amplitude ∝ pct / σ.  Lymphocytes are uniform (narrow σ) → a sharp peak;
+  //   granulocytes span a wide volume range (large σ) → a broad hump.
+  //   Calibrated against the lab's printed H360 reports:
+  //     • 81% gran (Sarojni) → gran hump ≈ 1.9× the lymph peak (gran dominates)
+  //     • 58% gran (Manisha) → gran shoulder ≈ 0.55× the lymph peak (lymph dominates)
+  //   σ_lymph = 18, σ_gran = 52 reproduces both ratios. (height ∝ pct/σ:
+  //     Sarojni 81.3/52 ÷ 14.8/18 = 1.90;  Manisha 58.4/52 ÷ 36/18 = 0.56)
   const peaks = [
-    { pct: lymPct,  mu: 82,  sigma: 13 },  // lymphocytes: sharp + tall
-    { pct: midPct,  mu: 125, sigma: 18 },  // mid cells: small
-    { pct: granPct, mu: 200, sigma: 60 },  // granulocytes: broad + low shoulder
+    { pct: lymPct,  mu: 75,  sigma: 18 },  // lymphocytes: small cells, sharp peak
+    { pct: midPct,  mu: 115, sigma: 20 },  // mid cells (mono/eo/baso): fills the valley
+    { pct: granPct, mu: 185, sigma: 52 },  // granulocytes: large cells, broad hump
   ];
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
@@ -43,9 +49,14 @@ function rbcCurve(mcv: number, rdwCv: number, N = 220): number[] {
  *  volume so μ = ln(MPV) − σ²/2; width σ from PDW-CV (clamped for a clean,
  *  defined peak with a long right tail — matching the H360 green curve). */
 function pltCurve(mpv: number, pdwCv: number, N = 220): number[] {
+  // Log-normal in volume: steep rise from ~2 fL, sharp left-shifted peak, long
+  // right tail to ~35 fL — exactly the printed H360 PLT curve. MPV is the MEAN, so
+  // μ = ln(MPV) − σ²/2; the peak (mode) = exp(μ − σ²) sits just below MPV. σ from
+  // PDW-CV, clamped 0.30–0.50 so the mode stays close to MPV (matches the printout
+  // where the peak is near MPV, not far left).
   const safeM = Math.max(mpv, 2);
-  const sigmaLog = Math.min(Math.max((pdwCv / 100) * 2.2, 0.3), 0.6);
-  const muLog = Math.log(safeM) - (sigmaLog * sigmaLog) / 2; // MPV = mean
+  const sigmaLog = Math.min(Math.max((pdwCv / 100) * 1.8, 0.30), 0.50);
+  const muLog = Math.log(safeM) - (sigmaLog * sigmaLog) / 2;
   return Array.from({ length: N }, (_, i) => {
     const x = 0.2 + (i / (N - 1)) * 35.8;
     const lx = Math.log(x);
@@ -70,7 +81,10 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
   const pw = W - ml - mr;
   const ph = H - mt - mb;
   const N = data.length;
-  const max = Math.max(...data, 1);
+  // Normalise to the curve's OWN peak so it fills the chart height. (Do NOT clamp the
+  // floor to 1 — the PLT log-normal peaks at ~0.09, so a floor of 1 crushed it to ~9%
+  // of the chart and made it look flat. Fall back to 1 only if every value is 0.)
+  const max = Math.max(...data) || 1;
 
   const pts = data.map((v, i) => [
     ml + (i / (N - 1)) * pw,
@@ -227,7 +241,7 @@ export function CbcSectionHistogram({
   if (section === 'LEUKOCYTES') {
     const data = histos?.wbc?.length ? histos.wbc
       : wbcCurve(num('LYM_PCT') ?? 33, num('MID_PCT') ?? 8, num('GRAN_PCT') ?? 59);
-    return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[35,100,150]} color="#1e3f8f" />;
+    return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[50,110]} color="#1e3f8f" />;
   }
   if (section === 'ERYTHROCYTES') {
     const data = histos?.rbc?.length ? histos.rbc
