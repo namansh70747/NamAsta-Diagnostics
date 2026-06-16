@@ -308,7 +308,7 @@ export function ReportPreviewPage() {
             {section}
           </td>
           {hasChart && (
-            <td rowSpan={spanCount} style={{ verticalAlign: 'top', paddingLeft: '4mm' }}>
+            <td rowSpan={spanCount} style={{ verticalAlign: 'middle', paddingLeft: '4mm' }}>
               <CbcSectionHistogram section={section} orders={allRows} histos={histograms} />
             </td>
           )}
