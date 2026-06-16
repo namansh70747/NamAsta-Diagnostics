@@ -18,14 +18,15 @@ function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): num
   //   so  amplitude ∝ pct / σ.  Lymphocytes are uniform (narrow σ) → a sharp peak;
   //   granulocytes span a wide volume range (large σ) → a broad hump.
   //   Calibrated against the lab's printed H360 reports:
-  //     • 81% gran (Sarojni) → gran hump ≈ 1.9× the lymph peak (gran dominates)
-  //     • 58% gran (Manisha) → gran shoulder ≈ 0.55× the lymph peak (lymph dominates)
-  //   σ_lymph = 18, σ_gran = 52 reproduces both ratios. (height ∝ pct/σ:
-  //     Sarojni 81.3/52 ÷ 14.8/18 = 1.90;  Manisha 58.4/52 ÷ 36/18 = 0.56)
+  //     • 81% gran (Sarojni) → gran hump ≈ 2.4× the lymph peak (gran dominates)
+  //     • 58% gran (Manisha) → gran shoulder ≈ 0.7× the lymph peak (lymph dominates)
+  //   σ_lymph = 18, σ_gran = 42, mu_gran = 165 reproduces both. (height ∝ pct/σ:
+  //     Sarojni 81.3/42 ÷ 14.8/18 = 2.36;  Manisha 58.4/42 ÷ 36/18 = 0.70)
+  //   mu_gran moved 185→165 so the right hump peaks at ~165 fL (matching H360 screen).
   const peaks = [
     { pct: lymPct,  mu: 75,  sigma: 18 },  // lymphocytes: small cells, sharp peak
-    { pct: midPct,  mu: 115, sigma: 20 },  // mid cells (mono/eo/baso): fills the valley
-    { pct: granPct, mu: 185, sigma: 52 },  // granulocytes: large cells, broad hump
+    { pct: midPct,  mu: 120, sigma: 20 },  // mid cells (mono/eo/baso): fills the valley
+    { pct: granPct, mu: 165, sigma: 42 },  // granulocytes: broader hump peaking ~165 fL
   ];
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
@@ -266,7 +267,7 @@ export function CbcSectionHistogram({
   if (section === 'ERYTHROCYTES') {
     const data = histos?.rbc?.length ? histos.rbc
       : rbcCurve(num('MCV') ?? 90, num('RDW_CV') ?? 13.5);
-    return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[60,120]} color="#7b1b1b" />;
+    return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[25,300]} color="#7b1b1b" />;
   }
   if (section === 'THROMBOCYTES') {
     const data = histos?.plt?.length ? histos.plt
