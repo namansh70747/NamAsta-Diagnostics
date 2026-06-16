@@ -17,24 +17,25 @@ function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): num
   //   y-axis is relative cell frequency. For a Gaussian, area = amplitude·σ·√(2π),
   //   so  amplitude ∝ pct / σ.  Lymphocytes are uniform (narrow σ) → a sharp peak;
   //   granulocytes span a wide volume range (large σ) → a broad hump.
-  //   After power normalisation, peak heights ∝ (pct/σ)^1.8 — valleys collapse fast:
-  //     • 81% gran (Sarojni): gran_norm=1.0, lym_norm^1.8=0.174 → gran dominates ✓
-  //     • 58% gran (Manisha): gran_norm^1.8=0.649, lym=1.0 → lym taller ✓
-  //     • 50% lym / 40% gran (typical): gran_norm^1.8=0.226 → matches H360 screen ✓
-  //   mu_gran=172, σ_gran=36 puts a clear hump at ~172 fL with a deep valley at ~110 fL.
+  //   Power 1.4 calibration (peak ∝ pct/σ, valley collapses fast):
+  //     • 50% lym / 40% gran: gran_norm=0.576 → ^1.4 = 46%  — matches H360 right shoulder ✓
+  //     • 58% gran (Manisha): gran=1.0, lym^1.4=0.820 → gran barely taller ✓
+  //     • 81% gran (Sarojni): lym_norm^1.4=0.163 → gran dominant ✓
+  //   Valley at x=115 fL: ~9% height — deep and clean like the H360 screen.
+  //   σ_gran=25: narrower hump (clean peak at 165 fL, drops to ~0 by 240 fL).
+  //   σ_mid=60: wide spread so mid cells gently fill the valley without a visible 3rd peak.
   const peaks = [
     { pct: lymPct,  mu: 75,  sigma: 18 },  // lymphocytes: narrow sharp peak
-    { pct: midPct,  mu: 128, sigma: 22 },  // mid cells: shifted into transition zone
-    { pct: granPct, mu: 172, sigma: 36 },  // granulocytes: narrower hump at 172 fL
+    { pct: midPct,  mu: 128, sigma: 60 },  // mid cells: very wide — fills valley gently
+    { pct: granPct, mu: 165, sigma: 25 },  // granulocytes: clean hump at 165 fL
   ];
   const raw = Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
     return peaks.reduce((s, p) => s + (p.pct / p.sigma) * gauss(x, p.mu, p.sigma), 0);
   });
-  // Power curve: valleys (low probability) collapse much faster than peaks.
-  // val^1.8: peak=1→1, valley=0.4→0.226, deep valley=0.15→0.058 — matches H360 display.
+  // Power 1.4: valley=0.16→0.095, peak=1→1. Deepens bimodal separation without over-crushing.
   const maxRaw = Math.max(...raw) || 1;
-  return raw.map(v => Math.pow(v / maxRaw, 1.8));
+  return raw.map(v => Math.pow(v / maxRaw, 1.4));
 }
 
 /** RBC: single Gaussian centred at MCV. RDW-CV is the coefficient of variation
@@ -112,7 +113,7 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
   const bars = Array.from({ length: B }, (_, b) => {
     const idx = Math.round((b / (B - 1)) * (N - 1));
     const u = data[idx] / max;                    // 0..1 relative height
-    const noise = 0.14 * Math.sqrt(Math.max(u, 0)) * (hash(b, seed) - 0.5) * 2;
+    const noise = 0.07 * Math.sqrt(Math.max(u, 0)) * (hash(b, seed) - 0.5) * 2;
     const un = Math.max(0, Math.min(1.02, u + noise));
     return { x: ml + (b / B) * pw, h: un * ph, bw: pw / B };
   });
