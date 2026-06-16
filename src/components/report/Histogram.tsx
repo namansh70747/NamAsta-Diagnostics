@@ -45,23 +45,27 @@ function rbcCurve(mcv: number, rdwCv: number, N = 220): number[] {
   });
 }
 
-/** PLT: log-normal (right-skewed), x spans 0–36 fL. MPV is the MEAN platelet
- *  volume so μ = ln(MPV) − σ²/2; width σ from PDW-CV (clamped for a clean,
- *  defined peak with a long right tail — matching the H360 green curve). */
+/** PLT: log-normal primary peak + Gaussian secondary shoulder — matching the
+ *  characteristic H360 bimodal PLT display (main peak ~8-12 fL, clear secondary
+ *  hump at ~1.75×MPV from large/aggregated platelets, long right tail to ~35 fL). */
 function pltCurve(mpv: number, pdwCv: number, N = 220): number[] {
-  // Log-normal in volume: steep rise from ~2 fL, sharp left-shifted peak, long
-  // right tail to ~35 fL — exactly the printed H360 PLT curve. MPV is the MEAN, so
-  // μ = ln(MPV) − σ²/2; the peak (mode) = exp(μ − σ²) sits just below MPV. σ from
-  // PDW-CV, clamped 0.30–0.50 so the mode stays close to MPV (matches the printout
-  // where the peak is near MPV, not far left).
   const safeM = Math.max(mpv, 2);
   const sigmaLog = Math.min(Math.max((pdwCv / 100) * 1.8, 0.30), 0.50);
   const muLog = Math.log(safeM) - (sigmaLog * sigmaLog) / 2;
-  return Array.from({ length: N }, (_, i) => {
-    const x = 0.2 + (i / (N - 1)) * 35.8;
+
+  const xs = Array.from({ length: N }, (_, i) => 0.2 + (i / (N - 1)) * 35.8);
+  const primary = xs.map(x => {
     const lx = Math.log(x);
     return Math.exp(-((lx - muLog) ** 2) / (2 * sigmaLog ** 2)) / x;
   });
+  const pMax = Math.max(...primary) || 1;
+
+  // Secondary shoulder centred at 1.75×MPV, width ~0.55×MPV — matches H360 photos.
+  // Amplitude 50% of primary peak so it's clearly visible but subordinate.
+  const shoulderMu = safeM * 1.75;
+  const shoulderSigma = Math.max(safeM * 0.55, 3.5);
+
+  return primary.map((p, i) => p + pMax * 0.50 * gauss(xs[i], shoulderMu, shoulderSigma));
 }
 
 // ── SVG chart ────────────────────────────────────────────────────────────────
@@ -96,7 +100,7 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
   // analyzer look. A real cell counter shows per-channel counts whose noise ∝ √count,
   // so the tails/shoulders look spikier than the smooth peak. We seed the noise from
   // the data so WBC/RBC/PLT each get a distinct, stable jagged pattern.
-  const B = 72;                                   // number of bars
+  const B = 96;                                   // number of bars — dense, like the machine
   const seed = (Math.round(max * 1000) % 97) + 1; // per-curve seed
   const bars = Array.from({ length: B }, (_, b) => {
     const idx = Math.round((b / (B - 1)) * (N - 1));
@@ -140,7 +144,7 @@ function HistogramChart({ data, title, xTicks, xMax, vlines, color = '#7b1b1b' }
 
       {/* Solid filled bars */}
       {bars.map((d, i) => (
-        <rect key={i} x={d.x} y={mt + ph - d.h} width={d.bw * 0.96} height={d.h}
+        <rect key={i} x={d.x} y={mt + ph - d.h} width={d.bw + 0.3} height={d.h}
           fill={color} fillOpacity="0.5" />
       ))}
 
