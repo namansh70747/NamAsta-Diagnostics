@@ -1,4 +1,10 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Prevents a second capture from binding the same port while the first is still listening.
+// Component remounts (navigating away and back in Settings) reset the frontend `busy` state
+// but the Rust thread keeps running — this guard ensures only one listener exists at a time.
+static TCP_CAPTURE_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Locate the live SQLite database that tauri-plugin-sql created (app config/data dir).
 fn resolve_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -598,9 +604,16 @@ pub fn device_id() -> String {
 /// main thread for the whole window and the app would appear to "stop responding".
 #[tauri::command]
 pub async fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || tcp_capture_blocking(mode, host, port, window_ms))
+    // Reject immediately if a previous capture is still running (e.g. user navigated
+    // away from Settings and back, resetting frontend `busy` while Rust still holds the port).
+    if TCP_CAPTURE_RUNNING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        return Err("A capture is already in progress — please wait for it to finish. If it seems stuck, restart the app.".into());
+    }
+    let result = tauri::async_runtime::spawn_blocking(move || tcp_capture_blocking(mode, host, port, window_ms))
         .await
-        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?;
+    TCP_CAPTURE_RUNNING.store(false, Ordering::SeqCst);
+    result
 }
 
 fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
