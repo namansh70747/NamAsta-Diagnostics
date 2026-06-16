@@ -791,7 +791,7 @@ export function ReportPreviewPage() {
                                 ) : (
                                   <>
                                     <table className="w-full table-fixed text-[14px] border-collapse">
-                                      {pi === 0 && renderHead()}
+                                      {renderHead()}
                                       <tbody>{renderRows(pg.orders)}</tbody>
                                     </table>
                                     {renderNotes(pg.orders)}
