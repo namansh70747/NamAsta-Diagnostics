@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/lib/session";
@@ -17,8 +18,8 @@ import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { CbcSectionHistogram } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { SCLLogo } from "@/components/common/SCLLogo";
@@ -50,6 +51,29 @@ const DEPARTMENT: Record<string, string> = {
 };
 const deptOf = (p: Panel): string => DEPARTMENT[p.code] ?? p.report_heading;
 
+/** Urine test-code → section header. */
+const URINE_SECTION: Record<string, string> = {
+  U_QTY:     'PHYSICAL EXAMINATION',
+  U_COLOUR:  'PHYSICAL EXAMINATION',
+  U_APP:     'PHYSICAL EXAMINATION',
+  U_REACT:   'PHYSICAL EXAMINATION',
+  U_SG:      'PHYSICAL EXAMINATION',
+  U_PROTEIN: 'CHEMICAL EXAMINATION',
+  U_GLUCOSE: 'CHEMICAL EXAMINATION',
+  U_KETONE:  'CHEMICAL EXAMINATION',
+  U_BLOOD:   'CHEMICAL EXAMINATION',
+  U_BILE_S:  'CHEMICAL EXAMINATION',
+  U_BILE_P:  'CHEMICAL EXAMINATION',
+  U_URO:     'CHEMICAL EXAMINATION',
+  U_NITRITE: 'CHEMICAL EXAMINATION',
+  U_PUS:     'MICROSCOPIC EXAMINATION',
+  U_RBC:     'MICROSCOPIC EXAMINATION',
+  U_EPIT:    'MICROSCOPIC EXAMINATION',
+  U_CAST:    'MICROSCOPIC EXAMINATION',
+  U_CRYSTAL: 'MICROSCOPIC EXAMINATION',
+  U_BACTERIA:'MICROSCOPIC EXAMINATION',
+};
+
 /** CBC test-code → section header (LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES). */
 const CBC_SECTION: Record<string, string> = {
   WBC: 'LEUKOCYTES', LYM_PCT: 'LEUKOCYTES', MID_PCT: 'LEUKOCYTES', GRAN_PCT: 'LEUKOCYTES',
@@ -60,9 +84,16 @@ const CBC_SECTION: Record<string, string> = {
   PDW_SD: 'THROMBOCYTES', PDW_CV: 'THROMBOCYTES', PLCR: 'THROMBOCYTES', PLCC: 'THROMBOCYTES',
 };
 
+// Bump this to force every layout setting back to the known-good defaults (clears any
+// accumulated experimental/buggy values from older builds).
+const LAYOUT_VERSION = '4';
+const layoutFresh = (): boolean => localStorage.getItem('scl_layout_v') === LAYOUT_VERSION;
+
 export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const pid = parseInt(patientId ?? '0');
+  // Once per build version: discard old layout settings so the clean default layout shows.
+  useEffect(() => { localStorage.setItem('scl_layout_v', LAYOUT_VERSION); }, []);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const sessionUser = useSession(s => s.user);
@@ -72,23 +103,136 @@ export function ReportPreviewPage() {
   const [showWatermark, setShowWatermark] = useState(true);
   const [showSignature, setShowSignature] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  // In-app report editing: when `editing`, the report sheet is contentEditable seeded with
-  // `editSeed`; saving stores the edited HTML so the report screen (and every print/send)
-  // shows the edited version until "Revert to original".
+  // In-app report editing: when `editing`, only the [data-editable-body] regions become
+  // editable (chrome stays locked). Saving stores the edited HTML so the report screen
+  // (and every print/send) shows the edited version until "Revert to original".
   const [editing, setEditing] = useState(false);
-  const [editSeed, setEditSeed] = useState("");
-  const editRef = useRef<HTMLDivElement>(null);
+  // While editing we edit a STATIC HTML snapshot (not the live React tree), set up
+  // IMPERATIVELY via this ref — React must never manage the editable DOM (contentEditable +
+  // dangerouslySetInnerHTML together is broken in WebViews; even Ctrl+A fails).
+  const [editHtml, setEditHtml] = useState<string | null>(null);
+  const editHostRef = useRef<HTMLDivElement>(null);
   // Pre-printed letterhead paper: when OFF, the physical print drops the header/footer
   // and shifts the body down so the data lands inside the paper's printed frame. Digital
   // copies (PDF, WhatsApp, email) always include the full letterhead.
   // Default OFF — the lab prints on pre-printed letterhead paper, so the digital header is
   // hidden and the body is positioned to land inside the paper's frame. Toggle ON for plain paper.
   const [printLetterhead, setPrintLetterhead] = useState(() => localStorage.getItem('scl_print_letterhead') === '1');
-  const [preTop, setPreTop] = useState(() => Number(localStorage.getItem('scl_pre_top') ?? 60));
-  const [preBottom, setPreBottom] = useState(() => Number(localStorage.getItem('scl_pre_bottom') ?? 24));
-  const [sigHeightMm, setSigHeightMm] = useState(() => Number(localStorage.getItem('scl_sig_height') ?? 14));
-  // Compact = all panels on one page (matches the old system format). Per-page = one A4 per panel.
+  // Robust numeric read: a missing OR empty/garbage stored value falls back to the default
+  // (plain Number('') would silently become 0 and break the layout).
+  const numLS = (key: string, def: number) => { const n = parseFloat(localStorage.getItem(key) ?? ''); return Number.isFinite(n) ? n : def; };
+  const [preTop, setPreTop] = useState(() => numLS('scl_pre_top', 60));
+  const [preBottom, setPreBottom] = useState(() => numLS('scl_pre_bottom', 24));
+  const [sigHeightMm, setSigHeightMm] = useState(() => numLS('scl_sig_height', 14));
+  // Blank space reserved at the bottom of every compact page (mm). The user wants a gap
+  // below the data so it never runs to the very edge.
+  const [bottomGapMm, setBottomGapMm] = useState(() => { const v = Number(localStorage.getItem('scl_bottom_gap')); return (layoutFresh() && v >= 0 && v <= 60) ? v : 12; });
+  // Compact = pack panels across A4 pages (no panel split). Per-page = one A4 per panel.
   const [compactReport, setCompactReport] = useState(() => localStorage.getItem('scl_compact_report') !== '0');
+  // Manual page placement: per-panel overrides on the auto-pagination. 'pull' = drag this
+  // panel UP onto the previous page; 'before' = push it DOWN to start a fresh page.
+  const [pageBreaks, setPageBreaks] = useState<Record<string, 'pull' | 'before'>>(() => {
+    try { return JSON.parse(localStorage.getItem(`scl_breaks_${pid}`) || '{}'); } catch { return {}; }
+  });
+  function moveBlock(key: string, dir: 'up' | 'down') {
+    setPageBreaks(prev => {
+      const out = { ...prev };
+      if (dir === 'up') { if (out[key] === 'pull') delete out[key]; else out[key] = 'pull'; }
+      else { if (out[key] === 'before') delete out[key]; else out[key] = 'before'; }
+      localStorage.setItem(`scl_breaks_${pid}`, JSON.stringify(out));
+      return out;
+    });
+  }
+  // Excel-style column widths for the standard 4-column tables (Test Name / Results / Units /
+  // Normal Ranges), as percentages summing to 100. Drag a column border to resize; saved as a
+  // lab-wide template so every report uses the chosen layout.
+  const [colWidths, setColWidths] = useState<number[]>(() => {
+    try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colw') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
+    return [24, 18, 12, 46];
+  });
+  function startColResize(idx: number, e: React.PointerEvent) {
+    e.preventDefault(); e.stopPropagation();
+    const table = (e.currentTarget as HTMLElement).closest('table');
+    const tableW = table?.getBoundingClientRect().width || 1;
+    const startX = e.clientX;
+    const startWidths = [...colWidths];
+    let last = startWidths;
+    const onMove = (ev: PointerEvent) => {
+      const deltaPct = ((ev.clientX - startX) / tableW) * 100;
+      const left = startWidths[idx] + deltaPct;
+      const right = startWidths[idx + 1] - deltaPct;
+      if (left < 6 || right < 6) return;   // keep both columns usable
+      last = [...startWidths]; last[idx] = left; last[idx + 1] = right;
+      setColWidths(last);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      localStorage.setItem('scl_colw', JSON.stringify(last));
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+  // Nudge the boundary between column `idx` and the next, by a fixed step (header button).
+  function nudgeCol(idx: number, dir: 'left' | 'right') {
+    setColWidths(prev => {
+      const step = dir === 'left' ? -3 : 3;
+      const left = prev[idx] + step;
+      const right = prev[idx + 1] - step;
+      if (left < 6 || right < 6) return prev;
+      const out = [...prev]; out[idx] = left; out[idx + 1] = right;
+      localStorage.setItem('scl_colw', JSON.stringify(out));
+      return out;
+    });
+  }
+  // INDEPENDENT per-column horizontal position: the left padding (px) of each column's cells.
+  // Moving a column left/right only affects THAT column — nothing is shared with neighbours.
+  // Defaults mirror the original paddings (Test Name 0, Results 8, Units 8, Normal Ranges 56).
+  const [colOffset, setColOffset] = useState<number[]>(() => {
+    try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_coloff') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
+    return [0, 8, 8, 56];
+  });
+  function moveColumn(i: number, dir: 'left' | 'right') {
+    setColOffset(prev => {
+      const out = [...prev];
+      out[i] = Math.max(0, Math.min(280, out[i] + (dir === 'left' ? -8 : 8)));
+      localStorage.setItem('scl_coloff', JSON.stringify(out));
+      return out;
+    });
+  }
+  // Widen/narrow ONE column by `delta` %, taking the difference from the OTHER THREE columns
+  // PROPORTIONALLY so the row always sums to 100% and stays balanced (you can't accidentally
+  // blow one column up to 32% while another collapses).
+  function adjustColWidth(i: number, delta: number) {
+    setColWidths(prev => {
+      const me = prev[i] + delta;
+      if (me < 6 || me > 70) return prev;
+      const otherTotal = prev.reduce((s, w, j) => s + (j === i ? 0 : w), 0);
+      if (otherTotal <= 0) return prev;
+      const out = prev.map((w, j) => j === i ? me : w - delta * (w / otherTotal));
+      if (out.some((w, j) => j !== i && w < 6)) return prev;   // keep every column usable
+      localStorage.setItem('scl_colw', JSON.stringify(out));
+      return out;
+    });
+  }
+  // Overall content scale (0.6–1.15): shrinks/grows ALL report content so it fits the page —
+  // pagination accounts for it, so scaling down packs more onto each sheet.
+  const [contentScale, setContentScale] = useState(() => { const v = Number(localStorage.getItem('scl_content_scale')); return (layoutFresh() && v >= 0.6 && v <= 1.15) ? v : 1; });
+  const setScale = (v: number) => { const s = Math.min(1.15, Math.max(0.6, +v.toFixed(2))); setContentScale(s); localStorage.setItem('scl_content_scale', String(s)); };
+  // Per-column horizontal alignment for the 4 standard columns.
+  const [colAlign, setColAlign] = useState<('left' | 'center' | 'right')[]>(() => {
+    try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colalign') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
+    return ['left', 'left', 'left', 'left'];
+  });
+  const cycleAlign = (i: number) => setColAlign(prev => {
+    const order: ('left' | 'center' | 'right')[] = ['left', 'center', 'right'];
+    const out = [...prev]; out[i] = order[(order.indexOf(prev[i]) + 1) % 3];
+    localStorage.setItem('scl_colalign', JSON.stringify(out));
+    return out;
+  });
+  // Row vertical padding (line spacing / density) in px.
+  const [rowPad, setRowPad] = useState(() => { const v = Number(localStorage.getItem('scl_rowpad')); return (layoutFresh() && v >= 0 && v <= 10) ? v : 3; });
+  const setRowPadding = (v: number) => { const p = Math.min(10, Math.max(0, Math.round(v))); setRowPad(p); localStorage.setItem('scl_rowpad', String(p)); };
   const autoDeliverTried = useRef(false);
   const autoSendTried = useRef(false);
   const [searchParams] = useSearchParams();
@@ -100,7 +244,11 @@ export function ReportPreviewPage() {
   const { data: bill } = useQuery({ queryKey: ['bill', pid], queryFn: () => getBill(pid) });
   const { data: comment = '' } = useQuery({ queryKey: ['comment', pid], queryFn: () => getReportComment(pid) });
   const { data: histograms } = useQuery({ queryKey: ['histograms', pid], queryFn: () => getHistograms(pid) });
-  const { data: reportOverride } = useQuery({ queryKey: ['report-override', pid], queryFn: () => getReportOverride(pid) });
+  const { data: rawOverride } = useQuery({ queryKey: ['report-override', pid], queryFn: () => getReportOverride(pid) });
+  // Older builds (the TipTap experiment) could save a flattened/garbled override with no real
+  // table. Treat such an override as invalid → fall back to the clean auto-generated report.
+  const overrideValid = !!rawOverride && /<table/i.test(rawOverride);
+  const reportOverride = overrideValid ? rawOverride : null;
   const { data: qr = '' } = useQuery({
     queryKey: ['qr', pid, patient?.test_no, patient?.report_time],
     queryFn: () => generateReportQR(patient!.test_no, patient!.name, patient!.report_time),
@@ -242,47 +390,99 @@ export function ReportPreviewPage() {
   }
 
   // Shared report-table fragments (used by both grouped and one-per-page layouts).
-  const renderHead = () => (
-    <thead>
-      <tr className="border-b border-gray-400">
-        <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px] w-[24%]">Test Name</th>
-        <th className="text-left pb-1 pl-2 pr-5 font-bold text-black text-[14.5px] w-[18%]">Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px] w-[12%]">Units</th>
-        <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px] w-[46%]">Normal Ranges</th>
-      </tr>
-    </thead>
+  const HEAD_LABELS = ['Test Name', 'Results', 'Units', 'Normal Ranges'];
+  // RIGHT padding only — the LEFT padding is the adjustable per-column position (colOffset).
+  const HEAD_PAD = ['pr-4', 'pr-5', 'pr-2', 'pr-2'];
+  // One header cell with: ←/→ buttons to shift the column boundary (like the test up/down
+  // buttons) AND a drag handle for fine Excel-style resizing. data-report-control → stripped
+  // from PDF/print/edit.
+  const colHeaderCell = (label: string, i: number, extraClass = '') => (
+    <th key={i} className={cn("pb-1 font-bold text-black text-[14.5px] relative group/col whitespace-nowrap", HEAD_PAD[i], extraClass)} style={{ textAlign: colAlign[i], paddingLeft: colOffset[i] }}>
+      {label}
+      {i < 3 && (
+        <>
+          {/* ←/→ shift buttons (appear on hover over the column header) */}
+          <span data-report-control contentEditable={false}
+            className="report-control absolute -top-2 right-1 z-30 flex gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity print:hidden">
+            <button type="button" title="Shift boundary left (narrower)" onClick={() => nudgeCol(i, 'left')}
+              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#54555f] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">‹</button>
+            <button type="button" title="Shift boundary right (wider)" onClick={() => nudgeCol(i, 'right')}
+              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#54555f] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">›</button>
+          </span>
+          {/* drag handle on the boundary */}
+          <span data-report-control contentEditable={false} onPointerDown={e => startColResize(i, e)}
+            title="Drag to resize this column" style={{ touchAction: 'none' }}
+            className="report-control absolute top-0 right-0 z-20 h-full w-3 translate-x-1/2 cursor-col-resize print:hidden">
+            <span className="block mx-auto h-full w-[2px] bg-[#c7c9ff] opacity-0 group-hover/col:opacity-100 transition-opacity" />
+          </span>
+        </>
+      )}
+    </th>
   );
-  const renderRows = (rows: OrderWithResult[]) => rows.map(o => {
+  const renderHead = () => (
+    <>
+      <colgroup>
+        {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+      </colgroup>
+      <thead>
+        <tr className="border-b border-gray-400">
+          {HEAD_LABELS.map((label, i) => colHeaderCell(label, i))}
+        </tr>
+      </thead>
+    </>
+  );
+  // A test's interpretation box, rendered as a full-width row DIRECTLY BELOW that test.
+  const noteRow = (o: OrderWithResult) => o.test.interpretation_note ? (
+    <tr key={`note-${o.order.id}`} data-note-row>
+      <td colSpan={4} className="pt-1 pb-2">
+        <div className="border border-gray-700 px-3 py-2 text-[12px] text-gray-900 leading-[1.65] whitespace-pre-line">
+          {o.test.interpretation_note}
+        </div>
+      </td>
+    </tr>
+  ) : null;
+  const renderRows = (rows: OrderWithResult[]) => rows.flatMap(o => {
     const value = resultValue(o);
     const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
     const range = rangeText(o);
     const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
     const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
-    return (
+    const cells = [o.test.name, value || '—', (unit && unit !== '—' ? unit : ''), range.replace(/ \/ /g, "\n")];
+    const tr = (
       <tr key={o.order.id}>
-        <td className="py-[3px] pr-4 align-top text-gray-950">{o.test.name}</td>
-        <td className="py-[3px] pl-2 pr-5 align-top tabular-nums text-gray-950">
-          {value || '—'}
-        </td>
-        <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
-          {unit && unit !== '—' ? unit : ''}
-        </td>
-        <td className="py-[3px] pl-14 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
+        {cells.map((c, i) => (
+          <td
+            key={i}
+            className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums", i < 2 ? "text-gray-950" : "text-gray-800", i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
+            style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[i], textAlign: colAlign[i] }}
+          >
+            {c}
+          </td>
+        ))}
       </tr>
     );
+    const nr = noteRow(o);
+    return nr ? [tr, nr] : [tr];
   });
 
-  /** Column header row for CBC tables — 5 columns (4 data + 1 histogram). */
+  /** Column header row for CBC tables — 5 columns (4 data + 1 histogram). The 4 data columns
+   *  share the adjustable colWidths (so the ←/→ buttons & drag work here too, fixing the
+   *  too-narrow "Results" column); the histogram column is a fixed 62 mm. */
+  const CBC_HISTO_MM = 62;
+  const CBC_DATA_MM = 124;   // 186mm body − 62mm histogram
   const renderCbcHead = () => (
-    <thead>
-      <tr>
-        <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px]">Test Name</th>
-        <th className="text-left pb-1 pl-2 pr-5 font-bold text-black text-[14.5px]" style={{ width: '18mm' }}>Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px]" style={{ width: '16mm' }}>Units</th>
-        <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
-        <th style={{ width: '62mm' }}></th>
-      </tr>
-    </thead>
+    <>
+      <colgroup>
+        {colWidths.map((w, i) => <col key={i} style={{ width: `${(w / 100 * CBC_DATA_MM).toFixed(1)}mm` }} />)}
+        <col style={{ width: `${CBC_HISTO_MM}mm` }} />
+      </colgroup>
+      <thead>
+        <tr>
+          {HEAD_LABELS.map((label, i) => colHeaderCell(label, i))}
+          <th style={{ width: `${CBC_HISTO_MM}mm` }}></th>
+        </tr>
+      </thead>
+    </>
   );
 
   /** CBC renderer: each section's histogram sits in a rowspan cell next to its rows,
@@ -324,17 +524,21 @@ export function ReportPreviewPage() {
         const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
         return (
           <tr key={o.order.id}>
-            <td className={cn("py-[3px] pr-4 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+            <td className={cn("align-top", HEAD_PAD[0], isAbnormal ? "font-bold text-black" : "text-gray-950")}
+              style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[0], textAlign: colAlign[0] }}>
               {o.test.name}
             </td>
-            <td className={cn("py-[3px] pl-2 pr-5 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+            <td className={cn("align-top tabular-nums", HEAD_PAD[1], isAbnormal ? "font-bold text-black" : "text-gray-950")}
+              style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[1], textAlign: colAlign[1] }}>
               {value || '—'}
             </td>
-            <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
+            <td className={cn("align-top text-gray-800 whitespace-nowrap", HEAD_PAD[2])}
+              style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[2], textAlign: colAlign[2] }}>
               {unit && unit !== '—' ? unit : ''}
             </td>
-            <td className="py-[3px] pl-14 align-top text-gray-800 whitespace-pre-line">
-              {range.replace(/\s*\/\s*/g, '\n')}
+            <td className={cn("align-top text-gray-800 whitespace-pre-line", HEAD_PAD[3])}
+              style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[3], textAlign: colAlign[3] }}>
+              {range.replace(/ \/ /g, "\n")}
             </td>
           </tr>
         );
@@ -342,14 +546,58 @@ export function ReportPreviewPage() {
       return headerRow ? [headerRow, ...dataRows] : dataRows;
     });
   };
-  const renderNotes = (rows: OrderWithResult[]) => {
+
+  /** Urine renderer: inserts PHYSICAL / CHEMICAL / MICROSCOPIC EXAMINATION section headers. */
+  const renderUrineRows = (rows: OrderWithResult[]) => {
+    const out: React.ReactNode[] = [];
+    let currentSection = '';
+    for (const o of rows) {
+      const section = URINE_SECTION[o.test.code] ?? '';
+      if (section && section !== currentSection) {
+        currentSection = section;
+        out.push(
+          <tr key={`usec-${section}`}>
+            <td colSpan={4} className="pt-2 pb-[2px] text-[11px] font-bold text-black uppercase tracking-wide border-b border-gray-500">
+              {section}
+            </td>
+          </tr>
+        );
+      }
+      const value = resultValue(o);
+      const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
+      const range = rangeText(o);
+      const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
+      const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
+      const cells = [o.test.name, value || '—', (unit && unit !== '—' ? unit : ''), range.replace(/ \/ /g, "\n")];
+      out.push(
+        <tr key={o.order.id}>
+          {cells.map((c, i) => (
+            <td
+              key={i}
+              className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums", i < 2 ? "text-gray-950" : "text-gray-800", i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
+              style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[i], textAlign: colAlign[i] }}
+            >
+              {c}
+            </td>
+          ))}
+        </tr>
+      );
+      const nr = noteRow(o);
+      if (nr) out.push(nr);
+    }
+    return out;
+  };
+
+  // skipPerTest: per-test interpretation boxes are now rendered INLINE (right under each test),
+  // so the standard/urine tables pass true and this only emits the panel-wide band text.
+  const renderNotes = (rows: OrderWithResult[], skipPerTest = false) => {
     // Interpretation boxes print AFTER the whole test table (never between rows) — one box per
     // test that carries an interpretation, in order. Plus the patient-matched band text.
     const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
     const band = patient
       ? rows.map(r => findRange(r.ranges, patient.sex, ageDays)?.band_text).find(Boolean)
       : undefined;
-    const notes = rows.filter(r => r.test.interpretation_note);
+    const notes = skipPerTest ? [] : rows.filter(r => r.test.interpretation_note);
     if (!band && notes.length === 0) return null;
     return (
       <>
@@ -362,6 +610,34 @@ export function ReportPreviewPage() {
       </>
     );
   };
+
+  /** The body of one panel (table + interpretation notes), shared by every layout mode. */
+  const renderPanelBody = (pg: { panel: Panel; orders: OrderWithResult[] }) =>
+    pg.panel.code === 'CBC' ? (
+      <>
+        <table className="w-full text-[14px] border-collapse" style={{ tableLayout: 'fixed' }}>
+          {renderCbcHead()}
+          <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
+        </table>
+        {renderNotes(pg.orders)}
+      </>
+    ) : pg.panel.code === 'URINE' ? (
+      <>
+        <table className="w-full table-fixed text-[14px] border-collapse">
+          {renderHead()}
+          <tbody>{renderUrineRows(pg.orders)}</tbody>
+        </table>
+        {renderNotes(pg.orders, true)}
+      </>
+    ) : (
+      <>
+        <table className="w-full table-fixed text-[14px] border-collapse">
+          {renderHead()}
+          <tbody>{renderRows(pg.orders)}</tbody>
+        </table>
+        {renderNotes(pg.orders, true)}
+      </>
+    );
 
   async function withLog(channel: 'print' | 'pdf' | 'whatsapp_semi' | 'whatsapp_api' | 'email' | 'sms', target: string, key: string, fn: () => Promise<void> | void) {
     setBusy(key);
@@ -389,6 +665,10 @@ export function ReportPreviewPage() {
     // when the on-screen preview is in "no letterhead" mode for pre-printed paper.
     const hadNoLetterhead = el.classList.contains('no-letterhead');
     if (hadNoLetterhead) el.classList.remove('no-letterhead');
+    // Hide the on-screen move controls during rasterisation (they're screen-only, but
+    // html2canvas captures the screen DOM, so print:hidden alone won't drop them).
+    const controls = Array.from(el.querySelectorAll<HTMLElement>('[data-report-control]'));
+    controls.forEach(c => { c.style.display = 'none'; });
     try {
       // wait two frames so the full-letterhead layout actually paints before rasterising
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
@@ -407,6 +687,7 @@ export function ReportPreviewPage() {
       });
     } finally {
       if (hadNoLetterhead) el.classList.add('no-letterhead');
+      controls.forEach(c => { c.style.display = ''; });
     }
   }
 
@@ -568,52 +849,98 @@ export function ReportPreviewPage() {
     }
   }
 
-  // ── In-app report editing ──
+  // ── In-app report editing (in-place) ──
+  // We edit the ACTUAL rendered report (so the editable preview looks EXACTLY like the print/PDF:
+  // paginated, with the letterhead, name box & footer on every page). The chrome carries
+  // contenteditable="false" so it stays locked; everything else is editable. The host is filled
+  // and made editable IMPERATIVELY via a ref (React must not manage the editable DOM).
   function startEdit() {
-    // Seed the editor with whatever is on screen now (the saved edit if any, else the
-    // freshly-generated report). The user then edits it like a document.
+    // Freeze the current rendered report (all pages, chrome) into a snapshot, minus the
+    // on-screen move/resize controls, then edit that snapshot. Strip the per-page auto-fit
+    // `zoom` so the editor (and the saved override) aren't permanently shrunk by a one-off fit.
     const el = document.getElementById('report-print-area');
-    setEditSeed(reportOverride ?? el?.innerHTML ?? "");
+    const clone = el?.cloneNode(true) as HTMLElement | null;
+    clone?.querySelectorAll('[data-report-control]').forEach(n => n.remove());
+    clone?.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => { s.style.zoom = ''; });
+    setEditHtml(reportOverride ?? clone?.innerHTML ?? '');
     setEditing(true);
   }
-  async function saveEdit() {
-    const html = editRef.current?.innerHTML ?? "";
-    if (!html.trim()) { setEditing(false); return; }
+  function cancelEdit() { setEditing(false); setEditHtml(null); }
+  // Auto-heal: silently discard a leftover broken override so the patient shows the clean report.
+  useEffect(() => {
+    if (rawOverride && !overrideValid) {
+      clearReportOverride(pid).then(() => qc.invalidateQueries({ queryKey: ['report-override', pid] })).catch(() => {});
+    }
+  }, [rawOverride, overrideValid, pid, qc]);
+  // Fill the editable host imperatively, lock the chrome, make the rest editable, focus it.
+  useEffect(() => {
+    if (!editing || editHtml == null) return;
+    const host = editHostRef.current;
+    if (!host) return;
+    host.innerHTML = editHtml;
+    host.contentEditable = 'true';
+    // Re-assert locked chrome (in case a snapshot lost the attribute).
+    host.querySelectorAll<HTMLElement>('.report-letterhead, .report-letterfoot').forEach(el => { el.contentEditable = 'false'; });
+    host.querySelectorAll<HTMLElement>('section[contenteditable], [data-name-box]').forEach(el => { el.contentEditable = 'false'; });
+    host.focus({ preventScroll: true });
+  }, [editing, editHtml]);
+
+  async function saveEditedBody(html: string) {
     try {
       await saveReportOverride(pid, html);
       await qc.invalidateQueries({ queryKey: ['report-override', pid] });
       setEditing(false);
+      setEditHtml(null);
       toast.success("Saved. This edited report is what prints & sends.");
     } catch (e) { toast.error(e); }
   }
+  function saveEdit() {
+    const host = editHostRef.current;
+    if (!host) { setEditing(false); return; }
+    saveEditedBody(host.innerHTML);
+  }
+  // Ctrl/Cmd + and − zoom the preview (and Ctrl/Cmd 0 resets) — like a browser/Word, so the
+  // whole report can be scaled to fit the screen. Intercepts the WebView's own zoom.
+  useEffect(() => {
+    function onZoomKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(z => Math.min(200, z + 10)); }
+      else if (e.key === '-' || e.key === '_') { e.preventDefault(); setZoom(z => Math.max(25, z - 10)); }
+      else if (e.key === '0') { e.preventDefault(); setZoom(100); }
+    }
+    window.addEventListener('keydown', onZoomKey);
+    return () => window.removeEventListener('keydown', onZoomKey);
+  }, []);
+
   async function revertEdit() {
     try {
       await clearReportOverride(pid);
       await qc.invalidateQueries({ queryKey: ['report-override', pid] });
       setEditing(false);
+      setEditHtml(null);
       toast.success("Reverted to the original report.");
     } catch (e) { toast.error(e); }
   }
 
-  if (!patient) return <div className="p-8 text-center text-gray-400">Loading…</div>;
-
-  const genderLabel = patient.sex === 'MALE' ? 'Male' : patient.sex === 'FEMALE' ? 'Female' : 'Other';
-
-  // One A4 page per test profile (panel). The letterhead + patient strip repeat on every
-  // page and a signed footer closes each — the "End of report" block lands on the last page.
-  const pageList = sortedPanels.length ? sortedPanels : [null];
+  // NOTE: all hooks (incl. the useCallback chrome components below) MUST run before any early
+  // return, or React throws "rendered more hooks than previous render" when patient loads.
+  const genderLabel = patient?.sex === 'MALE' ? 'Male' : patient?.sex === 'FEMALE' ? 'Female' : 'Other';
   const labName = settings.lab_name || 'YOUR LABORATORY';
 
-  const Watermark = () => showWatermark ? (
+  // These chrome components are wrapped in useCallback so their function identity stays STABLE
+  // across the frequent layout-state changes (zoom, column sliders, row spacing). Without this
+  // they'd be recreated every render, forcing React to remount them — which reloads the logo /
+  // QR / signature images and races the pagination measurement. Deps = only what they render.
+  const Watermark = useCallback(() => showWatermark ? (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden>
       <span style={{ transform: 'rotate(-35deg)', fontSize: '46px', color: 'rgba(123,27,27,0.05)', fontWeight: 700, whiteSpace: 'nowrap' }}>
         {labName}
       </span>
     </div>
-  ) : null;
+  ) : null, [showWatermark, labName]);
 
-  const Letterhead = () => (
-    <header className="report-letterhead relative">
+  const Letterhead = useCallback(() => (
+    <header contentEditable={false} suppressContentEditableWarning className="report-letterhead relative">
       <div className="flex items-start gap-3">
         {settings.logo_data
           ? <img src={settings.logo_data} alt="SCL" className="h-[58px] w-auto object-contain shrink-0" />
@@ -654,10 +981,10 @@ export function ReportPreviewPage() {
       {/* navy rule separating the letterhead from the report body (matches the printed pad) */}
       <div className="mt-1.5 border-b-[2.5px] border-[#1a3a8f]" />
     </header>
-  );
+  ), [settings, labName]);
 
-  const PatientStrip = () => (
-    <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[14px]">
+  const PatientStrip = useCallback(() => patient ? (
+    <section contentEditable={false} suppressContentEditableWarning className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[14px]">
       <p><strong>Name :</strong> {patient.title} {patient.name}</p>
       <p><strong>Test Request ID :</strong> {patient.test_no}</p>
       <p><strong>Age/Gender :</strong> {patient.age} {patient.age_unit} / {genderLabel}</p>
@@ -667,10 +994,10 @@ export function ReportPreviewPage() {
       <p><strong>Referred By :</strong> {patient.doctor_name ?? 'SELF'}</p>
       <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
     </section>
-  );
+  ) : null, [patient, genderLabel]);
 
-  const PageFooter = ({ pageIndex, total, isLast }: { pageIndex: number; total: number; isLast: boolean }) => (
-    <footer className="report-letterfoot relative mt-auto pt-2 border-t border-gray-400">
+  const PageFooter = useCallback(({ pageIndex, total, isLast }: { pageIndex: number; total: number; isLast: boolean }) => (
+    <footer contentEditable={false} suppressContentEditableWarning className="report-letterfoot relative mt-auto pt-2 border-t border-gray-400">
       <div className="flex justify-between items-end">
         {qr ? <img src={qr} alt="QR" width={66} height={66} className="opacity-90" /> : <span />}
         {showSignature && (
@@ -682,24 +1009,30 @@ export function ReportPreviewPage() {
           </div>
         )}
       </div>
+      {/* "End Of Report" prints on the LAST page only. */}
       {isLast && (
-        <>
-          <div className="text-center text-[14px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
-          {/* navy rule + standard footer lines, matching the printed letterhead */}
-          <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
-            <span>{settings.footer_left_text || 'NOT FOR MEDICO LEGAL PURPOSE'}</span>
-            <span>{settings.footer_right_text || 'ALL TEST ARE AVAILABLE HERE'}</span>
-          </div>
-          {settings.footer_tests_line && (
-            <div className="text-center text-[9.5px] font-bold text-gray-900 mt-1 leading-snug">
-              {settings.footer_tests_line}
-            </div>
-          )}
-        </>
+        <div className="text-center text-[14px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
+      )}
+      {/* Navy rule + standard footer lines repeat on EVERY page (matches the printed letterhead). */}
+      <div className={cn("border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900", !isLast && "mt-2")}>
+        <span>{settings.footer_left_text || 'NOT FOR MEDICO LEGAL PURPOSE'}</span>
+        <span>{settings.footer_right_text || 'ALL TEST ARE AVAILABLE HERE'}</span>
+      </div>
+      {settings.footer_tests_line && (
+        <div className="text-center text-[9.5px] font-bold text-gray-900 mt-1 leading-snug">
+          {settings.footer_tests_line}
+        </div>
       )}
       {total > 1 && <div className="text-right text-[9px] text-gray-400 mt-1">Page {pageIndex + 1} of {total}</div>}
     </footer>
-  );
+  ), [qr, showSignature, settings, sigHeightMm]);
+
+  // All hooks are above this line — safe to early-return now.
+  if (!patient) return <div className="p-8 text-center text-gray-400">Loading…</div>;
+
+  // One A4 page per test profile (panel). The letterhead + patient strip repeat on every
+  // page and a signed footer closes each — the "End of report" block lands on the last page.
+  const pageList = sortedPanels.length ? sortedPanels : [null];
 
   return (
     <div className="flex gap-6">
@@ -710,26 +1043,30 @@ export function ReportPreviewPage() {
             <ChevronLeft size={16} /> Back to Results
           </button>
           <div className="flex items-center gap-2 text-gray-500">
-            <button onClick={() => setZoom(z => Math.max(50, z - 25))} className="p-1.5 rounded hover:bg-gray-100"><ZoomOut size={15} /></button>
+            <button onClick={() => setZoom(z => Math.max(25, z - 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom out (Ctrl/Cmd −)"><ZoomOut size={15} /></button>
             <span className="text-xs w-10 text-center">{zoom}%</span>
-            <button onClick={() => setZoom(z => Math.min(150, z + 25))} className="p-1.5 rounded hover:bg-gray-100"><ZoomIn size={15} /></button>
+            <button onClick={() => setZoom(z => Math.min(200, z + 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom in (Ctrl/Cmd +)"><ZoomIn size={15} /></button>
+            <button onClick={() => setZoom(100)} className="px-2 py-1 rounded hover:bg-gray-100 text-[11px] font-medium" title="Reset zoom (Ctrl/Cmd 0)">Reset</button>
           </div>
         </div>
 
+        {editing && <RichTextToolbar />}
         <div className="overflow-auto pb-8">
           <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
-            {editing ? (
+            {(editing && editHtml != null) ? (
+              // EDIT MODE: edit the REAL paginated report in place (looks exactly like the PDF).
+              // Filled & made editable imperatively; the chrome stays contenteditable=false.
               <div
+                key="edit"
                 id="report-print-area"
-                ref={editRef}
-                contentEditable
-                suppressContentEditableWarning
+                ref={editHostRef}
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
-                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, outline: '2px dashed #6366f1' }}
-                dangerouslySetInnerHTML={{ __html: editSeed }}
+                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, outline: '2px solid #6366f1' }}
               />
             ) : reportOverride ? (
+              // Saved manual edit: render the stored full paginated report HTML statically.
               <div
+                key="ov"
                 id="report-print-area"
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
                 style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
@@ -741,74 +1078,23 @@ export function ReportPreviewPage() {
               className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
               style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm` }}
             >
-              {compactReport ? (() => {
-                // Compact mode: all panels on one flowing A4+ page — matches the lab's existing format.
-                // Group consecutive same-department panels together.
-                const deptGroups: { dept: string; panels: typeof sortedPanels }[] = [];
-                for (const pg of sortedPanels) {
-                  const d = deptOf(pg.panel);
-                  const last = deptGroups[deptGroups.length - 1];
-                  if (last && last.dept === d) last.panels.push(pg);
-                  else deptGroups.push({ dept: d, panels: [pg] });
-                }
-                return (
-                  <div
-                    data-report-page
-                    className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
-                    style={{
-                      width: '210mm',
-                      minHeight: '297mm',   // at least A4; grows with content
-                      height: 'auto',
-                      padding: '12mm',
-                      boxSizing: 'border-box',
-                      fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif',
-                      color: '#111', WebkitFontSmoothing: 'antialiased',
-                    }}
-                  >
-                    <Watermark />
-                    <Letterhead />
-                    <div className="report-body relative flex-1">
-                      <PatientStrip />
-                      <section className="relative mt-3">
-                        {sortedPanels.length === 0 ? (
-                          <div className="text-center text-gray-400 py-10 text-[14px]">No results entered yet.</div>
-                        ) : deptGroups.map(({ dept, panels }, di) => (
-                          <div key={dept + di} className={di > 0 ? "mt-5" : ""}>
-                            <div className="text-center font-bold text-[14.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
-                            {panels.map((pg, pi) => (
-                              <div key={pg.panel.code + pi}>
-                                {/* Panel sub-heading for 2nd+ panel in same department */}
-                                {(pi > 0 || pg.panel.report_heading !== dept) && pg.panel.report_heading !== dept && (
-                                  <div className="font-bold text-[14px] text-black underline underline-offset-2 mt-2 mb-1">{pg.panel.report_heading}</div>
-                                )}
-                                {pg.panel.code === 'CBC' ? (
-                                  <>
-                                    <table className="w-full text-[14px] border-collapse" style={{ tableLayout: 'fixed' }}>
-                                      {renderCbcHead()}
-                                      <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
-                                    </table>
-                                    {renderNotes(pg.orders)}
-                                  </>
-                                ) : (
-                                  <>
-                                    <table className="w-full table-fixed text-[14px] border-collapse">
-                                      {renderHead()}
-                                      <tbody>{renderRows(pg.orders)}</tbody>
-                                    </table>
-                                    {renderNotes(pg.orders)}
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                        {comment && <div className="mt-3 text-[11px]"><strong>Comments :</strong> {comment}</div>}
-                      </section>
-                    </div>
-                    <PageFooter pageIndex={0} total={1} isLast={true} />
-                  </div>
-                );
-              })() : pageList.map((pg, idx) => {
+              {compactReport ? (
+                <CompactPaginatedReport
+                  sortedPanels={sortedPanels}
+                  deptOf={deptOf}
+                  renderPanelBody={renderPanelBody}
+                  comment={comment}
+                  bottomGapMm={bottomGapMm}
+                  contentScale={contentScale}
+                  measureKey={JSON.stringify([rowPad, colWidths, colOffset, colAlign])}
+                  breaks={pageBreaks}
+                  onMove={moveBlock}
+                  Watermark={Watermark}
+                  Letterhead={Letterhead}
+                  PatientStrip={PatientStrip}
+                  PageFooter={PageFooter}
+                />
+              ) : pageList.map((pg, idx) => {
                 // Per-page mode: one A4 sheet per panel.
                 const dept = pg ? deptOf(pg.panel) : '';
                 const isLast = idx === pageList.length - 1;
@@ -832,7 +1118,7 @@ export function ReportPreviewPage() {
                     <Letterhead />
                     <div className="report-body relative flex-1">
                       <PatientStrip />
-                      <section className="relative mt-3">
+                      <section data-editable-body suppressContentEditableWarning className="relative mt-3" style={{ zoom: contentScale }}>
                         {pg ? (
                           <div>
                             <div className="text-center font-bold text-[14.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
@@ -908,13 +1194,14 @@ export function ReportPreviewPage() {
             {editing ? (
               <>
                 <p className="text-[14px] text-[#54555f] leading-snug">
-                  Click into the report and change any text — add lines, fix wording, delete what
-                  you don't need. Then Save; the edited report is what prints &amp; sends.
+                  Click into any value/text and edit it directly — the layout stays exactly as it prints.
+                  Use the toolbar above for bold, font, size, colour &amp; alignment. Header, name box &amp;
+                  footer are locked. Then Save.
                 </p>
                 <button onClick={saveEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white btn-success">
                   <Save size={16} strokeWidth={1.8} /> Save edits
                 </button>
-                <button onClick={() => setEditing(false)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#54555f] border border-[#e6e7ee] hover:bg-[#fafafe]">
+                <button onClick={cancelEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#54555f] border border-[#e6e7ee] hover:bg-[#fafafe]">
                   <X size={15} strokeWidth={1.8} /> Cancel
                 </button>
               </>
@@ -939,8 +1226,99 @@ export function ReportPreviewPage() {
         )}
 
         <div className="card p-4 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Adjust content</p>
+          {reportOverride && (
+            <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
+              This report has manual edits, so these layout controls don't apply.{' '}
+              <button onClick={revertEdit} className="font-semibold underline">Revert to original</button> to use them.
+            </p>
+          )}
+          <div className={cn("space-y-3", reportOverride && "opacity-40 pointer-events-none")}>
+
+          {/* Overall content size — shrink to fit more per page, or enlarge */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[12.5px] text-[#54555f]">Content size</span>
+              <span className="text-[12px] tabular-nums text-[#8a8b97]">{Math.round(contentScale * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setScale(contentScale - 0.05)} className="h-7 w-7 rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">−</button>
+              <input type="range" min={0.6} max={1.15} step={0.01} value={contentScale}
+                onChange={e => setScale(parseFloat(e.target.value))} className="flex-1 accent-[#6366f1]" />
+              <button onClick={() => setScale(contentScale + 0.05)} className="h-7 w-7 rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">+</button>
+            </div>
+            <button onClick={() => setScale(1)} className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset to 100%</button>
+          </div>
+
+          {/* Per-column WIDTH — always-visible − / + buttons that widen/narrow each column.
+              These directly resize the report columns (no hovering needed). */}
+          <div>
+            <span className="text-[12.5px] text-[#54555f]">Column widths</span>
+            <div className="mt-1 space-y-1">
+              {['Test Name', 'Results', 'Units', 'Normal Ranges'].map((lbl, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className="flex-1 text-[12px] text-[#34353f] truncate">{lbl}</span>
+                  <span className="w-9 text-right text-[11px] tabular-nums text-[#8a8b97]">{Math.round(colWidths[i])}%</span>
+                  <button onClick={() => adjustColWidth(i, -3)} title="Narrower"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">−</button>
+                  <button onClick={() => adjustColWidth(i, 3)} title="Wider"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">+</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => { setColWidths([24, 18, 12, 46]); localStorage.setItem('scl_colw', JSON.stringify([24, 18, 12, 46])); }}
+              className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset widths</button>
+          </div>
+
+          {/* Move each column LEFT/RIGHT independently (shifts only that column's content). */}
+          <div>
+            <span className="text-[12.5px] text-[#54555f]">Move column ← →</span>
+            <div className="mt-1 space-y-1">
+              {['Test Name', 'Results', 'Units', 'Normal Ranges'].map((lbl, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className="flex-1 text-[12px] text-[#34353f] truncate">{lbl}</span>
+                  <button onClick={() => moveColumn(i, 'left')} title="Move left"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">‹</button>
+                  <button onClick={() => moveColumn(i, 'right')} title="Move right"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">›</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => { setColOffset([0, 8, 8, 56]); localStorage.setItem('scl_coloff', JSON.stringify([0, 8, 8, 56])); }}
+              className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset positions</button>
+          </div>
+
+          {/* Per-column alignment — click each to cycle Left → Centre → Right */}
+          <div>
+            <span className="text-[12.5px] text-[#54555f]">Column alignment</span>
+            <div className="mt-1 grid grid-cols-4 gap-1">
+              {['Name', 'Result', 'Unit', 'Range'].map((lbl, i) => (
+                <button key={i} onClick={() => cycleAlign(i)} title={`${lbl}: ${colAlign[i]}`}
+                  className="flex flex-col items-center gap-0.5 rounded-md border border-[#e6e7ee] py-1 hover:border-[#c7c9ff]">
+                  {colAlign[i] === 'left' ? <AlignLeft size={13} /> : colAlign[i] === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}
+                  <span className="text-[9px] text-[#8a8b97]">{lbl}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Row spacing / density */}
+          <GapInput label="Row spacing" value={rowPad} onChange={setRowPadding} max={10} unit="px" />
+          </div>
+        </div>
+
+        <div className="card p-4 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Layout</p>
-          <Toggle label="All panels on one page" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
+          <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
+          {compactReport && (
+            <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
+              <p className="text-[10.5px] text-[#54555f] leading-snug">
+                Panels are packed onto pages without splitting any test; a test that doesn't fit moves
+                whole to the next page. Header, name box &amp; footer repeat on every page.
+              </p>
+              <GapInput label="Bottom gap" value={bottomGapMm} onChange={(v) => { setBottomGapMm(v); localStorage.setItem('scl_bottom_gap', String(v)); }} />
+            </div>
+          )}
           <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={(v) => { setPrintLetterhead(v); localStorage.setItem('scl_print_letterhead', v ? '1' : '0'); }} />
           {!printLetterhead && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
@@ -971,6 +1349,468 @@ export function ReportPreviewPage() {
   );
 }
 
+const FONT_FAMILIES = ['Helvetica Neue', 'Arial', 'Times New Roman', 'Georgia', 'Calibri', 'Courier New', 'Verdana', 'Tahoma'];
+const FONT_SIZES = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+
+const editorHost = () => document.getElementById('report-print-area');
+
+/** Word/Excel-style rich-text toolbar — built WITHOUT document.execCommand (which is a
+ *  no-op in some WebViews). Every action manipulates the DOM directly through the standard
+ *  Selection/Range API: character formatting wraps the selected text in a styled <span>,
+ *  block formatting sets styles on the enclosing cell/paragraph, and undo/redo restore
+ *  innerHTML snapshots. This works in every engine because it's plain DOM manipulation. */
+function RichTextToolbar() {
+  const savedRange = useRef<Range | null>(null);
+  const undoStack = useRef<string[]>([]);
+  const redoStack = useRef<string[]>([]);
+
+  // Continuously remember the last selection that was inside the editable host, so a command
+  // still has a target even after a dropdown/colour-picker briefly stole focus.
+  useEffect(() => {
+    const onSel = () => {
+      const sel = window.getSelection();
+      const host = editorHost();
+      if (!sel || sel.rangeCount === 0 || !host || !host.isContentEditable) return;
+      const range = sel.getRangeAt(0);
+      if (host.contains(range.commonAncestorContainer)) savedRange.current = range.cloneRange();
+    };
+    document.addEventListener('selectionchange', onSel);
+    return () => document.removeEventListener('selectionchange', onSel);
+  }, []);
+
+  /** The range to operate on: prefer a live selection inside the host, else the last saved
+   *  range. If it's just a cursor (collapsed), EXPAND to the enclosing cell/paragraph — so,
+   *  Excel-style, clicking in a cell and hitting Bold formats the whole cell with no drag. */
+  const workingRange = (): Range | null => {
+    const host = editorHost();
+    if (!host) return null;
+    const sel = window.getSelection();
+    let range: Range | null = null;
+    if (sel && sel.rangeCount && host.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      range = sel.getRangeAt(0);
+    } else if (savedRange.current) {
+      try { host.focus({ preventScroll: true }); sel?.removeAllRanges(); sel?.addRange(savedRange.current); } catch { /* ignore */ }
+      range = savedRange.current;
+    }
+    if (!range) return null;
+    if (range.collapsed) {
+      let node: Node | null = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const block = (node as Element | null)?.closest('td,th,li,p,div');
+      if (block && host.contains(block) && block !== host) {
+        const r = document.createRange();
+        r.selectNodeContents(block);
+        savedRange.current = r.cloneRange();   // keep styleAt/undo in sync with what we'll edit
+        return r;
+      }
+      return null;
+    }
+    savedRange.current = range.cloneRange();
+    return range;
+  };
+
+  const pushUndo = () => {
+    const host = editorHost();
+    if (host) { undoStack.current.push(host.innerHTML); redoStack.current = []; }
+  };
+
+  /** Wrap the current selection in a <span> styled by `apply`. The core of all character
+   *  formatting — no execCommand involved. */
+  const wrapInline = (apply: (s: HTMLElement) => void) => {
+    const range = workingRange();
+    if (!range || range.collapsed) return;
+    pushUndo();
+    const span = document.createElement('span');
+    apply(span);
+    try {
+      range.surroundContents(span);
+    } catch {
+      // Selection crosses element boundaries — extract, wrap, re-insert.
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+    }
+    // Re-select the wrapped content so the user can chain formats.
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.selectNodeContents(span);
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    savedRange.current = r.cloneRange();
+  };
+
+  /** Read a computed style on the actual content being formatted (used to TOGGLE bold/italic).
+   *  Descends into the first real child when the range starts on a cell/element so toggling
+   *  an already-formatted cell correctly turns the format OFF. */
+  const styleAt = (prop: string): string => {
+    const range = savedRange.current ?? (window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0) : null);
+    if (!range) return '';
+    let node: Node | null = range.startContainer;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      node = el.childNodes[range.startOffset] ?? el.firstChild ?? el;
+    }
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    return node && node instanceof Element ? getComputedStyle(node as Element).getPropertyValue(prop) : '';
+  };
+
+  /** Set a CSS property on the block element(s) enclosing the selection (alignment, indent). */
+  const styleBlock = (apply: (el: HTMLElement) => void) => {
+    const range = workingRange();
+    if (!range) return;
+    pushUndo();
+    let node: Node | null = range.commonAncestorContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    const block = (node as Element | null)?.closest('td,th,p,div,li,section') as HTMLElement | null;
+    if (block) apply(block);
+  };
+
+  const bold        = () => wrapInline(s => s.style.fontWeight = /^(bold|[6-9]00)/.test(styleAt('font-weight')) ? 'normal' : 'bold');
+  const italic      = () => wrapInline(s => s.style.fontStyle = styleAt('font-style') === 'italic' ? 'normal' : 'italic');
+  const underline   = () => wrapInline(s => s.style.textDecoration = styleAt('text-decoration-line').includes('underline') ? 'none' : 'underline');
+  const strike      = () => wrapInline(s => s.style.textDecoration = styleAt('text-decoration-line').includes('line-through') ? 'none' : 'line-through');
+  const fontFamily  = (f: string) => wrapInline(s => s.style.fontFamily = f);
+  const fontSize    = (px: string) => wrapInline(s => s.style.fontSize = `${px}px`);
+  const foreColor   = (c: string) => wrapInline(s => s.style.color = c);
+  const highlight   = (c: string) => wrapInline(s => s.style.backgroundColor = c);
+  const align       = (v: string) => styleBlock(el => el.style.textAlign = v);
+  const indent      = (delta: number) => styleBlock(el => {
+    const cur = parseFloat(el.style.marginLeft || '0') || 0;
+    el.style.marginLeft = `${Math.max(0, cur + delta)}px`;
+  });
+
+  /** Turn the selection into a bullet/numbered list. */
+  const makeList = (ordered: boolean) => {
+    const range = workingRange();
+    if (!range) return;
+    pushUndo();
+    const list = document.createElement(ordered ? 'ol' : 'ul');
+    list.style.paddingLeft = '22px';
+    list.style.listStyleType = ordered ? 'decimal' : 'disc';
+    const li = document.createElement('li');
+    try { li.appendChild(range.extractContents()); } catch { li.textContent = range.toString(); }
+    if (!li.textContent && !li.childNodes.length) li.appendChild(document.createElement('br'));
+    list.appendChild(li);
+    range.insertNode(list);
+    savedRange.current = null;   // content moved — old range is stale
+  };
+
+  const clearFormat = () => {
+    const range = workingRange();
+    if (!range || range.collapsed) return;
+    pushUndo();
+    const text = range.toString();
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    savedRange.current = null;
+  };
+
+  // After an innerHTML swap every node is detached, so the saved range must be discarded or
+  // the next command would act on stale/detached nodes (corruption).
+  const undo = () => { const h = editorHost(); if (h && undoStack.current.length) { redoStack.current.push(h.innerHTML); h.innerHTML = undoStack.current.pop()!; savedRange.current = null; } };
+  const redo = () => { const h = editorHost(); if (h && redoStack.current.length) { undoStack.current.push(h.innerHTML); h.innerHTML = redoStack.current.pop()!; savedRange.current = null; } };
+
+  const keep = (e: React.MouseEvent) => e.preventDefault();
+  const Sep = () => <span className="mx-1 h-5 w-px bg-[#e6e7ee]" />;
+  const Btn = ({ onAction, title, children }: { onAction: () => void; title: string; children: React.ReactNode }) => (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={e => { e.preventDefault(); onAction(); }}
+      className="h-7 w-7 inline-flex items-center justify-center rounded-md text-[#34353f] hover:bg-[#eef0fe] hover:text-[#4f46e5] transition-colors select-none"
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div
+      onMouseDown={keep}
+      className="sticky top-0 z-30 mb-3 flex flex-wrap items-center gap-0.5 rounded-xl border border-[#e6e7ee] bg-white px-2 py-1.5 shadow-sm print:hidden"
+    >
+      <Btn title="Undo" onAction={undo}><Undo size={15} /></Btn>
+      <Btn title="Redo" onAction={redo}><Redo size={15} /></Btn>
+      <Sep />
+
+      <select
+        title="Font family" defaultValue="" onMouseDown={e => e.stopPropagation()}
+        onChange={e => { fontFamily(e.target.value); e.currentTarget.value = ''; }}
+        className="h-7 rounded-md border border-[#e6e7ee] bg-white px-1.5 text-[12px] text-[#34353f] hover:border-[#c7c9ff] focus:outline-none cursor-pointer"
+      >
+        <option value="" disabled>Font</option>
+        {FONT_FAMILIES.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+      </select>
+      <select
+        title="Font size" defaultValue="" onMouseDown={e => e.stopPropagation()}
+        onChange={e => { fontSize(e.target.value); e.currentTarget.value = ''; }}
+        className="h-7 w-14 rounded-md border border-[#e6e7ee] bg-white px-1 text-[12px] text-[#34353f] hover:border-[#c7c9ff] focus:outline-none cursor-pointer"
+      >
+        <option value="" disabled>Size</option>
+        {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+      <Sep />
+
+      <Btn title="Bold"          onAction={bold}><Bold size={15} /></Btn>
+      <Btn title="Italic"        onAction={italic}><Italic size={15} /></Btn>
+      <Btn title="Underline"     onAction={underline}><Underline size={15} /></Btn>
+      <Btn title="Strikethrough" onAction={strike}><Strikethrough size={15} /></Btn>
+      <Sep />
+
+      <label title="Text colour" onMouseDown={keep}
+        className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-[#eef0fe] cursor-pointer relative select-none">
+        <Baseline size={15} />
+        <input type="color" defaultValue="#b91c1c" onMouseDown={e => e.stopPropagation()}
+          onInput={e => foreColor((e.target as HTMLInputElement).value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+      </label>
+      <label title="Highlight" onMouseDown={keep}
+        className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-[#eef0fe] cursor-pointer relative select-none">
+        <Highlighter size={15} />
+        <input type="color" defaultValue="#fde047" onMouseDown={e => e.stopPropagation()}
+          onInput={e => highlight((e.target as HTMLInputElement).value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+      </label>
+      <Sep />
+
+      <Btn title="Align left"   onAction={() => align('left')}><AlignLeft size={15} /></Btn>
+      <Btn title="Align centre" onAction={() => align('center')}><AlignCenter size={15} /></Btn>
+      <Btn title="Align right"  onAction={() => align('right')}><AlignRight size={15} /></Btn>
+      <Btn title="Justify"      onAction={() => align('justify')}><AlignJustify size={15} /></Btn>
+      <Sep />
+
+      <Btn title="Bullet list"   onAction={() => makeList(false)}><List size={15} /></Btn>
+      <Btn title="Numbered list" onAction={() => makeList(true)}><ListOrdered size={15} /></Btn>
+      <Btn title="Indent"        onAction={() => indent(24)}><IndentIncrease size={15} /></Btn>
+      <Btn title="Outdent"       onAction={() => indent(-24)}><IndentDecrease size={15} /></Btn>
+      <Sep />
+
+      <Btn title="Clear formatting" onAction={clearFormat}><RemoveFormatting size={15} /></Btn>
+    </div>
+  );
+}
+
+/** Compact report, paginated across A4 sheets by MEASURING each panel. Rules the user asked for:
+ *  • every page carries the letterhead + patient name box + footer (proper discipline)
+ *  • a panel is never split across a page — if it doesn't fully fit, the whole panel moves
+ *    to the next page (wastes space, but keeps each test's values together)
+ *  • a configurable blank gap is reserved at the bottom of every page. */
+const PX_PER_MM = 96 / 25.4;
+
+type PanelGroup = { panel: Panel; orders: OrderWithResult[] };
+type CompactBlock = { key: string; dept: string; showDept: boolean; showSub: boolean; kind: 'panel' | 'comment'; pg?: PanelGroup; comment?: string };
+
+function CompactPaginatedReport({
+  sortedPanels, deptOf, renderPanelBody, comment, bottomGapMm, contentScale, measureKey, breaks, onMove,
+  Watermark, Letterhead, PatientStrip, PageFooter,
+}: {
+  sortedPanels: PanelGroup[];
+  deptOf: (p: Panel) => string;
+  renderPanelBody: (pg: PanelGroup) => React.ReactNode;
+  comment: string;
+  bottomGapMm: number;
+  contentScale: number;
+  measureKey: string;
+  breaks: Record<string, 'pull' | 'before'>;
+  onMove: (key: string, dir: 'up' | 'down') => void;
+  Watermark: React.ComponentType;
+  Letterhead: React.ComponentType;
+  PatientStrip: React.ComponentType;
+  PageFooter: React.ComponentType<{ pageIndex: number; total: number; isLast: boolean }>;
+}) {
+  // Ordered list of atomic blocks (one per panel, plus an optional comment block).
+  const blocks = useMemo<CompactBlock[]>(() => {
+    const out: CompactBlock[] = [];
+    let prevDept = '';
+    sortedPanels.forEach((pg, i) => {
+      const dept = deptOf(pg.panel);
+      out.push({
+        key: `${pg.panel.code}-${i}`,
+        dept,
+        showDept: dept !== prevDept,
+        showSub: pg.panel.report_heading !== dept,
+        kind: 'panel',
+        pg,
+      });
+      prevDept = dept;
+    });
+    if (comment.trim()) out.push({ key: '__comment', dept: '', showDept: false, showSub: false, kind: 'comment', comment });
+    return out;
+  }, [sortedPanels, comment, deptOf]);
+
+  const measureRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const [capacity, setCapacity] = useState(0);
+
+  // Re-measure whenever the block set or the bottom gap changes.
+  const sig = blocks.map(b => b.key).join('|') + `#${bottomGapMm}#${measureKey}`;
+  useLayoutEffect(() => {
+    const measure = () => {
+      const probe = probeRef.current;
+      const cap = probe ? probe.clientHeight - bottomGapMm * PX_PER_MM : 0;
+      setCapacity(cap > 0 ? cap : 0);
+      const root = measureRef.current;
+      if (root) {
+        const h: Record<string, number> = {};
+        root.querySelectorAll<HTMLElement>('[data-block-key]').forEach(el => {
+          h[el.dataset.blockKey!] = el.offsetHeight;
+        });
+        setHeights(h);
+      }
+    };
+    measure();
+    // Re-measure once the letterhead/signature images have decoded (their height affects
+    // how much room is left for panels — a stale measure would break pages in the wrong place).
+    const imgs = Array.from(measureRef.current?.closest('[aria-hidden]')?.querySelectorAll('img') ?? []);
+    const pending = imgs.filter(im => !im.complete);
+    pending.forEach(im => { im.addEventListener('load', measure, { once: true }); im.addEventListener('error', measure, { once: true }); });
+    const t = setTimeout(measure, 300);
+    return () => { clearTimeout(t); pending.forEach(im => { im.removeEventListener('load', measure); im.removeEventListener('error', measure); }); };
+  }, [sig]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Greedily pack whole blocks into pages, honouring manual overrides:
+  //   'before' → always start a fresh page (push this panel DOWN)
+  //   'pull'   → never break before (drag this panel UP onto the previous page)
+  // Each page also gets an auto-fit `scale`: if its blocks are still taller than the A4 body
+  // (e.g. one long panel that can't be split), that page shrinks just enough to fit — so a
+  // panel is NEVER clipped and every page fills exactly one A4 sheet.
+  const pages = useMemo<{ blocks: CompactBlock[]; scale: number }[]>(() => {
+    if (!blocks.length) return [];
+    // Fallback before the first measure resolves: an approximate A4 content height (px), so a
+    // tall report still paginates instead of dumping everything on one clipped page.
+    const cap = capacity > 0 ? capacity : 165 * PX_PER_MM;
+    const groups: CompactBlock[][] = [];
+    let cur: CompactBlock[] = [];
+    let curH = 0;
+    for (const b of blocks) {
+      const h = (heights[b.key] ?? 0) * contentScale;   // scaled content takes scaled space
+      const br = breaks[b.key];
+      const overflow = curH + h > cap;
+      if (cur.length && (br === 'before' || (br !== 'pull' && overflow))) {
+        groups.push(cur); cur = []; curH = 0;
+      }
+      cur.push(b);
+      curH += h;
+    }
+    if (cur.length) groups.push(cur);
+    // Per-page auto-fit scale (never enlarge beyond the user's contentScale).
+    return groups.map(g => {
+      const rawH = g.reduce((s, b) => s + (heights[b.key] ?? 0), 0);   // unscaled px
+      const wanted = rawH * contentScale;
+      const scale = wanted > cap && rawH > 0 ? cap / rawH : contentScale;
+      return { blocks: g, scale };
+    });
+  }, [blocks, heights, capacity, breaks, contentScale]);
+
+  const BlockView = ({ b, first, controls }: { b: CompactBlock; first: boolean; controls?: boolean }) => {
+    // paddingTop (not margin) so measurement never disagrees with layout via margin-collapse.
+    const padTop = first ? 0 : b.showDept ? 18 : 8;
+    // Move-between-pages controls (screen only): ↑ pulls this panel onto the previous page,
+    // ↓ pushes it to start a fresh page. data-report-control → stripped from PDF/print/edit.
+    const moveControls = controls && b.kind === 'panel' ? (
+      <div
+        data-report-control
+        contentEditable={false}
+        className="report-control absolute -top-1 right-0 z-10 flex gap-1 opacity-0 group-hover/blk:opacity-100 transition-opacity print:hidden"
+      >
+        <button
+          type="button" title="Move this test UP to the previous page"
+          onClick={() => onMove(b.key, 'up')}
+          className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
+            breaks[b.key] === 'pull' ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+        ><ArrowUp size={13} /></button>
+        <button
+          type="button" title="Move this test DOWN to a new page"
+          onClick={() => onMove(b.key, 'down')}
+          className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
+            breaks[b.key] === 'before' ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+        ><ArrowDown size={13} /></button>
+      </div>
+    ) : null;
+
+    if (b.kind === 'comment') {
+      return <div data-block-key={b.key} style={{ paddingTop: padTop }} className="text-[11px]"><strong>Comments :</strong> {b.comment}</div>;
+    }
+    return (
+      <div data-block-key={b.key} style={{ paddingTop: padTop }} className="group/blk relative">
+        {moveControls}
+        {b.showDept && (
+          <div className="text-center font-bold text-[14.5px] tracking-wide text-black underline underline-offset-2 mb-1">{b.dept}</div>
+        )}
+        {b.showSub && (
+          <div className="font-bold text-[14px] text-black underline underline-offset-2 mt-2 mb-1">{b.pg!.panel.report_heading}</div>
+        )}
+        {renderPanelBody(b.pg!)}
+      </div>
+    );
+  };
+
+  const pageStyle: React.CSSProperties = {
+    width: '210mm', height: '297mm', overflow: 'hidden', padding: '12mm', boxSizing: 'border-box',
+    fontFamily: '"Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif',
+    color: '#111', WebkitFontSmoothing: 'antialiased',
+  };
+
+  if (!blocks.length) {
+    return (
+      <div data-report-page className="report-page bg-white shadow-sm relative mx-auto flex flex-col" style={pageStyle}>
+        <Watermark /><Letterhead />
+        <div className="report-body relative flex-1">
+          <PatientStrip />
+          <div className="text-center text-gray-400 py-10 text-[14px]">No results entered yet.</div>
+        </div>
+        <PageFooter pageIndex={0} total={1} isLast={true} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Visible, paginated pages */}
+      {pages.map((page, idx) => (
+        <div
+          key={idx}
+          data-report-page
+          className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
+          style={{ ...pageStyle, marginBottom: idx === pages.length - 1 ? 0 : '18px' }}
+        >
+          <Watermark />
+          <Letterhead />
+          <div className="report-body relative flex-1">
+            <PatientStrip />
+            <section data-editable-body suppressContentEditableWarning className="relative mt-3" style={{ zoom: page.scale }}>
+              {page.blocks.map((b, i) => <BlockView key={b.key} b={b} first={i === 0} controls />)}
+            </section>
+          </div>
+          <PageFooter pageIndex={idx} total={pages.length} isLast={idx === pages.length - 1} />
+        </div>
+      ))}
+
+      {/* Hidden measurers — PORTALED to <body> so they're never inside #report-print-area
+          (which would double content in the PDF capture and the "Edit report" HTML seed).
+          Off-screen and not [data-report-page], so print/PDF/edit all ignore them. */}
+      {createPortal(
+        <div aria-hidden style={{ position: 'absolute', left: '-10000px', top: 0, pointerEvents: 'none' }}>
+          {/* Capacity probe: a real page whose flex-1 body region reveals the usable content height. */}
+          <div className="flex flex-col" style={pageStyle}>
+            <Letterhead />
+            <div className="report-body flex flex-col flex-1">
+              <PatientStrip />
+              <div ref={probeRef} className="mt-3" style={{ flex: 1 }} />
+            </div>
+            <PageFooter pageIndex={0} total={2} isLast={true} />
+          </div>
+          {/* Per-block height measurer at the true body content width (210mm − 24mm padding). */}
+          <div ref={measureRef} style={{ width: '186mm' }}>
+            {blocks.map(b => <BlockView key={b.key} b={b} first={false} />)}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function OutputBtn({ icon: Icon, label, onClick, done, disabled, busy, primary, green }: {
   icon: typeof Printer; label: string; onClick: () => void; done?: boolean; disabled?: boolean; busy?: boolean; primary?: boolean; green?: boolean;
 }) {
@@ -997,17 +1837,18 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   );
 }
 
-function GapInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function GapInput({ label, value, onChange, max = 120, unit = 'mm' }: { label: string; value: number; onChange: (v: number) => void; max?: number; unit?: string }) {
   return (
     <label className="flex items-center justify-between text-[11.5px] text-[#54555f]">
       <span>{label}</span>
       <span className="flex items-center gap-1">
         <input
-          type="number" min={0} max={120} value={value}
-          onChange={(e) => onChange(Math.max(0, Math.min(120, Number(e.target.value) || 0)))}
+          type="number" min={0} max={max} value={value}
+          // Empty/partial input is left as-is (don't snap to 0 mid-typing); only commit a finite number.
+          onChange={(e) => { const v = e.target.value; if (v === '') return; const n = Number(v); if (Number.isFinite(n)) onChange(Math.max(0, Math.min(max, n))); }}
           className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
         />
-        <span className="text-[#a3a5b3]">mm</span>
+        <span className="text-[#a3a5b3]">{unit}</span>
       </span>
     </label>
   );

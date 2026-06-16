@@ -251,6 +251,18 @@ pub fn run() {
             sql: include_str!("../migrations/0041_order_range_override.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 42,
+            description: "urine_colour_range",
+            sql: include_str!("../migrations/0042_urine_colour_range.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 43,
+            description: "urine_hpf_ranges",
+            sql: include_str!("../migrations/0043_urine_hpf_ranges.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

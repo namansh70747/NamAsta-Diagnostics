@@ -397,3 +397,30 @@
 .report-sheet.no-letterhead .report-body {
   padding: var(--pre-top, 40mm) 12mm var(--pre-bottom, 24mm) 12mm;
 }
+
+/* ── TipTap report editor + saved edited-body rendering ─────────────────────────
+   Keeps the edited body looking like the lab report: clean borderless tables with a
+   header underline, no paragraph margins. (.report-tiptap = saved view; .ProseMirror
+   = live editor.) */
+.report-tiptap, .ProseMirror { font-size: 14px; color: #111; line-height: 1.4; }
+.ProseMirror { outline: none; min-height: 120px; }
+.ProseMirror:focus { outline: none; }
+.report-tiptap p, .ProseMirror p { margin: 0 0 2px; }
+.report-tiptap h1, .report-tiptap h2, .report-tiptap h3,
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { font-weight: 700; margin: 6px 0 3px; }
+.report-tiptap table, .ProseMirror table {
+  width: 100%; border-collapse: collapse; table-layout: fixed; margin: 4px 0;
+}
+.report-tiptap td, .report-tiptap th,
+.ProseMirror td, .ProseMirror th {
+  padding: 3px 8px; vertical-align: top; text-align: left; border: 1px solid #e5e7eb;
+}
+.report-tiptap th, .ProseMirror th { font-weight: 700; }
+/* In the saved (non-editing) view, hide the faint editor grid for a clean printed look. */
+.report-tiptap td, .report-tiptap th { border-color: transparent; }
+.report-tiptap ul, .ProseMirror ul { list-style: disc; padding-left: 22px; }
+.report-tiptap ol, .ProseMirror ol { list-style: decimal; padding-left: 22px; }
+.report-tiptap img, .ProseMirror img { max-width: 100%; }
+/* Column-resize handle for editing tables. */
+.ProseMirror .column-resize-handle { background-color: #6366f1; width: 3px; }
+.ProseMirror .selectedCell { background: rgba(99,102,241,0.12); }
