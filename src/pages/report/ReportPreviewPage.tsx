@@ -39,7 +39,7 @@ function esc(s: string): string {
  * exactly as on the lab's existing letterhead reports. Unmapped panels stand alone.
  */
 const DEPARTMENT: Record<string, string> = {
-  HEM: 'HAEMATOLOGY', CBC: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
+  HEM: 'HAEMATOLOGY', CBC: 'HAEMATOLOGY', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
   BIO: 'BIOCHEMISTRY', LFT: 'BIOCHEMISTRY', KFT: 'BIOCHEMISTRY',
   LIPID: 'BIOCHEMISTRY', ELEC: 'BIOCHEMISTRY', DIAB: 'BIOCHEMISTRY',
   THY: 'BIOCHEMISTRY', HORM: 'BIOCHEMISTRY',
@@ -245,7 +245,7 @@ export function ReportPreviewPage() {
     <thead>
       <tr className="border-b border-gray-400">
         <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px] w-[24%]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px] w-[18%]">Results</th>
+        <th className="text-left pb-1 pl-2 pr-5 font-bold text-black text-[14.5px] w-[18%]">Results</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px] w-[12%]">Units</th>
         <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px] w-[46%]">Normal Ranges</th>
       </tr>
@@ -260,7 +260,7 @@ export function ReportPreviewPage() {
     return (
       <tr key={o.order.id}>
         <td className="py-[3px] pr-4 align-top text-gray-950">{o.test.name}</td>
-        <td className="py-[3px] px-2 align-top tabular-nums text-gray-950">
+        <td className="py-[3px] pl-2 pr-5 align-top tabular-nums text-gray-950">
           {value || '—'}
         </td>
         <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
@@ -276,7 +276,7 @@ export function ReportPreviewPage() {
     <thead>
       <tr>
         <th className="text-left pb-1 pr-4 font-bold text-black text-[14.5px]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px]" style={{ width: '18mm' }}>Results</th>
+        <th className="text-left pb-1 pl-2 pr-5 font-bold text-black text-[14.5px]" style={{ width: '18mm' }}>Results</th>
         <th className="text-left pb-1 px-2 font-bold text-black text-[14.5px]" style={{ width: '16mm' }}>Units</th>
         <th className="text-left pb-1 pl-14 font-bold text-black text-[14.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
         <th style={{ width: '62mm' }}></th>
@@ -326,7 +326,7 @@ export function ReportPreviewPage() {
             <td className={cn("py-[3px] pr-4 align-top", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
               {o.test.name}
             </td>
-            <td className={cn("py-[3px] px-2 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
+            <td className={cn("py-[3px] pl-2 pr-5 align-top tabular-nums", isAbnormal ? "font-bold text-black" : "text-gray-950")}>
               {value || '—'}
             </td>
             <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
@@ -352,9 +352,9 @@ export function ReportPreviewPage() {
     if (!band && notes.length === 0) return null;
     return (
       <>
-        {band && <div className="mt-1 text-[10px] text-gray-800 whitespace-pre-line">{band}</div>}
+        {band && <div className="mt-1 text-[12px] text-gray-800 whitespace-pre-line">{band}</div>}
         {notes.map(r => (
-          <div key={r.order.id} className="mt-2 border border-gray-700 px-2.5 py-1.5 text-[9.5px] text-gray-900 leading-[1.5] whitespace-pre-line">
+          <div key={r.order.id} className="mt-2 border border-gray-700 px-3 py-2 text-[12px] text-gray-900 leading-[1.65] whitespace-pre-line">
             {r.test.interpretation_note}
           </div>
         ))}

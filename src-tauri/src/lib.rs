@@ -209,6 +209,12 @@ pub fn run() {
             sql: include_str!("../migrations/0034_elec_revert.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 35,
+            description: "dlc_panel",
+            sql: include_str!("../migrations/0035_dlc_panel.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
