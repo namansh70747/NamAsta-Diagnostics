@@ -203,6 +203,12 @@ pub fn run() {
             sql: include_str!("../migrations/0033_footer_settings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 34,
+            description: "elec_revert",
+            sql: include_str!("../migrations/0034_elec_revert.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
