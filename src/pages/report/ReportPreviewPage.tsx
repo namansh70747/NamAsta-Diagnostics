@@ -244,10 +244,10 @@ export function ReportPreviewPage() {
   const renderHead = () => (
     <thead>
       <tr className="border-b border-gray-400">
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px] w-[30%]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[18%]">Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px] w-[12%]">Units</th>
-        <th className="text-left pb-1 pl-8 font-bold text-black text-[12.5px] w-[40%]">Normal Ranges</th>
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[13.5px] w-[30%]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[13.5px] w-[18%]">Results</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[13.5px] w-[12%]">Units</th>
+        <th className="text-left pb-1 pl-10 font-bold text-black text-[13.5px] w-[40%]">Normal Ranges</th>
       </tr>
     </thead>
   );
@@ -266,7 +266,7 @@ export function ReportPreviewPage() {
         <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
           {unit && unit !== '—' ? unit : ''}
         </td>
-        <td className="py-[3px] pl-8 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
+        <td className="py-[3px] pl-10 align-top text-gray-800 whitespace-pre-line">{range.replace(/\s*\/\s*/g, '\n')}</td>
       </tr>
     );
   });
@@ -275,10 +275,10 @@ export function ReportPreviewPage() {
   const renderCbcHead = () => (
     <thead>
       <tr>
-        <th className="text-left pb-1 pr-2 font-bold text-black text-[12.5px]">Test Name</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px]" style={{ width: '18mm' }}>Results</th>
-        <th className="text-left pb-1 px-2 font-bold text-black text-[12.5px]" style={{ width: '16mm' }}>Units</th>
-        <th className="text-left pb-1 pl-8 font-bold text-black text-[12.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
+        <th className="text-left pb-1 pr-2 font-bold text-black text-[13.5px]">Test Name</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[13.5px]" style={{ width: '18mm' }}>Results</th>
+        <th className="text-left pb-1 px-2 font-bold text-black text-[13.5px]" style={{ width: '16mm' }}>Units</th>
+        <th className="text-left pb-1 pl-10 font-bold text-black text-[13.5px]" style={{ width: '46mm' }}>Normal Ranges</th>
         <th style={{ width: '62mm' }}></th>
       </tr>
     </thead>
@@ -332,7 +332,7 @@ export function ReportPreviewPage() {
             <td className="py-[3px] px-2 align-top text-gray-800 whitespace-nowrap">
               {unit && unit !== '—' ? unit : ''}
             </td>
-            <td className="py-[3px] pl-8 align-top text-gray-800 whitespace-pre-line">
+            <td className="py-[3px] pl-10 align-top text-gray-800 whitespace-pre-line">
               {range.replace(/\s*\/\s*/g, '\n')}
             </td>
           </tr>
@@ -656,7 +656,7 @@ export function ReportPreviewPage() {
   );
 
   const PatientStrip = () => (
-    <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[12px]">
+    <section className="relative grid grid-cols-2 gap-x-8 gap-y-1 border border-gray-400 mt-3 p-3 text-[13px]">
       <p><strong>Name :</strong> {patient.title} {patient.name}</p>
       <p><strong>Test Request ID :</strong> {patient.test_no}</p>
       <p><strong>Age/Gender :</strong> {patient.age} {patient.age_unit} / {genderLabel}</p>
@@ -683,7 +683,7 @@ export function ReportPreviewPage() {
       </div>
       {isLast && (
         <>
-          <div className="text-center text-[12px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
+          <div className="text-center text-[13px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
           {/* navy rule + standard footer lines, matching the printed letterhead */}
           <div className="border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900">
             <span>{settings.footer_left_text || 'NOT FOR MEDICO LEGAL PURPOSE'}</span>
@@ -770,7 +770,7 @@ export function ReportPreviewPage() {
                       <PatientStrip />
                       <section className="relative mt-3">
                         {sortedPanels.length === 0 ? (
-                          <div className="text-center text-gray-400 py-10 text-[12px]">No results entered yet.</div>
+                          <div className="text-center text-gray-400 py-10 text-[13px]">No results entered yet.</div>
                         ) : deptGroups.map(({ dept, panels }, di) => (
                           <div key={dept + di} className={di > 0 ? "mt-5" : ""}>
                             <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
@@ -778,11 +778,11 @@ export function ReportPreviewPage() {
                               <div key={pg.panel.code + pi}>
                                 {/* Panel sub-heading for 2nd+ panel in same department */}
                                 {(pi > 0 || pg.panel.report_heading !== dept) && pg.panel.report_heading !== dept && (
-                                  <div className="font-bold text-[12px] text-black underline underline-offset-2 mt-2 mb-1">{pg.panel.report_heading}</div>
+                                  <div className="font-bold text-[13px] text-black underline underline-offset-2 mt-2 mb-1">{pg.panel.report_heading}</div>
                                 )}
                                 {pg.panel.code === 'CBC' ? (
                                   <>
-                                    <table className="w-full text-[12px] border-collapse" style={{ tableLayout: 'fixed' }}>
+                                    <table className="w-full text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
                                       {renderCbcHead()}
                                       <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
                                     </table>
@@ -790,7 +790,7 @@ export function ReportPreviewPage() {
                                   </>
                                 ) : (
                                   <>
-                                    <table className="w-full table-fixed text-[12px] border-collapse">
+                                    <table className="w-full table-fixed text-[13px] border-collapse">
                                       {pi === 0 && renderHead()}
                                       <tbody>{renderRows(pg.orders)}</tbody>
                                     </table>
@@ -836,11 +836,11 @@ export function ReportPreviewPage() {
                           <div>
                             <div className="text-center font-bold text-[13.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
                             {pg.panel.report_heading !== dept && (
-                              <div className="text-center font-semibold text-[12px] text-black underline underline-offset-2 mb-1.5">{pg.panel.report_heading}</div>
+                              <div className="text-center font-semibold text-[13px] text-black underline underline-offset-2 mb-1.5">{pg.panel.report_heading}</div>
                             )}
                             {pg.panel.code === 'CBC' ? (
                               <>
-                                <table className="w-full text-[12px] border-collapse" style={{ tableLayout: 'fixed' }}>
+                                <table className="w-full text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
                                   {renderCbcHead()}
                                   <tbody>{renderCbcWithHistograms(pg.orders)}</tbody>
                                 </table>
@@ -848,7 +848,7 @@ export function ReportPreviewPage() {
                               </>
                             ) : (
                               <>
-                                <table className="w-full table-fixed text-[12px] border-collapse">
+                                <table className="w-full table-fixed text-[13px] border-collapse">
                                   {renderHead()}
                                   <tbody>{renderRows(pg.orders)}</tbody>
                                 </table>
@@ -857,7 +857,7 @@ export function ReportPreviewPage() {
                             )}
                           </div>
                         ) : (
-                          <div className="text-center text-gray-400 py-10 text-[12px]">No results entered yet.</div>
+                          <div className="text-center text-gray-400 py-10 text-[13px]">No results entered yet.</div>
                         )}
                         {isLast && comment && (
                           <div className="mt-3 text-[11px]"><strong>Comments :</strong> {comment}</div>
@@ -880,7 +880,7 @@ export function ReportPreviewPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1">Deliver</p>
           {!isApproved && (
             <>
-              <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
+              <p className="text-[13px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
                 Approve to lock the report and unlock printing &amp; sending.
               </p>
               <button
@@ -906,7 +906,7 @@ export function ReportPreviewPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Edit report</p>
             {editing ? (
               <>
-                <p className="text-[12px] text-[#54555f] leading-snug">
+                <p className="text-[13px] text-[#54555f] leading-snug">
                   Click into the report and change any text — add lines, fix wording, delete what
                   you don't need. Then Save; the edited report is what prints &amp; sends.
                 </p>
@@ -920,7 +920,7 @@ export function ReportPreviewPage() {
             ) : (
               <>
                 {reportOverride && (
-                  <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
+                  <p className="text-[13px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
                     This report has manual edits — they're what print &amp; send.
                   </p>
                 )}
