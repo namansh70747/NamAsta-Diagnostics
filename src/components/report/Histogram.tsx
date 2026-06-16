@@ -6,36 +6,43 @@ function gauss(x: number, mu: number, sigma: number): number {
   return Math.exp(-((x - mu) ** 2) / (2 * sigma ** 2));
 }
 
-/** WBC: three overlapping Gaussians for lymphocytes, monocytes/mid, granulocytes. */
+/** WBC: area-normalised Gaussians — peak height ∝ pct/sigma so a narrow
+ *  lymphocyte population rises taller than a broad granulocyte population even
+ *  when the granulocyte percentage is higher (matches the H360 display). */
 function wbcCurve(lymPct: number, midPct: number, granPct: number, N = 220): number[] {
+  const SL = 18, SM = 22, SG = 42; // sigmas (fL) — H360 typical population widths
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
     return (
-      lymPct * gauss(x, 72, 18) +
-      midPct * gauss(x, 135, 22) +
-      granPct * gauss(x, 210, 42)
+      (lymPct / SL) * gauss(x, 72,  SL) +
+      (midPct / SM) * gauss(x, 135, SM) +
+      (granPct / SG) * gauss(x, 210, SG)
     );
   });
 }
 
-/** RBC: single Gaussian centred at MCV, width from RDW-SD (fL). */
-function rbcCurve(mcv: number, rdwSd: number, N = 220): number[] {
-  const sigma = Math.max(rdwSd / 2.35, 5);
+/** RBC: single Gaussian at MCV, width from RDW-CV (%).
+ *  sigma = RDW_CV% × MCV / 235  (converts CV to absolute fL width). */
+function rbcCurve(mcv: number, rdwCv: number, N = 220): number[] {
+  const sigma = Math.max((rdwCv / 100) * mcv / 2.35, 3);
   return Array.from({ length: N }, (_, i) => {
     const x = (i / (N - 1)) * 300;
-    return 100 * gauss(x, mcv, sigma);
+    return gauss(x, mcv, sigma);
   });
 }
 
-/** PLT: log-normal distribution (right-skewed), x spans 0–36 fL. */
-function pltCurve(mpv: number, pdwSd: number, N = 220): number[] {
+/** PLT: log-normal (right-skewed), x spans 0–36 fL.
+ *  Mode placed at 0.70 × MPV; width from PDW-CV (%). */
+function pltCurve(mpv: number, pdwCv: number, N = 220): number[] {
   const safeM = Math.max(mpv, 2);
-  const muLog = Math.log(safeM);
-  const sigmaLog = Math.max(Math.log(1 + Math.min(pdwSd / safeM, 1.5)), 0.15);
+  const sigmaLog = Math.max((pdwCv / 100) * 3.0, 0.25);
+  // mode of log-normal = exp(μ - σ²); we want mode ≈ 0.70 × MPV
+  const mode = safeM * 0.70;
+  const muLog = Math.log(mode) + sigmaLog * sigmaLog;
   return Array.from({ length: N }, (_, i) => {
     const x = 0.2 + (i / (N - 1)) * 35.8;
-    const logX = Math.log(x);
-    return (80 / x) * Math.exp(-((logX - muLog) ** 2) / (2 * sigmaLog ** 2));
+    const lx = Math.log(x);
+    return Math.exp(-((lx - muLog) ** 2) / (2 * sigmaLog ** 2)) / x;
   });
 }
 
@@ -217,13 +224,13 @@ export function CbcSectionHistogram({
   }
   if (section === 'ERYTHROCYTES') {
     const data = histos?.rbc?.length ? histos.rbc
-      : rbcCurve(num('MCV') ?? 90, num('RDW_SD') ?? 42);
-    return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[36,100]} color="#7b1b1b" />;
+      : rbcCurve(num('MCV') ?? 90, num('RDW_CV') ?? 13.5);
+    return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[60,120]} color="#7b1b1b" />;
   }
   if (section === 'THROMBOCYTES') {
     const data = histos?.plt?.length ? histos.plt
-      : pltCurve(num('MPV') ?? 10, num('PDW_SD') ?? 12);
-    return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,35]} color="#14743a" />;
+      : pltCurve(num('MPV') ?? 10, num('PDW_CV') ?? 16);
+    return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,20]} color="#14743a" />;
   }
   return null;
 }
