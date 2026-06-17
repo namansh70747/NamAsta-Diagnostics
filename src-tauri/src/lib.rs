@@ -269,6 +269,12 @@ pub fn run() {
             sql: include_str!("../migrations/0044_haematology_spelling.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 45,
+            description: "urine_plus_grading",
+            sql: include_str!("../migrations/0045_urine_plus_grading.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
