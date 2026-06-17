@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.64
+
+- Removed the last hardcoded SCL/Sharma branding from reports. The **"FULLY COMPUTERISED HI-TECH
+  LAB." tagline is now a configurable field** (Settings → Lab Identity → Tagline) instead of being
+  baked into every report and the Word export — it prints only if the lab enters one. The Lab
+  Identity live-preview no longer shows the SCL logo/tagline either. This is a white-label app for
+  any lab; nothing SCL-specific should appear unless the lab sets it.
+
 ## v1.3.63
 
 - The report letterhead now shows **only the lab's own uploaded logo** (Settings → Branding).

@@ -1,10 +1,10 @@
 import { Save } from "lucide-react";
 import { Card, TabHeader, TextField, PrimaryButton } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
-import { SCLLogo } from "@/components/common/SCLLogo";
 
 const KEYS = [
   "lab_name",
+  "tagline",
   "address_line",
   "phones",
   "timings",
@@ -34,7 +34,8 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
           </PrimaryButton>
         </div>
 
-        <TextField label="Lab Name" value={f.get("lab_name")} onChange={(v) => f.set("lab_name", v)} placeholder="SHARMA CLINICAL LABORATORY" />
+        <TextField label="Lab Name" value={f.get("lab_name")} onChange={(v) => f.set("lab_name", v)} placeholder="e.g. CITY DIAGNOSTIC CENTRE" />
+        <TextField label="Tagline (badge under the name)" value={f.get("tagline")} onChange={(v) => f.set("tagline", v)} placeholder="e.g. FULLY COMPUTERISED HI-TECH LAB." />
         <TextField
           label="Address"
           value={f.get("address_line")}
@@ -85,7 +86,8 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
         <TabHeader title="Live preview" subtitle="Approximate report header using the values above." />
         <HeaderPreview
           logo={settings.logo_data}
-          labName={f.get("lab_name") || "SHARMA CLINICAL LABORATORY"}
+          labName={f.get("lab_name") || "YOUR LABORATORY"}
+          tagline={f.get("tagline")}
           address={f.get("address_line")}
           phones={f.get("phones")}
           timings={f.get("timings")}
@@ -102,6 +104,7 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
 function HeaderPreview(props: {
   logo?: string;
   labName: string;
+  tagline: string;
   address: string;
   phones: string;
   timings: string;
@@ -116,12 +119,14 @@ function HeaderPreview(props: {
         <div className="flex items-start justify-between gap-3 text-left">
           {props.logo
             ? <img src={props.logo} alt="lab logo" className="h-12 w-auto object-contain shrink-0" />
-            : <SCLLogo height={40} className="shrink-0" />}
+            : <span className="h-12 w-12 shrink-0" />}
           <div className="flex-1 text-center">
             <div className="text-xl font-extrabold text-[#7b1b1b] leading-tight">{props.labName}</div>
-            <div className="inline-block mt-1 border border-[#7b1b1b] text-[#7b1b1b] text-[10px] font-bold px-2 py-0.5 rounded">
-              FULLY COMPUTERISED HI-TECH LAB.
-            </div>
+            {props.tagline && (
+              <div className="inline-block mt-1 border border-[#7b1b1b] text-[#7b1b1b] text-[10px] font-bold px-2 py-0.5 rounded">
+                {props.tagline}
+              </div>
+            )}
           </div>
           <div className="text-[10px] text-right text-gray-700 w-32 shrink-0">{props.address || "—"}</div>
         </div>

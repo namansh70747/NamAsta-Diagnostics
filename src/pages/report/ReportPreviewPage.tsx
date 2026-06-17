@@ -1140,9 +1140,11 @@ export function ReportPreviewPage() {
               </p>
             )}
           </div>
-          <div className="inline-block border-[1.5px] border-gray-900 rounded-md px-2.5 py-[1px] mt-1 text-[10.5px] font-extrabold tracking-wide text-gray-900">
-            FULLY COMPUTERISED HI-TECH LAB.
-          </div>
+          {settings.tagline && (
+            <div className="inline-block border-[1.5px] border-gray-900 rounded-md px-2.5 py-[1px] mt-1 text-[10.5px] font-extrabold tracking-wide text-gray-900">
+              {settings.tagline}
+            </div>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-3 items-start mt-1.5 text-[10.5px] text-gray-900">

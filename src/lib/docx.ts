@@ -209,7 +209,7 @@ export async function buildReportDocx(
         cell([
           para([run(labName, { bold: true, color: MAROON, size: S_LAB })]),
           settings.address_line ? para([run(settings.address_line.toUpperCase(), { bold: true, size: 15, color: DARK })]) : para([run('')]),
-          new Paragraph({ children: [run('FULLY COMPUTERISED HI-TECH LAB.', { bold: true, size: 15, color: DARK })], border: BOX_BORDERS, spacing: { before: 30 } }),
+          ...(settings.tagline ? [new Paragraph({ children: [run(settings.tagline, { bold: true, size: 15, color: DARK })], border: BOX_BORDERS, spacing: { before: 30 } })] : []),
         ], { width: Math.round(BODY_W * 0.82) }),
       ],
     }),
