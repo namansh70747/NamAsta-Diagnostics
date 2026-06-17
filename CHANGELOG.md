@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.69
+
+- Adopted the supplied **official logo artwork** (microscope + atom orbitals + hexagon, blue/teal)
+  as the real image — squared and used pixel-for-pixel for the app icon (Windows `.ico`, macOS
+  `.icns`, all PNG sizes), the in-app brand mark (sidebar, login, onboarding) and the browser
+  favicon. The logo is now identical everywhere.
+
 ## v1.3.68
 
 - New logo recreated to match the supplied reference: a tilted **microscope** inside crossing
