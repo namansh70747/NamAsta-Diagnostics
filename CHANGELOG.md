@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.63
+
+- The report letterhead now shows **only the lab's own uploaded logo** (Settings → Branding).
+  The hardcoded "SCL" fallback mark has been removed, so a lab that hasn't uploaded a logo no
+  longer shows another company's logo on its reports.
+
 ## v1.3.62
 
 - Fixed "Edit report" on a report that already has saved edits: the content no longer collapses

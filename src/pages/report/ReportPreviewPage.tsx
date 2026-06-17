@@ -24,7 +24,6 @@ import { rasterizeHistograms } from "@/lib/docxHistograms";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
-import { SCLLogo } from "@/components/common/SCLLogo";
 
 const NORMAL_QUALITATIVE = new Set(['NEGATIVE', 'NIL', 'NOT SEEN', 'ABSENT', 'NORMAL', 'CLEAR', 'PALE YELLOW']);
 
@@ -1127,9 +1126,11 @@ export function ReportPreviewPage() {
   const Letterhead = useCallback(() => (
     <header contentEditable={false} suppressContentEditableWarning className="report-letterhead relative">
       <div className="flex items-start gap-3">
-        {settings.logo_data
-          ? <img src={settings.logo_data} alt="SCL" className="h-[58px] w-auto object-contain shrink-0" />
-          : <SCLLogo height={44} className="shrink-0 mt-1" />}
+        {/* Only ever the lab's OWN uploaded logo (Settings → Branding). No baked-in fallback —
+            a white-label report must never show another company's mark. */}
+        {settings.logo_data && (
+          <img src={settings.logo_data} alt={`${labName} logo`} className="h-[58px] w-auto object-contain shrink-0" />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h1 className="report-title text-[#7b1b1b]">{labName}</h1>
