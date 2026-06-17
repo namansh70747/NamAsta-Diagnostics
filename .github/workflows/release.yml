@@ -14,6 +14,17 @@ jobs:
     permissions:
       contents: write
     runs-on: windows-latest
+    env:
+      # Harden cargo's network layer against the intermittent CI failure
+      #   "curl failed [16] Error in the HTTP2 framing layer"
+      # seen while downloading crates from crates.io on GitHub runners. Disabling
+      # HTTP/2 multiplexing forces plain HTTP/1.1 (no framing layer to break), the
+      # sparse protocol is more robust than the old git index, and git-CLI fetches
+      # fall back cleanly. Also retry a few times before giving up.
+      CARGO_HTTP_MULTIPLEXING: 'false'
+      CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+      CARGO_NET_RETRY: '5'
     steps:
       - uses: actions/checkout@v4
 
