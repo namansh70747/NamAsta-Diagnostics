@@ -19,59 +19,53 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
 
   const A4_PX = Math.round((297 / 25.4) * 96);   // 297mm → px at 96dpi
 
-  for (let p = 0; p < targets.length; p++) {
-    const target = targets[p];
-    const naturalH = target.scrollHeight;
+  // CSS `zoom` (used on screen for content-scale / per-page auto-fit) is mis-rendered by
+  // html2canvas-pro (it inverts the factor → giant overlapping text). Neutralise it for the
+  // capture and instead scale the finished page-image to fit A4 — reliable and identical-looking.
+  const zoomedSections = Array.from(el.querySelectorAll<HTMLElement>("[data-editable-body]"));
+  const savedZoom = zoomedSections.map(s => s.style.zoom);
+  zoomedSections.forEach(s => { s.style.zoom = "1"; });
 
-    if (naturalH > A4_PX * 1.1) {
-      // Compact/tall page: render at full natural height, then slice into A4 chunks.
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        width: target.offsetWidth,
-        height: naturalH,
-      });
-      const SCALE = 2;
-      const sliceH = A4_PX * SCALE;
-      const numChunks = Math.ceil(canvas.height / sliceH);
-      for (let chunk = 0; chunk < numChunks; chunk++) {
-        if (p > 0 || chunk > 0) pdf.addPage();
-        const slice = document.createElement("canvas");
-        slice.width = canvas.width;
-        slice.height = sliceH;
-        const ctx = slice.getContext("2d")!;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(canvas, 0, -chunk * sliceH);
-        pdf.addImage(slice.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, pageH);
-      }
-    } else {
-      // Short page: pin to exactly A4 so the footer sits at the very bottom.
-      const prevH = target.style.height;
-      const prevMinH = target.style.minHeight;
-      const prevOverflow = target.style.overflow;
-      target.style.height = `${A4_PX}px`;
+  // The preview pane scales the whole sheet with CSS `zoom` (viewer zoom). That must NOT bleed into
+  // the capture — neutralise the ancestor zoom so each A4 page is measured/rendered at true 1:1.
+  const previewZoom = el.closest<HTMLElement>("[data-preview-zoom]");
+  const savedPreviewZoom = previewZoom?.style.zoom ?? null;
+  if (previewZoom) previewZoom.style.zoom = "1";
+
+  try {
+    for (let p = 0; p < targets.length; p++) {
+      const target = targets[p];
+      // Lay the page out at natural height (min one A4) so all content is captured, not clipped.
+      const prev = { h: target.style.height, mh: target.style.minHeight, ov: target.style.overflow };
+      target.style.height = "auto";
       target.style.minHeight = `${A4_PX}px`;
-      target.style.overflow = "hidden";
+      target.style.overflow = "visible";
+      const naturalH = Math.max(target.scrollHeight, A4_PX);
 
       const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        width: target.offsetWidth,
-        height: A4_PX,
+        scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+        width: target.offsetWidth, height: naturalH,
       });
 
-      target.style.height = prevH;
-      target.style.minHeight = prevMinH;
-      target.style.overflow = prevOverflow;
+      target.style.height = prev.h;
+      target.style.minHeight = prev.mh;
+      target.style.overflow = prev.ov;
 
       if (p > 0) pdf.addPage();
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, pageH);
+      // Height (mm) if the captured image were drawn at full page width.
+      const fullHmm = (canvas.height / canvas.width) * pageW;
+      const img = canvas.toDataURL("image/jpeg", 0.95);
+      if (fullHmm <= pageH + 1) {
+        pdf.addImage(img, "JPEG", 0, 0, pageW, fullHmm);                 // fits — top-aligned
+      } else {
+        const fit = pageH / fullHmm;                                    // shrink to fit one A4
+        const drawW = pageW * fit;
+        pdf.addImage(img, "JPEG", (pageW - drawW) / 2, 0, drawW, pageH); // centered horizontally
+      }
     }
+  } finally {
+    zoomedSections.forEach((s, i) => { s.style.zoom = savedZoom[i]; });
+    if (previewZoom) previewZoom.style.zoom = savedPreviewZoom ?? "";
   }
   return pdf;
 }

@@ -91,6 +91,14 @@ const CBC_SECTION: Record<string, string> = {
 const LAYOUT_VERSION = '4';
 const layoutFresh = (): boolean => localStorage.getItem('scl_layout_v') === LAYOUT_VERSION;
 
+// Per-column minimum width (%). Test Name holds long names ("eGFR (CKD-EPI)") so it needs room —
+// below ~18% it collapses to one letter per line. The numeric columns can go narrower.
+const COL_MIN = [18, 8, 8, 12];
+const COL_DEFAULT = [24, 18, 12, 46];
+// Reject a saved layout that would render broken (any column under its minimum) → use the default.
+const colWidthsValid = (v: unknown): v is number[] =>
+  Array.isArray(v) && v.length === 4 && v.every((w, i) => typeof w === 'number' && w >= COL_MIN[i]);
+
 export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const pid = parseInt(patientId ?? '0');
@@ -149,8 +157,8 @@ export function ReportPreviewPage() {
   // Normal Ranges), as percentages summing to 100. Drag a column border to resize; saved as a
   // lab-wide template so every report uses the chosen layout.
   const [colWidths, setColWidths] = useState<number[]>(() => {
-    try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colw') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
-    return [24, 18, 12, 46];
+    try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colw') || ''); if (colWidthsValid(v)) return v; } } catch { /* ignore */ }
+    return [...COL_DEFAULT];
   });
   function startColResize(idx: number, e: React.PointerEvent) {
     e.preventDefault(); e.stopPropagation();
@@ -163,7 +171,7 @@ export function ReportPreviewPage() {
       const deltaPct = ((ev.clientX - startX) / tableW) * 100;
       const left = startWidths[idx] + deltaPct;
       const right = startWidths[idx + 1] - deltaPct;
-      if (left < 6 || right < 6) return;   // keep both columns usable
+      if (left < COL_MIN[idx] || right < COL_MIN[idx + 1]) return;   // keep both columns usable
       last = [...startWidths]; last[idx] = left; last[idx + 1] = right;
       setColWidths(last);
     };
@@ -208,11 +216,11 @@ export function ReportPreviewPage() {
   function adjustColWidth(i: number, delta: number) {
     setColWidths(prev => {
       const me = prev[i] + delta;
-      if (me < 6 || me > 70) return prev;
+      if (me < COL_MIN[i] || me > 70) return prev;
       const otherTotal = prev.reduce((s, w, j) => s + (j === i ? 0 : w), 0);
       if (otherTotal <= 0) return prev;
       const out = prev.map((w, j) => j === i ? me : w - delta * (w / otherTotal));
-      if (out.some((w, j) => j !== i && w < 6)) return prev;   // keep every column usable
+      if (out.some((w, j) => j !== i && w < COL_MIN[j])) return prev;   // keep every column usable
       localStorage.setItem('scl_colw', JSON.stringify(out));
       return out;
     });
@@ -784,6 +792,9 @@ export function ReportPreviewPage() {
       const path = await exportReportDocx({
         model, settings, histogramPngs, qr,
         testNo: patient!.test_no, name: patient!.name, reportDate: patient!.report_time,
+        // Mirror the on-screen "Print lab letterhead" switch: when OFF, the lab prints on
+        // pre-printed stationery, so the .docx omits header/footer and uses blank gaps instead.
+        layout: { noLetterhead: !printLetterhead, preTopMm: preTop, preBottomMm: preBottom },
       });
       if (path) { await revealInFolder(path); toast.success('Word document saved & opened.'); }
     });
@@ -931,6 +942,10 @@ export function ReportPreviewPage() {
     const el = document.getElementById('report-print-area');
     const clone = el?.cloneNode(true) as HTMLElement | null;
     clone?.querySelectorAll('[data-report-control]').forEach(n => n.remove());
+    // Strip ALL CSS `zoom` from the editable body. WebKit (the macOS WebView engine) corrupts
+    // text selection — getSelection()/caret — inside a zoomed contentEditable, which is why the
+    // toolbar buttons (and even Ctrl/Cmd+A) appeared dead. The editor therefore renders at natural
+    // 1:1; print/PDF auto-fit each page back to A4, so output is unaffected.
     clone?.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => { s.style.zoom = ''; });
     setEditHtml(reportOverride ?? clone?.innerHTML ?? '');
     setEditing(true);
@@ -949,9 +964,18 @@ export function ReportPreviewPage() {
     if (!host) return;
     host.innerHTML = editHtml;
     host.contentEditable = 'true';
+    host.spellcheck = false;
     // Re-assert locked chrome (in case a snapshot lost the attribute).
     host.querySelectorAll<HTMLElement>('.report-letterhead, .report-letterfoot').forEach(el => { el.contentEditable = 'false'; });
     host.querySelectorAll<HTMLElement>('section[contenteditable], [data-name-box]').forEach(el => { el.contentEditable = 'false'; });
+    // At natural size some pages can be taller than A4; the print layout clips them
+    // (overflow:hidden) which would HIDE content while editing. Let pages grow so everything is
+    // visible & editable — print/PDF re-fit each page to A4 from the saved HTML.
+    host.querySelectorAll<HTMLElement>('.report-page').forEach(p => {
+      p.style.overflow = 'visible';
+      p.style.height = 'auto';
+      p.style.minHeight = '297mm';
+    });
     host.focus({ preventScroll: true });
   }, [editing, editHtml]);
 
@@ -1112,12 +1136,16 @@ export function ReportPreviewPage() {
           <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-sm">
             <ChevronLeft size={16} /> Back to Results
           </button>
+          {editing ? (
+            <span className="text-xs text-gray-400">Editing at 100% — zoom resumes after you save</span>
+          ) : (
           <div className="flex items-center gap-2 text-gray-500">
             <button onClick={() => setZoom(z => Math.max(25, z - 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom out (Ctrl/Cmd −)"><ZoomOut size={15} /></button>
             <span className="text-xs w-10 text-center">{zoom}%</span>
             <button onClick={() => setZoom(z => Math.min(200, z + 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom in (Ctrl/Cmd +)"><ZoomIn size={15} /></button>
             <button onClick={() => setZoom(100)} className="px-2 py-1 rounded hover:bg-gray-100 text-[11px] font-medium" title="Reset zoom (Ctrl/Cmd 0)">Reset</button>
           </div>
+          )}
         </div>
 
         {editing && (
@@ -1128,7 +1156,12 @@ export function ReportPreviewPage() {
         )}
         {editing && <RichTextToolbar />}
         <div className="overflow-auto pb-8">
-          <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
+          {/* Zoom the WHOLE A4 sheet uniformly (CSS zoom keeps the 210mm page fixed-width so it
+              never reflows) and keep it centred. `width:210mm` + mx-auto means the scaled sheet
+              stays centred in the pane at any zoom — no left/right drift. Neutralised for PDF
+              capture via [data-preview-zoom] in src/lib/pdf.ts. While EDITING we force 1:1 (no
+              zoom) because WebKit corrupts contentEditable selection under CSS zoom. */}
+          <div data-preview-zoom style={{ width: '210mm', zoom: editing ? 1 : zoom / 100 }} className="mx-auto">
             {(editing && editHtml != null) ? (
               // EDIT MODE: edit the REAL paginated report in place (looks exactly like the PDF).
               // Filled & made editable imperatively; the chrome stays contenteditable=false.
@@ -1260,6 +1293,11 @@ export function ReportPreviewPage() {
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
           <OutputBtn icon={FileType2} label="Export to Word (full editing)" onClick={handleDocx} done={sent.docx} disabled={!isApproved || editing} busy={busy === 'docx'} />
+          <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+            {printLetterhead
+              ? 'Word file includes the full lab letterhead.'
+              : `Word file has no header/footer — just ${preTop}mm top & ${preBottom}mm bottom gaps for your pre-printed paper. (Set this via “Print lab letterhead”.)`}
+          </p>
           {reportOverride && (
             <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
               Word export uses the original report data — it won't include the in-app manual edits.
@@ -1455,7 +1493,7 @@ function RichTextToolbar() {
     const onSel = () => {
       const sel = window.getSelection();
       const host = editorHost();
-      if (!sel || sel.rangeCount === 0 || !host || !host.isContentEditable) return;
+      if (!sel || sel.rangeCount === 0 || !host) return;
       const range = sel.getRangeAt(0);
       if (host.contains(range.commonAncestorContainer)) savedRange.current = range.cloneRange();
     };
@@ -1463,33 +1501,36 @@ function RichTextToolbar() {
     return () => document.removeEventListener('selectionchange', onSel);
   }, []);
 
-  /** The range to operate on: prefer a live selection inside the host, else the last saved
-   *  range. If it's just a cursor (collapsed), EXPAND to the enclosing cell/paragraph — so,
-   *  Excel-style, clicking in a cell and hitting Bold formats the whole cell with no drag. */
-  const workingRange = (): Range | null => {
+  /** Re-focus the editor and return a usable Range to operate on. Prefers the live selection;
+   *  falls back to the last one that was inside the editor (survives a <select>/colour-picker
+   *  stealing focus). When `expand` is set and the selection is just a caret, it grows to the
+   *  enclosing cell/line — so "click a cell, press Bold" styles the whole cell with no drag
+   *  (Excel/Word behaviour). The returned range is also made the LIVE selection, so the result
+   *  is visible and the user can chain more formats. */
+  const getRange = (expand: boolean): Range | null => {
     const host = editorHost();
     if (!host) return null;
+    host.focus({ preventScroll: true });
     const sel = window.getSelection();
+    if (!sel) return null;
     let range: Range | null = null;
-    if (sel && sel.rangeCount && host.contains(sel.getRangeAt(0).commonAncestorContainer)) {
-      range = sel.getRangeAt(0);
-    } else if (savedRange.current) {
-      try { host.focus({ preventScroll: true }); sel?.removeAllRanges(); sel?.addRange(savedRange.current); } catch { /* ignore */ }
-      range = savedRange.current;
+    if (sel.rangeCount && host.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      range = sel.getRangeAt(0).cloneRange();
+    } else if (savedRange.current && host.contains(savedRange.current.commonAncestorContainer)) {
+      range = savedRange.current.cloneRange();
     }
     if (!range) return null;
-    if (range.collapsed) {
+    if (expand && range.collapsed) {
       let node: Node | null = range.startContainer;
       if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
       const block = (node as Element | null)?.closest('td,th,li,p,div');
-      if (block && host.contains(block) && block !== host) {
-        const r = document.createRange();
-        r.selectNodeContents(block);
-        savedRange.current = r.cloneRange();   // keep styleAt/undo in sync with what we'll edit
-        return r;
-      }
-      return null;
+      if (!block || !host.contains(block) || block === host) return null;
+      const r = document.createRange();
+      r.selectNodeContents(block);
+      range = r;
     }
+    sel.removeAllRanges();
+    sel.addRange(range);
     savedRange.current = range.cloneRange();
     return range;
   };
@@ -1499,10 +1540,19 @@ function RichTextToolbar() {
     if (host) { undoStack.current.push(host.innerHTML); redoStack.current = []; }
   };
 
+  const reselect = (node: Node) => {
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.selectNodeContents(node);
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    savedRange.current = r.cloneRange();
+  };
+
   /** Wrap the current selection in a <span> styled by `apply`. The core of all character
-   *  formatting — no execCommand involved. */
+   *  formatting — pure DOM (works in every WebView; execCommand is unreliable here). */
   const wrapInline = (apply: (s: HTMLElement) => void) => {
-    const range = workingRange();
+    const range = getRange(true);
     if (!range || range.collapsed) return;
     pushUndo();
     const span = document.createElement('span');
@@ -1515,13 +1565,7 @@ function RichTextToolbar() {
       span.appendChild(frag);
       range.insertNode(span);
     }
-    // Re-select the wrapped content so the user can chain formats.
-    const sel = window.getSelection();
-    const r = document.createRange();
-    r.selectNodeContents(span);
-    sel?.removeAllRanges();
-    sel?.addRange(r);
-    savedRange.current = r.cloneRange();
+    reselect(span);   // re-select wrapped content so formats chain
   };
 
   /** Read a computed style on the actual content being formatted (used to TOGGLE bold/italic).
@@ -1539,15 +1583,32 @@ function RichTextToolbar() {
     return node && node instanceof Element ? getComputedStyle(node as Element).getPropertyValue(prop) : '';
   };
 
-  /** Set a CSS property on the block element(s) enclosing the selection (alignment, indent). */
+  /** Set a CSS property on EVERY block the selection touches (alignment, indent) — so aligning
+   *  a multi-row selection aligns all of its rows, not just the common ancestor. */
   const styleBlock = (apply: (el: HTMLElement) => void) => {
-    const range = workingRange();
+    const range = getRange(false);
     if (!range) return;
     pushUndo();
-    let node: Node | null = range.commonAncestorContainer;
-    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-    const block = (node as Element | null)?.closest('td,th,p,div,li,section') as HTMLElement | null;
-    if (block) apply(block);
+    const host = editorHost();
+    const blocks = new Set<HTMLElement>();
+    const add = (n: Node | null) => {
+      if (n && n.nodeType === Node.TEXT_NODE) n = n.parentElement;
+      const b = (n as Element | null)?.closest('td,th,p,div,li,section') as HTMLElement | null;
+      if (b && host?.contains(b) && b !== host) blocks.add(b);
+    };
+    if (!range.collapsed) {
+      // Walk all block elements intersecting the selection.
+      const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ELEMENT, {
+        acceptNode: (el) => range.intersectsNode(el) && (el as Element).matches('td,th,p,div,li,section')
+          ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+      });
+      let cur = walker.nextNode();
+      while (cur) { add(cur); cur = walker.nextNode(); }
+    }
+    add(range.startContainer);
+    add(range.endContainer);
+    if (!blocks.size) add(range.commonAncestorContainer);
+    blocks.forEach(apply);
   };
 
   const bold        = () => wrapInline(s => s.style.fontWeight = /^(bold|[6-9]00)/.test(styleAt('font-weight')) ? 'normal' : 'bold');
@@ -1566,7 +1627,7 @@ function RichTextToolbar() {
 
   /** Turn the selection into a bullet/numbered list. */
   const makeList = (ordered: boolean) => {
-    const range = workingRange();
+    const range = getRange(true);
     if (!range) return;
     pushUndo();
     const list = document.createElement(ordered ? 'ol' : 'ul');
@@ -1574,26 +1635,45 @@ function RichTextToolbar() {
     list.style.listStyleType = ordered ? 'decimal' : 'disc';
     const li = document.createElement('li');
     try { li.appendChild(range.extractContents()); } catch { li.textContent = range.toString(); }
-    if (!li.textContent && !li.childNodes.length) li.appendChild(document.createElement('br'));
+    if (!li.childNodes.length) li.appendChild(document.createElement('br'));
     list.appendChild(li);
     range.insertNode(list);
     savedRange.current = null;   // content moved — old range is stale
   };
 
   const clearFormat = () => {
-    const range = workingRange();
+    const range = getRange(true);
     if (!range || range.collapsed) return;
     pushUndo();
     const text = range.toString();
     range.deleteContents();
-    range.insertNode(document.createTextNode(text));
-    savedRange.current = null;
+    const tn = document.createTextNode(text);
+    range.insertNode(tn);
+    reselect(tn);
   };
 
   // After an innerHTML swap every node is detached, so the saved range must be discarded or
   // the next command would act on stale/detached nodes (corruption).
   const undo = () => { const h = editorHost(); if (h && undoStack.current.length) { redoStack.current.push(h.innerHTML); h.innerHTML = undoStack.current.pop()!; savedRange.current = null; } };
   const redo = () => { const h = editorHost(); if (h && redoStack.current.length) { undoStack.current.push(h.innerHTML); h.innerHTML = redoStack.current.pop()!; savedRange.current = null; } };
+
+  // Keyboard shortcuts inside the editor: Ctrl/Cmd + B / I / U (Word-style). (Ctrl/Cmd+A select-all
+  // is left to the browser — it works natively now that the editor is zoom-free.)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const host = editorHost();
+      if (!host || !host.contains(document.activeElement)) return;
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'b') { e.preventDefault(); bold(); }
+      else if (k === 'i') { e.preventDefault(); italic(); }
+      else if (k === 'u') { e.preventDefault(); underline(); }
+      else if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const keep = (e: React.MouseEvent) => e.preventDefault();
   const Sep = () => <span className="mx-1 h-5 w-px bg-[#e6e7ee]" />;
@@ -1759,16 +1839,31 @@ function CompactPaginatedReport({
   // Each page also gets an auto-fit `scale`: if its blocks are still taller than the A4 body
   // (e.g. one long panel that can't be split), that page shrinks just enough to fit — so a
   // panel is NEVER clipped and every page fills exactly one A4 sheet.
+  // Content-based height ESTIMATE (px) — used when the off-screen measurement isn't available
+  // or looks wrong. Guarantees long reports paginate across pages instead of cramming onto one.
+  const estimateH = (b: CompactBlock): number => {
+    if (b.kind !== 'panel' || !b.pg) return 40;
+    const ROW = 26, NOTE = 72, COLHEAD = 34;
+    let h = (b.showDept ? 32 : 0) + (b.showSub ? 26 : 0) + COLHEAD;
+    h += b.pg.orders.length * ROW;
+    h += b.pg.orders.filter(o => o.test.interpretation_note).length * NOTE;
+    if (b.pg.panel.code === 'CBC') h = Math.max(h, 320);   // histograms occupy ~3×100px
+    return h;
+  };
+  // Trust the measured height only when it's a sane non-zero value; otherwise estimate.
+  const blockH = (b: CompactBlock): number => {
+    const m = heights[b.key];
+    return m && m > 10 ? m : estimateH(b);
+  };
+
   const pages = useMemo<{ blocks: CompactBlock[]; scale: number }[]>(() => {
     if (!blocks.length) return [];
-    // Fallback before the first measure resolves: an approximate A4 content height (px), so a
-    // tall report still paginates instead of dumping everything on one clipped page.
-    const cap = capacity > 0 ? capacity : 165 * PX_PER_MM;
+    const cap = capacity > 0 ? capacity : 165 * PX_PER_MM;   // A4 body height (px)
     const groups: CompactBlock[][] = [];
     let cur: CompactBlock[] = [];
     let curH = 0;
     for (const b of blocks) {
-      const h = (heights[b.key] ?? 0) * contentScale;   // scaled content takes scaled space
+      const h = blockH(b) * contentScale;   // scaled content takes scaled space
       const br = breaks[b.key];
       const overflow = curH + h > cap;
       if (cur.length && (br === 'before' || (br !== 'pull' && overflow))) {
@@ -1778,14 +1873,15 @@ function CompactPaginatedReport({
       curH += h;
     }
     if (cur.length) groups.push(cur);
-    // Per-page auto-fit scale (never enlarge beyond the user's contentScale).
+    // Per-page auto-fit scale — only shrinks a page whose content still overflows one A4 sheet
+    // (e.g. a single very long panel); never enlarges beyond the user's contentScale.
     return groups.map(g => {
-      const rawH = g.reduce((s, b) => s + (heights[b.key] ?? 0), 0);   // unscaled px
+      const rawH = g.reduce((s, b) => s + blockH(b), 0);
       const wanted = rawH * contentScale;
       const scale = wanted > cap && rawH > 0 ? cap / rawH : contentScale;
       return { blocks: g, scale };
     });
-  }, [blocks, heights, capacity, breaks, contentScale]);
+  }, [blocks, heights, capacity, breaks, contentScale]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const BlockView = ({ b, first, controls }: { b: CompactBlock; first: boolean; controls?: boolean }) => {
     // paddingTop (not margin) so measurement never disagrees with layout via margin-collapse.

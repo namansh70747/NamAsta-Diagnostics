@@ -28,6 +28,7 @@ export interface ReportDocxModel {
 }
 
 // ── Geometry (A4, twips: 1mm ≈ 56.6929) ──
+const TWIPS_PER_MM = 56.6929;
 const A4 = { width: 11906, height: 16838 };
 const MARGIN = 680;                              // ~12mm
 const BODY_W = A4.width - 2 * MARGIN;            // 10546
@@ -137,22 +138,30 @@ function sectionHeaderRow(label: string, dataSpan: number, widths: number[], his
   return new TableRow({ children });
 }
 
+/** Pre-printed-paper mode: the lab's stationery already carries the header & footer, so the
+ *  Word file is emitted with NO header/footer and just blank top/bottom gaps, so the data lands
+ *  inside the printed frame. Mirrors the on-screen "Print lab letterhead" off mode. */
+export interface DocxLayoutOpts { noLetterhead?: boolean; preTopMm?: number; preBottomMm?: number; }
+
 // ── public: build the Word document ──
 export async function buildReportDocx(
   model: ReportDocxModel,
   settings: Record<string, string>,
   histogramPngs: HistogramPngs,
   qr: string,
+  layout: DocxLayoutOpts = {},
 ): Promise<Blob> {
   const labName = settings.lab_name || 'YOUR LABORATORY';
+  const noLetterhead = !!layout.noLetterhead;
 
-  // pre-resolve header/footer images
-  const logo = await imgRun(settings.logo_data, 52);
-  const sig = await imgRun(settings.signature_data, 46);
-  const qrImg = await imgRun(qr, 60);
+  // pre-resolve header/footer images (skipped entirely in pre-printed-paper mode)
+  const logo = noLetterhead ? null : await imgRun(settings.logo_data, 52);
+  const sig = noLetterhead ? null : await imgRun(settings.signature_data, 46);
+  const qrImg = noLetterhead ? null : await imgRun(qr, 60);
 
   // ── header (repeats on every page) ──
   const headerChildren: (Paragraph | Table)[] = [];
+  if (!noLetterhead) {
   headerChildren.push(fixedTable([
     new TableRow({
       children: [
@@ -182,9 +191,11 @@ export async function buildReportDocx(
   ], [Math.round(BODY_W / 3), Math.round(BODY_W / 3), Math.round(BODY_W / 3)]));
   if (settings.equipment_line) headerChildren.push(para([run(`Equipped With ${settings.equipment_line.replace(/^\s*equipped with\s*/i, '')}`, { bold: true, size: 14, color: DARK })], { align: AlignmentType.CENTER }));
   headerChildren.push(navyRule());
+  }
 
   // ── footer (repeats on every page) ──
   const footerChildren: (Paragraph | Table)[] = [];
+  if (!noLetterhead) {
   footerChildren.push(fixedTable([
     new TableRow({
       children: [
@@ -207,6 +218,7 @@ export async function buildReportDocx(
   ], [Math.round(BODY_W * 0.5), Math.round(BODY_W * 0.5)]));
   if (settings.footer_tests_line) footerChildren.push(para([run(settings.footer_tests_line, { bold: true, size: 13, color: DARK })], { align: AlignmentType.CENTER }));
   footerChildren.push(new Paragraph({ children: [run('Page ', { size: 13, color: GREY }), new TextRun({ children: [PageNumber.CURRENT], size: 13, color: GREY }), run(' of ', { size: 13, color: GREY }), new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 13, color: GREY })], alignment: AlignmentType.RIGHT, spacing: { before: 20 } }));
+  }
 
   // ── body ──
   const body: (Paragraph | Table)[] = [];
@@ -259,12 +271,19 @@ export async function buildReportDocx(
   if (model.comment) body.push(para([run('Comments : ', { bold: true, size: S_SMALL }), run(model.comment, { size: S_SMALL })], { spacingBefore: 80 }));
   body.push(para([run('*** End Of Report ***', { bold: true, size: S_HEAD, color: DARK })], { align: AlignmentType.CENTER, spacingBefore: 120 }));
 
+  // In pre-printed-paper mode the top/bottom margins become the blank gaps that drop the data
+  // into the stationery's printed frame; with no header/footer there is nothing else on the page.
+  const topMargin = noLetterhead ? Math.round((layout.preTopMm ?? 40) * TWIPS_PER_MM) : MARGIN;
+  const bottomMargin = noLetterhead ? Math.round((layout.preBottomMm ?? 24) * TWIPS_PER_MM) : MARGIN;
+
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: S_BODY } } } },
     sections: [{
-      properties: { page: { size: { width: A4.width, height: A4.height }, margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN } } },
-      headers: { default: new Header({ children: headerChildren }) },
-      footers: { default: new Footer({ children: footerChildren }) },
+      properties: { page: { size: { width: A4.width, height: A4.height }, margin: { top: topMargin, right: MARGIN, bottom: bottomMargin, left: MARGIN } } },
+      ...(noLetterhead ? {} : {
+        headers: { default: new Header({ children: headerChildren }) },
+        footers: { default: new Footer({ children: footerChildren }) },
+      }),
       children: body,
     }],
   });
@@ -300,8 +319,9 @@ export async function exportReportDocx(opts: {
   testNo: number;
   name: string;
   reportDate?: string | null;
+  layout?: DocxLayoutOpts;
 }): Promise<string> {
-  const blob = await buildReportDocx(opts.model, opts.settings, opts.histogramPngs, opts.qr);
+  const blob = await buildReportDocx(opts.model, opts.settings, opts.histogramPngs, opts.qr, opts.layout);
   const fileName = `${opts.testNo}-${safeName(opts.name)}.docx`;
 
   if (!isTauri()) {
