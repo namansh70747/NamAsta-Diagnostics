@@ -242,7 +242,7 @@ export async function buildReportDocx(
         cell([para(qrImg ? [qrImg] : [run('')])], { width: Math.round(BODY_W * 0.5) }),
         cell(sigShown ? [
           new Paragraph({ children: sig ? [sig] : [run('')], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
-          new Paragraph({ children: [run('Lab Technician', { bold: true, color: MAROON, size: S_SMALL })], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
+          new Paragraph({ children: [run(settings.signatory_label || 'Lab Technician', { bold: true, color: MAROON, size: S_SMALL })], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
         ] : [para([run('')])], { width: Math.round(BODY_W * 0.5) }),
       ],
     }),
@@ -318,7 +318,7 @@ export async function buildReportDocx(
   }
 
   if (model.comment) body.push(para([run('Comments : ', { bold: true, size: S_SMALL }), run(model.comment, { size: S_SMALL })], { spacingBefore: 80 }));
-  body.push(para([run('*** End Of Report ***', { bold: true, size: S_HEAD, color: DARK })], { align: AlignmentType.CENTER, spacingBefore: 120 }));
+  body.push(para([run(settings.end_of_report_text || '*** End Of Report ***', { bold: true, size: S_HEAD, color: DARK })], { align: AlignmentType.CENTER, spacingBefore: 120 }));
 
   // Pre-printed paper: top margin = the lab's header gap; the signature prints in a footer LOCKED
   // ~45mm above the page bottom (just above the pre-printed "Lab Technician" line) — no label, that

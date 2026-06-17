@@ -2,6 +2,15 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.65
+
+- Every lab-specific string printed on a report is now editable in **Settings → Lab Identity** —
+  nothing is baked in. Added the last two: **Signature Label** (e.g. "Lab Technician" /
+  "Pathologist" / "Lab In-charge") and **End-of-report Text**. Together with logo (upload),
+  lab name, tagline, address, phones, timings, signatory name + qualification, equipment line and
+  the footer lines, the report is fully white-label.
+- Genericised all remaining SCL/Sharma example placeholders in the setup & settings forms.
+
 ## v1.3.64
 
 - Removed the last hardcoded SCL/Sharma branding from reports. The **"FULLY COMPUTERISED HI-TECH

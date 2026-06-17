@@ -175,7 +175,7 @@ function DoctorDialog({
             ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. DR RAKESH SHARMA"
+            placeholder="e.g. DR A. KUMAR"
             className="field w-full"
           />
         </div>

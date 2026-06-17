@@ -10,6 +10,8 @@ const KEYS = [
   "timings",
   "technician_name",
   "technician_qual",
+  "signatory_label",
+  "end_of_report_text",
   "equipment_line",
   "footer_tests_line",
   "footer_left_text",
@@ -40,30 +42,34 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
           label="Address"
           value={f.get("address_line")}
           onChange={(v) => f.set("address_line", v)}
-          placeholder="G.T. ROAD, VILLAGE NANGAL BHUR, TEH. & DISTT. PATHANKOT"
+          placeholder="e.g. Main Road, Near Bus Stand, City, District"
           multiline
           rows={2}
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Phone Numbers" value={f.get("phones")} onChange={(v) => f.set("phones", v)} placeholder="9646778583, 9464148746" />
-          <TextField label="Timings" value={f.get("timings")} onChange={(v) => f.set("timings", v)} placeholder="Summer 7:30am–9:00pm" />
+          <TextField label="Phone Numbers" value={f.get("phones")} onChange={(v) => f.set("phones", v)} placeholder="e.g. 98765 43210, 98765 12345" />
+          <TextField label="Timings" value={f.get("timings")} onChange={(v) => f.set("timings", v)} placeholder="e.g. 8:00 am – 8:00 pm" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Technician Name" value={f.get("technician_name")} onChange={(v) => f.set("technician_name", v)} placeholder="Rajesh Kumar (Vicky)" />
-          <TextField label="Qualification" value={f.get("technician_qual")} onChange={(v) => f.set("technician_qual", v)} placeholder="DMLT (PTU)" />
+          <TextField label="Signatory Name" value={f.get("technician_name")} onChange={(v) => f.set("technician_name", v)} placeholder="e.g. full name" />
+          <TextField label="Qualification" value={f.get("technician_qual")} onChange={(v) => f.set("technician_qual", v)} placeholder="e.g. DMLT" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <TextField label="Signature Label (under the sign)" value={f.get("signatory_label")} onChange={(v) => f.set("signatory_label", v)} placeholder="e.g. Lab Technician / Pathologist" />
+          <TextField label="End-of-report Text" value={f.get("end_of_report_text")} onChange={(v) => f.set("end_of_report_text", v)} placeholder="*** End Of Report ***" />
         </div>
         <TextField
           label="Equipment Line"
           value={f.get("equipment_line")}
           onChange={(v) => f.set("equipment_line", v)}
-          placeholder="Equipped With ERBA H360 Blood Cell Counter…"
+          placeholder="e.g. Equipped with a 3-part cell counter & semi-auto analyser…"
           multiline
         />
         <TextField
           label="Footer Tests Line"
           value={f.get("footer_tests_line")}
           onChange={(v) => f.set("footer_tests_line", v)}
-          placeholder="T3, T4, TSH (THYROID)… TESTS AVAILABLES"
+          placeholder="e.g. THYROID, LIPID, LFT, KFT… TESTS AVAILABLE HERE"
           multiline
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

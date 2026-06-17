@@ -1195,13 +1195,13 @@ export function ReportPreviewPage() {
             {settings.signature_data
               ? <img src={settings.signature_data} alt="signature" style={{ height: `${sigHeightMm}mm` }} className="mx-auto object-contain" />
               : <div style={{ height: `${sigHeightMm}mm` }} className="w-32 flex items-end justify-center text-gray-300 text-[10px] italic">[ upload signature in Settings ]</div>}
-            <p className="report-sign-label text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">Lab Technician</p>
+            <p className="report-sign-label text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">{settings.signatory_label || 'Lab Technician'}</p>
           </div>
         )}
       </div>
       {/* "End Of Report" prints on the LAST page only. */}
       {isLast && (
-        <div className="text-center text-[14px] font-bold text-gray-900 mt-2 mb-1.5">*** End Of Report ***</div>
+        <div className="text-center text-[14px] font-bold text-gray-900 mt-2 mb-1.5">{settings.end_of_report_text || '*** End Of Report ***'}</div>
       )}
       {/* Navy rule + standard footer lines repeat on EVERY page (matches the printed letterhead). */}
       <div className={cn("border-t-[2.5px] border-[#1a3a8f] pt-1.5 flex justify-between items-baseline text-[11px] font-semibold text-gray-900", !isLast && "mt-2")}>

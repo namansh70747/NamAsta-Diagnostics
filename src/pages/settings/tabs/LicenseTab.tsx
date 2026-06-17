@@ -86,7 +86,8 @@ export function LicenseTab() {
               </button>
             </div>
             <p className="mt-2 text-[12px] text-[#8a8b97]">
-              Each key works on up to <b>2 computers</b>. To add a second PC, send this Device ID to NamAsta.
+              Each key works on a maximum of <b>2 computers</b>; a 3rd PC is refused. To add a second PC
+              (or move/replace one), send this Device ID to NamAsta for a re-issued key.
             </p>
           </div>
         </>

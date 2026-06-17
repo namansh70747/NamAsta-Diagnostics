@@ -98,8 +98,8 @@ export function UsersTab() {
       <Card className="space-y-4">
         <TabHeader title="Add user" subtitle="New users must change their temporary password on first login." />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Username" value={username} onChange={setUsername} placeholder="e.g. vicky" />
-          <TextField label="Display name" value={displayName} onChange={setDisplayName} placeholder="e.g. Rajesh Kumar" />
+          <TextField label="Username" value={username} onChange={setUsername} placeholder="e.g. technician1" />
+          <TextField label="Display name" value={displayName} onChange={setDisplayName} placeholder="e.g. full name" />
           <SelectField
             label="Role"
             value={role}

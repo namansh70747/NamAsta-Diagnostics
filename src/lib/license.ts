@@ -138,7 +138,8 @@ export async function activateLicense(key: string): Promise<LicenseInfo> {
     const fp = await getDeviceFingerprint();
     if (!info.dev.includes(fp)) {
       throw new Error(
-        `This key is registered to other device(s). This PC's Device ID is ${fp} — send it to NamAsta to add this computer (each key allows up to 2).`
+        `This activation key is limited to ${info.dev.length === 2 ? "2 computers" : "specific computer(s)"} and this PC is not one of them. ` +
+        `This PC's Device ID is ${fp}. A key works on at most 2 PCs — to move or replace a computer, send this Device ID to NamAsta for a re-issued key.`
       );
     }
   }

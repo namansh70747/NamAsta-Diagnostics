@@ -178,7 +178,9 @@ function ActivateStep({ status, isRenewal, onActivated }: {
         )}
         {status.deviceMismatch && (
           <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-200">
-            This key isn't registered for <b>this computer</b>. Each key works on up to 2 PCs — send this PC's Device ID to {VENDOR_CONTACT} to add it.
+            <b>This computer is not on the key.</b> An activation key works on a maximum of <b>2 PCs</b>,
+            and this is a different one{status.deviceId ? <> (Device ID <b className="font-mono">{status.deviceId}</b>)</> : null}.
+            To move or replace a computer, send this Device ID to {VENDOR_CONTACT} for a re-issued key.
           </div>
         )}
       </div>
@@ -208,8 +210,9 @@ function ActivateStep({ status, isRenewal, onActivated }: {
 
         <div className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#c7cbff]">Step 2 — Send your Device ID with payment screenshot</div>
         <p className="mt-2 text-[13px] text-white/55 leading-relaxed">
-          Your key is locked to this computer (up to <b className="text-white/85">2 PCs</b> per key).
+          Your key is locked to this computer — each key works on at most <b className="text-white/85">2 PCs</b>.
           Copy this Device ID and send it to {VENDOR_CONTACT} along with your payment screenshot.
+          <b className="text-white/85"> Setting up two computers?</b> Send <b className="text-white/85">both</b> Device IDs together to get one key for both.
         </p>
         <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
           <Monitor size={16} className="text-[#c7cbff] shrink-0" />
@@ -311,7 +314,7 @@ function SetupStep({ onDone }: { onDone: () => void }) {
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
           <div>
             <label className={fieldLabel}>Lab in-charge / signatory name *</label>
-            <input value={f.incharge} onChange={e => set("incharge")(e.target.value)} placeholder="Rajesh Kumar" className="login-input" />
+            <input value={f.incharge} onChange={e => set("incharge")(e.target.value)} placeholder="e.g. full name" className="login-input" />
           </div>
           <div>
             <label className={fieldLabel}>Qualification</label>
