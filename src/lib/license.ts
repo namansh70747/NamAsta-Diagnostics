@@ -143,6 +143,26 @@ export async function activateLicense(key: string): Promise<LicenseInfo> {
       );
     }
   }
+  // Downgrade guard: never let a key that expires EARLIER than the lab's current, still-usable
+  // licence silently shorten their tenure (a mis-sent or older-but-unexpired key). Only blocks
+  // when the existing key actually applies to THIS PC — an expired or device-mismatched stored
+  // key must never prevent a legitimate replacement (or the lab would be locked out).
+  const now = await effectiveNow();
+  const existing = await readSetting('license_key');
+  if (existing && existing !== cleaned) {
+    const ex = await verifyLicenseKey(existing);
+    if (ex && ex.exp * 1000 > now && ex.exp > info.exp) {
+      const fp = await getDeviceFingerprint();
+      const exAppliesHere = !ex.dev?.length || ex.dev.includes(fp);
+      if (exAppliesHere) {
+        const d = (s: number) => new Date(s * 1000).toLocaleDateString('en-IN');
+        throw new Error(
+          `Your current licence is valid until ${d(ex.exp)}. This key expires earlier (${d(info.exp)}), so it was NOT applied — your subscription is unchanged. Contact NamAsta if this was intended.`
+        );
+      }
+    }
+  }
+
   await dbExecute(
     `INSERT INTO settings(key,value,updated_at) VALUES('license_key',?,CURRENT_TIMESTAMP)
      ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,

@@ -1,5 +1,5 @@
 import { dbQuery, dbExecute } from "@/lib/db";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, validatePassword } from "@/lib/password";
 import { User } from "@/types";
 
 /** First-run: has the lab set up its own account + identity yet? (settings flag) */
@@ -46,6 +46,8 @@ export interface SetupInput {
 export async function completeSetup(input: SetupInput): Promise<User> {
   const username = input.username.trim().toLowerCase();
   const incharge = input.inchargeName.trim() || input.username.trim();
+  const badPw = validatePassword(input.password);
+  if (badPw) throw new Error(badPw);
   const hash = await hashPassword(input.password);
 
   const admins = await dbQuery<{ id: number }>("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");

@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.70
+
+- Licence downgrade guard: a key that expires earlier than your current, still-valid licence is
+  no longer applied — it can't silently shorten your subscription (with a clear message).
+- Setup now enforces the password policy when the lab creates its first admin account.
+
 ## v1.3.69
 
 - Adopted the supplied **official logo artwork** (microscope + atom orbitals + hexagon, blue/teal)
