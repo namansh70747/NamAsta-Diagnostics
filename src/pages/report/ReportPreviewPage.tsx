@@ -794,7 +794,8 @@ export function ReportPreviewPage() {
         testNo: patient!.test_no, name: patient!.name, reportDate: patient!.report_time,
         // Mirror the on-screen "Print lab letterhead" switch: when OFF, the lab prints on
         // pre-printed stationery, so the .docx omits header/footer and uses blank gaps instead.
-        layout: { noLetterhead: !printLetterhead, preTopMm: preTop, preBottomMm: preBottom },
+        // Also carry the tuned column widths/alignment so Word matches the preview.
+        layout: { noLetterhead: !printLetterhead, preTopMm: preTop, preBottomMm: preBottom, colWidths, colAlign },
       });
       if (path) { await revealInFolder(path); toast.success('Word document saved & opened.'); }
     });

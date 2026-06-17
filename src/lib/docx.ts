@@ -32,16 +32,15 @@ const TWIPS_PER_MM = 56.6929;
 const A4 = { width: 11906, height: 16838 };
 const MARGIN = 680;                              // ~12mm
 const BODY_W = A4.width - 2 * MARGIN;            // 10546
-const PCTS = [0.24, 0.18, 0.12, 0.46];
-const COLW = PCTS.map(p => Math.round(BODY_W * p));
+const PCTS = [0.24, 0.18, 0.12, 0.46];           // default column ratios (overridden by the report's live widths)
 const CBC_HISTO_W = 3515;                        // ~62mm
 const CBC_DATA = BODY_W - CBC_HISTO_W;
-const CBC_COLW = PCTS.map(p => Math.round(CBC_DATA * p));
 
 // Colours (hex, no #)
 const NAVY = '1A3A8F', MAROON = '7B1B1B', GREY = '8A8B97', LINE = '9CA3AF', DARK = '111111';
-// Font sizes (half-points): body 10pt, heading 11pt, small 8pt
-const S_BODY = 20, S_HEAD = 22, S_DEPT = 23, S_SMALL = 16, S_LAB = 30;
+// Font sizes (half-points): body 10.5pt, col-head 11pt, dept 12pt, small 8pt, lab name 15pt.
+// (Matches the on-screen report so the Word file looks the same.)
+const S_BODY = 21, S_HEAD = 22, S_DEPT = 24, S_SMALL = 16, S_LAB = 30;
 
 // ── helpers ──
 /** Decode a data-URL (or bare base64) into bytes for an ImageRun. */
@@ -74,8 +73,15 @@ async function imgRun(dataUrl: string | undefined, targetH: number): Promise<Ima
 const run = (text: string, o: { bold?: boolean; italics?: boolean; color?: string; size?: number; font?: string } = {}) =>
   new TextRun({ text, bold: o.bold, italics: o.italics, color: o.color, size: o.size ?? S_BODY, font: o.font ?? 'Arial' });
 
-const para = (children: (TextRun | ImageRun)[], o: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; spacingAfter?: number; spacingBefore?: number } = {}) =>
-  new Paragraph({ children, alignment: o.align, spacing: { after: o.spacingAfter ?? 0, before: o.spacingBefore ?? 0 } });
+type Align = (typeof AlignmentType)[keyof typeof AlignmentType];
+const para = (children: (TextRun | ImageRun)[], o: { align?: Align; spacingAfter?: number; spacingBefore?: number; line?: number } = {}) =>
+  new Paragraph({ children, alignment: o.align, spacing: { after: o.spacingAfter ?? 0, before: o.spacingBefore ?? 0, ...(o.line ? { line: o.line, lineRule: 'auto' as const } : {}) } });
+
+// Map the report's per-column alignment to Word alignment (default: left).
+const alignOf = (a: ('left' | 'center' | 'right')[] | undefined, i: number): Align =>
+  a?.[i] === 'center' ? AlignmentType.CENTER : a?.[i] === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT;
+type Margins = { top: number; bottom: number; left: number; right: number };
+const ROW_MARGINS: Margins = { top: 46, bottom: 46, left: 50, right: 50 };   // comfortable row breathing room
 
 type BStyle = (typeof BorderStyle)[keyof typeof BorderStyle];
 type Edge = { style: BStyle; size: number; color: string };
@@ -90,7 +96,7 @@ const BOX_BORDERS: Borders = {
 };
 const navyRule = () => new Paragraph({ children: [], border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: NAVY } }, spacing: { after: 60, before: 40 } });
 
-function cell(children: Paragraph[], o: { width?: number; columnSpan?: number; rowSpan?: number; valign?: typeof VerticalAlign.CENTER; borders?: Borders } = {}): TableCell {
+function cell(children: Paragraph[], o: { width?: number; columnSpan?: number; rowSpan?: number; valign?: typeof VerticalAlign.CENTER; borders?: Borders; margins?: Margins } = {}): TableCell {
   return new TableCell({
     children,
     width: o.width ? { size: o.width, type: WidthType.DXA } : undefined,
@@ -98,7 +104,7 @@ function cell(children: Paragraph[], o: { width?: number; columnSpan?: number; r
     rowSpan: o.rowSpan,
     verticalAlign: o.valign,
     borders: o.borders ?? NO_BORDERS,
-    margins: { top: 20, bottom: 20, left: 40, right: 40 },
+    margins: o.margins ?? { top: 28, bottom: 28, left: 40, right: 40 },
   });
 }
 
@@ -106,34 +112,38 @@ const fixedTable = (rows: TableRow[], columnWidths: number[]) =>
   new Table({ rows, width: { size: BODY_W, type: WidthType.DXA }, columnWidths, layout: TableLayoutType.FIXED });
 
 // header row of column labels with a bottom rule
-function headRow(widths: number[]): TableRow {
+function headRow(widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
   const labels = ['Test Name', 'Results', 'Units', 'Normal Ranges'];
   const b = { ...NO_BORDERS, bottom: { style: BorderStyle.SINGLE, size: 6, color: '6B7280' } };
   return new TableRow({
     tableHeader: true,
-    children: labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })])], { width: widths[i], borders: b })),
+    children: labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })], { align: alignOf(al, i) })], { width: widths[i], borders: b, margins: ROW_MARGINS })),
   });
 }
-function dataRow(r: DocxRow, widths: number[]): TableRow {
+function dataRow(r: DocxRow, widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
   const bold = r.abnormal;
   return new TableRow({
     children: [
-      cell([para([run(r.name, { bold, color: DARK })])], { width: widths[0] }),
-      cell([para([run(r.value || '—', { bold, color: DARK })])], { width: widths[1] }),
-      cell([para([run(r.unit, { color: '374151' })])], { width: widths[2] }),
-      cell([para([run(r.range, { color: '374151' })])], { width: widths[3] }),
+      cell([para([run(r.name, { bold, color: DARK })], { align: alignOf(al, 0) })], { width: widths[0], margins: ROW_MARGINS }),
+      cell([para([run(r.value || '—', { bold, color: DARK })], { align: alignOf(al, 1) })], { width: widths[1], margins: ROW_MARGINS }),
+      cell([para([run(r.unit, { color: '374151' })], { align: alignOf(al, 2) })], { width: widths[2], margins: ROW_MARGINS }),
+      cell([para([run(r.range, { color: '374151' })], { align: alignOf(al, 3) })], { width: widths[3], margins: ROW_MARGINS }),
     ],
   });
 }
-// full-width bordered interpretation note row
-function noteRowEl(text: string): TableRow {
+// full-width bordered interpretation note, sitting directly under its test — padded & comfortably
+// line-spaced so it reads as a clean callout (not a cramped strip).
+function noteRowEl(text: string, span = 4): TableRow {
   return new TableRow({
-    children: [cell([new Paragraph({ children: [run(text, { size: S_SMALL, color: '111827' })], spacing: { after: 0 } })], { columnSpan: 4, borders: BOX_BORDERS })],
+    children: [cell(
+      [para([run(text, { size: S_SMALL + 2, color: '1F2937' })], { line: 288 })],
+      { columnSpan: span, borders: BOX_BORDERS, margins: { top: 70, bottom: 70, left: 110, right: 110 } },
+    )],
   });
 }
 function sectionHeaderRow(label: string, dataSpan: number, widths: number[], histoCell?: TableCell): TableRow {
   const b = { ...NO_BORDERS, bottom: { style: BorderStyle.SINGLE, size: 6, color: '6B7280' } };
-  const children = [cell([para([run(label.toUpperCase(), { bold: true, size: S_SMALL, color: DARK })])], { columnSpan: dataSpan, borders: b })];
+  const children = [cell([para([run(label.toUpperCase(), { bold: true, size: S_SMALL, color: DARK })])], { columnSpan: dataSpan, borders: b, margins: ROW_MARGINS })];
   if (histoCell) children.push(histoCell);
   return new TableRow({ children });
 }
@@ -141,7 +151,11 @@ function sectionHeaderRow(label: string, dataSpan: number, widths: number[], his
 /** Pre-printed-paper mode: the lab's stationery already carries the header & footer, so the
  *  Word file is emitted with NO header/footer and just blank top/bottom gaps, so the data lands
  *  inside the printed frame. Mirrors the on-screen "Print lab letterhead" off mode. */
-export interface DocxLayoutOpts { noLetterhead?: boolean; preTopMm?: number; preBottomMm?: number; }
+export interface DocxLayoutOpts {
+  noLetterhead?: boolean; preTopMm?: number; preBottomMm?: number;
+  colWidths?: number[];                              // 4 percentages summing ~100 (from the on-screen report)
+  colAlign?: ('left' | 'center' | 'right')[];        // per-column text alignment
+}
 
 // ── public: build the Word document ──
 export async function buildReportDocx(
@@ -153,6 +167,13 @@ export async function buildReportDocx(
 ): Promise<Blob> {
   const labName = settings.lab_name || 'YOUR LABORATORY';
   const noLetterhead = !!layout.noLetterhead;
+
+  // Column geometry & alignment from the on-screen report (so Word matches what the user tuned).
+  const pcts = (layout.colWidths && layout.colWidths.length === 4 && layout.colWidths.every(w => w > 0))
+    ? layout.colWidths.map(w => w / 100) : PCTS;
+  const colw = pcts.map(p => Math.round(BODY_W * p));
+  const cbcColw = pcts.map(p => Math.round(CBC_DATA * p));
+  const al = layout.colAlign && layout.colAlign.length === 4 ? layout.colAlign : undefined;
 
   // pre-resolve header/footer images (skipped entirely in pre-printed-paper mode)
   const logo = noLetterhead ? null : await imgRun(settings.logo_data, 52);
@@ -240,7 +261,7 @@ export async function buildReportDocx(
     if (p.heading) body.push(para([run(p.heading, { bold: true, size: S_HEAD, color: DARK })], { spacingBefore: 40, spacingAfter: 40 }));
 
     if (p.layout === 'cbc' && p.sections) {
-      const rows: TableRow[] = [headRowCbc()];
+      const rows: TableRow[] = [headRowCbc(cbcColw, al)];
       for (const sec of p.sections) {
         let histoCell: TableCell | undefined;
         const png = histogramPngs[sec.label as keyof HistogramPngs];
@@ -249,21 +270,21 @@ export async function buildReportDocx(
           histoCell = cell([para([new ImageRun({ data: png.bytes, transformation: { width: dispW, height: dispH }, type: 'png' })], { align: AlignmentType.CENTER })],
             { width: CBC_HISTO_W, rowSpan: 1 + sec.rows.length, valign: VerticalAlign.CENTER });
         }
-        rows.push(sectionHeaderRow(sec.label, 4, CBC_COLW, histoCell));
-        for (const r of sec.rows) rows.push(dataRow(r, CBC_COLW));
+        rows.push(sectionHeaderRow(sec.label, 4, cbcColw, histoCell));
+        for (const r of sec.rows) rows.push(dataRow(r, cbcColw, al));
       }
-      body.push(new Table({ rows, width: { size: BODY_W, type: WidthType.DXA }, columnWidths: [...CBC_COLW, CBC_HISTO_W], layout: TableLayoutType.FIXED }));
+      body.push(new Table({ rows, width: { size: BODY_W, type: WidthType.DXA }, columnWidths: [...cbcColw, CBC_HISTO_W], layout: TableLayoutType.FIXED }));
     } else if (p.layout === 'urine' && p.sections) {
-      const rows: TableRow[] = [headRow(COLW)];
+      const rows: TableRow[] = [headRow(colw, al)];
       for (const sec of p.sections) {
-        rows.push(sectionHeaderRow(sec.label, 4, COLW));
-        for (const r of sec.rows) { rows.push(dataRow(r, COLW)); if (r.note) rows.push(noteRowEl(r.note)); }
+        rows.push(sectionHeaderRow(sec.label, 4, colw));
+        for (const r of sec.rows) { rows.push(dataRow(r, colw, al)); if (r.note) rows.push(noteRowEl(r.note)); }
       }
-      body.push(fixedTable(rows, COLW));
+      body.push(fixedTable(rows, colw));
     } else if (p.rows) {
-      const rows: TableRow[] = [headRow(COLW)];
-      for (const r of p.rows) { rows.push(dataRow(r, COLW)); if (r.note) rows.push(noteRowEl(r.note)); }
-      body.push(fixedTable(rows, COLW));
+      const rows: TableRow[] = [headRow(colw, al)];
+      for (const r of p.rows) { rows.push(dataRow(r, colw, al)); if (r.note) rows.push(noteRowEl(r.note)); }
+      body.push(fixedTable(rows, colw));
     }
     if (p.bandText) body.push(para([run(p.bandText, { size: S_SMALL, color: '374151' })], { spacingBefore: 30 }));
   }
@@ -291,10 +312,10 @@ export async function buildReportDocx(
 }
 
 // CBC header row carries a 5th (empty) histogram-column header so widths line up.
-function headRowCbc(): TableRow {
+function headRowCbc(widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
   const labels = ['Test Name', 'Results', 'Units', 'Normal Ranges'];
   const b = { ...NO_BORDERS, bottom: { style: BorderStyle.SINGLE, size: 6, color: '6B7280' } };
-  const cells = labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })])], { width: CBC_COLW[i], borders: b }));
+  const cells = labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })], { align: alignOf(al, i) })], { width: widths[i], borders: b, margins: ROW_MARGINS }));
   cells.push(cell([para([run('')])], { width: CBC_HISTO_W }));
   return new TableRow({ children: cells });
 }
