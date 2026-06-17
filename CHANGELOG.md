@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.61
+
+- Page stretch now reaches **exactly down to just above the signature**. The ceiling is measured
+  live from each page's real frame→signature distance (instead of an off-screen estimate that
+  stopped short), so the empty space under a short panel can be fully used — no further, no less.
+
 ## v1.3.60
 
 - Page resize can now stretch a short panel **all the way down to just above the signature**,

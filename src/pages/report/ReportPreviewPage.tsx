@@ -128,7 +128,8 @@ export function ReportPreviewPage() {
   const sessionUser = useSession(s => s.user);
   const [approving, setApproving] = useState(false);
   const [sent, setSent] = useState<Record<string, boolean>>({});
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(() => { const v = Number(localStorage.getItem('scl_zoom')); return v >= 40 && v <= 200 ? v : 100; });
+  useEffect(() => { localStorage.setItem('scl_zoom', String(zoom)); }, [zoom]);
   const [showWatermark, setShowWatermark] = useState(() => localStorage.getItem('scl_watermark') === '1');
   const [busy, setBusy] = useState<string | null>(null);
   // In-app report editing: when `editing`, only the [data-editable-body] regions become
@@ -272,11 +273,20 @@ export function ReportPreviewPage() {
   // Per-page manual resize: independent width (sx) and height (sy) scale factors. null entry
   // (or absent) → use the page's auto-fit scale. Applied as a CSS transform so it survives
   // PDF capture (pdf.ts only neutralises `zoom`, not `transform`).
-  const [pageScaleOverrides, setPageScaleOverrides] = useState<Record<number, { sx: number; sy: number }>>({});
-  const handlePageScaleChange = (idx: number, sx: number, sy: number) => setPageScaleOverrides(prev => ({ ...prev, [idx]: { sx, sy } }));
-  const resetPageScale = (idx: number) => setPageScaleOverrides(prev => { const n = { ...prev }; delete n[idx]; return n; });
-  // Reset per-page overrides when patient changes
-  useEffect(() => { setPageScaleOverrides({}); }, [pid]);
+  // Persisted PER PATIENT (like page breaks & deleted remarks) so a report's manual page
+  // resizing survives a reload or patient switch — not wiped each time.
+  const readPageScales = (id: number): Record<number, { sx: number; sy: number }> => {
+    try { const v = JSON.parse(localStorage.getItem(`scl_pagescale_${id}`) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+  };
+  const [pageScaleOverrides, setPageScaleOverrides] = useState<Record<number, { sx: number; sy: number }>>(() => readPageScales(pid));
+  const persistPageScales = (next: Record<number, { sx: number; sy: number }>) => {
+    if (Object.keys(next).length) localStorage.setItem(`scl_pagescale_${pid}`, JSON.stringify(next));
+    else localStorage.removeItem(`scl_pagescale_${pid}`);
+  };
+  const handlePageScaleChange = (idx: number, sx: number, sy: number) => setPageScaleOverrides(prev => { const next = { ...prev, [idx]: { sx, sy } }; persistPageScales(next); return next; });
+  const resetPageScale = (idx: number) => setPageScaleOverrides(prev => { const n = { ...prev }; delete n[idx]; persistPageScales(n); return n; });
+  // Load THIS patient's saved page resizing when the patient changes.
+  useEffect(() => { setPageScaleOverrides(readPageScales(pid)); }, [pid]);
   // Per-column horizontal alignment for the 4 standard columns.
   const [colAlign, setColAlign] = useState<('left' | 'center' | 'right')[]>(() => {
     try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colalign') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
@@ -2752,6 +2762,35 @@ function CompactPaginatedReport({
     });
   }, [blocks, heights, capacity, breaks, contentScale]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live per-page stretch ceiling: the REAL distance from each page's content frame to its
+  // footer (signature) line, measured from the rendered DOM. This is what lets a short panel be
+  // stretched down to exactly just above the signature — independent of the off-screen probe.
+  const pagesWrapRef = useRef<HTMLDivElement>(null);
+  const [ceilings, setCeilings] = useState<Record<number, number>>({});
+  useLayoutEffect(() => {
+    const root = pagesWrapRef.current; if (!root) return;
+    const measure = () => {
+      const pgs = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
+      const next: Record<number, number> = {};
+      pgs.forEach((pg, i) => {
+        const frame = pg.querySelector<HTMLElement>('[data-scale-frame]');
+        const foot = pg.querySelector<HTMLElement>('.report-letterfoot');
+        if (!frame || !foot) return;
+        const c = foot.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+        if (c > 40) next[i] = c;
+      });
+      setCeilings(prev => {
+        const keys = new Set([...Object.keys(prev), ...Object.keys(next)].map(Number));
+        let changed = false;
+        keys.forEach(k => { if (Math.abs((prev[k] || 0) - (next[k] || 0)) > 1) changed = true; });
+        return changed ? next : prev;
+      });
+    };
+    measure();
+    const t = setTimeout(measure, 250);
+    return () => clearTimeout(t);
+  }, [pages, capacityFull, pageScaleOverrides, sig]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   const BlockView = ({ b, first, controls }: { b: CompactBlock; first: boolean; controls?: boolean }) => {
     // paddingTop (not margin) so measurement never disagrees with layout via margin-collapse.
     const padTop = first ? 0 : b.showDept ? 18 : 8;
@@ -2853,13 +2892,18 @@ function CompactPaginatedReport({
   return (
     <>
       {/* Visible, paginated pages */}
+      <div ref={pagesWrapRef} className="contents">
       {pages.map((page, idx) => {
         // Natural (unscaled) content box, in px. Width = body content width (186mm);
         // height = measured sum of this page's blocks.
         const naturalW = 186 * PX_PER_MM;
         const naturalH = Math.max(page.blocks.reduce((s, b) => s + blockH(b), 0), 1);
-        // Resize ceiling = the full body height down to the footer/signature line.
-        const fullH = capacityFull > 0 ? capacityFull : (capacity > 0 ? capacity : 230 * PX_PER_MM);
+        // Resize ceiling = the REAL frame→signature distance for this page (measured live), so a
+        // short panel can stretch all the way down to just above the signature. Falls back to the
+        // off-screen probe height before the first measurement lands.
+        const fullH = (ceilings[idx] && ceilings[idx] > 40)
+          ? ceilings[idx]
+          : (capacityFull > 0 ? capacityFull : (capacity > 0 ? capacity : 230 * PX_PER_MM));
         const base = page.scale;                          // auto-fit scale (uniform)
         const ov = pageScaleOverrides?.[idx];
         const sx = ov ? ov.sx : base;
@@ -2933,6 +2977,7 @@ function CompactPaginatedReport({
         </div>
         );
       })}
+      </div>
 
       {/* Hidden measurers — PORTALED to <body> so they're never inside #report-print-area
           (which would double content in the PDF capture and the "Edit report" HTML seed).
