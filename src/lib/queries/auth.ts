@@ -1,6 +1,6 @@
 import { dbQuery, dbExecute } from '@/lib/db';
 import { User } from '@/types';
-import { hashPassword, verifyPassword, isPlaceholderHash } from '@/lib/password';
+import { hashPassword, verifyPassword, isPlaceholderHash, validatePassword } from '@/lib/password';
 import { assertCan } from '@/lib/session';
 
 // ── Login lockout (in-memory; single-PC app) ──
@@ -92,6 +92,8 @@ export async function createUser(
   username: string, display_name: string, role: string, plainPassword: string
 ): Promise<void> {
   assertCan('manage_users');
+  const bad = validatePassword(plainPassword);
+  if (bad) throw new Error(bad);
   const hash = await hashPassword(plainPassword);
   await dbExecute(
     'INSERT INTO users(username,display_name,role,password_hash,force_password_change) VALUES(?,?,?,?,1)',
@@ -101,6 +103,8 @@ export async function createUser(
 
 /** Set a brand-new password for the current user (first-run / self change). */
 export async function setOwnPassword(userId: number, newPassword: string): Promise<void> {
+  const bad = validatePassword(newPassword);
+  if (bad) throw new Error(bad);
   const hash = await hashPassword(newPassword);
   await dbExecute(
     'UPDATE users SET password_hash=?,force_password_change=0,updated_at=CURRENT_TIMESTAMP WHERE id=?',
@@ -111,6 +115,8 @@ export async function setOwnPassword(userId: number, newPassword: string): Promi
 /** Admin resets another user's password (forces change on next login). */
 export async function adminResetPassword(userId: number, newPassword: string): Promise<void> {
   assertCan('manage_users');
+  const bad = validatePassword(newPassword);
+  if (bad) throw new Error(bad);
   const hash = await hashPassword(newPassword);
   await dbExecute(
     'UPDATE users SET password_hash=?,force_password_change=1,updated_at=CURRENT_TIMESTAMP WHERE id=?',

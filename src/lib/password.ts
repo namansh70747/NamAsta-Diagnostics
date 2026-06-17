@@ -45,6 +45,21 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return diff === 0;
 }
 
+/** Minimum length for any new/changed password (medical app — not a throwaway PIN). */
+export const MIN_PASSWORD_LEN = 8;
+
+/** Validate a password being SET or CHANGED. Returns an error message, or null if it's OK.
+ *  Shared by every UI path and enforced again server-side so a weak password is never stored.
+ *  (Only runs on set/change — existing stored passwords are never re-checked.) */
+export function validatePassword(pw: string): string | null {
+  const p = pw ?? "";
+  if (p.length < MIN_PASSWORD_LEN) return `Password must be at least ${MIN_PASSWORD_LEN} characters.`;
+  if (/^(.)\1+$/.test(p)) return "Password can't be the same character repeated.";
+  const WEAK = new Set(["password", "12345678", "123456789", "qwertyui", "qwerty123", "changeme", "11111111", "abcd1234"]);
+  if (WEAK.has(p.toLowerCase())) return "That password is too common — pick something harder to guess.";
+  return null;
+}
+
 /** A freshly-seeded admin ships with a placeholder hash; first login accepts any
  *  password and forces a reset (handled by the Login page). */
 export function isPlaceholderHash(stored: string): boolean {

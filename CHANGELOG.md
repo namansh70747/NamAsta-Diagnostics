@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.68
+
+- New logo recreated to match the supplied reference: a tilted **microscope** inside crossing
+  **atom orbitals** and a **hexagon frame**, two-tone blue/teal on a soft tile. Applied across
+  the app icon (Windows `.ico`, macOS `.icns`, PNGs), the in-app mark, the favicon and the
+  login/onboarding/sidebar logos.
+
 ## v1.3.67
 
 - Refined the new logo into a clean, professional **filled microscope** (eyepiece, arm, stage,

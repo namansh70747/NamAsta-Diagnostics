@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet, Eye, EyeOff, CheckCircle2, Monitor, Copy } from "lucide-react";
 import { NamAstaWordmark } from "@/components/common/NamAstaLogo";
 import { activateLicense, getDeviceFingerprint, type LicenseStatus } from "@/lib/license";
+import { validatePassword } from "@/lib/password";
 import { completeSetup } from "@/lib/onboarding";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
@@ -261,7 +262,8 @@ function SetupStep({ onDone }: { onDone: () => void }) {
     if (!f.incharge.trim()) return setErr("Enter the lab in-charge / signatory name (it appears on reports).");
     if (f.username.trim().length < 3) return setErr("Choose a username of at least 3 characters.");
     if (/\s/.test(f.username.trim())) return setErr("Username can't contain spaces.");
-    if (f.pw.length < 4) return setErr("Password must be at least 4 characters.");
+    const weakPw = validatePassword(f.pw);
+    if (weakPw) return setErr(weakPw);
     if (f.pw !== f.pw2) return setErr("Passwords do not match.");
     submitting.current = true;
     setBusy(true);
@@ -333,7 +335,7 @@ function SetupStep({ onDone }: { onDone: () => void }) {
             <label className={fieldLabel}>Password *</label>
             <div className="relative">
               <input type={showPw ? "text" : "password"} value={f.pw}
-                onChange={e => set("pw")(e.target.value)} placeholder="Min 4 characters"
+                onChange={e => set("pw")(e.target.value)} placeholder="Min 8 characters"
                 className="login-input pr-10" />
               <button type="button" tabIndex={-1} onClick={() => setShowPw(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors">

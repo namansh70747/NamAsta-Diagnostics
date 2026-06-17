@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/session";
 import { login, setOwnPassword, listLoginAccounts, lockoutRemainingMs } from "@/lib/queries/auth";
+import { validatePassword, MIN_PASSWORD_LEN } from "@/lib/password";
 import { invoke, isTauri } from "@/lib/tauri";
 import { User } from "@/types";
 import { cn } from "@/lib/utils";
@@ -88,7 +89,8 @@ export function LoginPage() {
     e.preventDefault();
     if (loading) return;
     setError("");
-    if (newPw.length < 4) { setError("Password must be at least 4 characters."); return; }
+    const weak = validatePassword(newPw);
+    if (weak) { setError(weak); return; }
     if (newPw !== confirmPw) { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
@@ -251,7 +253,7 @@ export function LoginPage() {
                   <div className="relative">
                     <input
                       type={showNewPw ? "text" : "password"} value={newPw} autoFocus
-                      onChange={e => setNewPw(e.target.value)} placeholder="At least 4 characters"
+                      onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters"
                       className="login-input pr-11" />
                     <ToggleEye shown={showNewPw} onClick={() => setShowNewPw(v => !v)} />
                   </div>
@@ -269,7 +271,7 @@ export function LoginPage() {
 
                 {error && <ErrorBox msg={error} />}
 
-                <button type="submit" disabled={loading || !pwMatch || newPw.length < 4} className="login-btn">
+                <button type="submit" disabled={loading || !pwMatch || newPw.length < MIN_PASSWORD_LEN} className="login-btn">
                   {loading ? <Loader2 size={18} className="animate-spin" /> : <>Set password &amp; continue <ArrowRight size={17} /></>}
                 </button>
               </form>

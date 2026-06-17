@@ -5,6 +5,7 @@ import { UserPlus, KeyRound, ShieldCheck, Shield, Users as UsersIcon } from "luc
 import { Card, TabHeader, TextField, SelectField, PrimaryButton } from "../ui";
 import { cn } from "@/lib/utils";
 import { listUsers, createUser, adminResetPassword, setUserRole, setUserActive } from "@/lib/queries/auth";
+import { validatePassword } from "@/lib/password";
 import { useToast, errMessage } from "../toast";
 import type { Role, User } from "@/types";
 
@@ -31,6 +32,8 @@ export function UsersTab() {
       toast.error("Username, display name and a temporary password are required.");
       return;
     }
+    const weak = validatePassword(tempPw);
+    if (weak) { toast.error(weak); return; }
     setAdding(true);
     try {
       await createUser(username.trim(), displayName.trim(), role, tempPw);
@@ -50,10 +53,8 @@ export function UsersTab() {
   async function onResetPassword(u: User) {
     const pw = await promptDialog({ title: `Reset password`, message: `Set a new temporary password for “${u.username}”.`, password: true, confirmText: "Set password" });
     if (!pw) return;
-    if (pw.length < 4) {
-      toast.error("Password is too short.");
-      return;
-    }
+    const weak = validatePassword(pw);
+    if (weak) { toast.error(weak); return; }
     try {
       await adminResetPassword(u.id, pw);
       toast.success(`Password reset for “${u.username}”. They must change it on next login.`);
@@ -109,7 +110,7 @@ export function UsersTab() {
               { value: "admin", label: "Admin" },
             ]}
           />
-          <TextField label="Temporary password" type="password" value={tempPw} onChange={setTempPw} />
+          <TextField label="Temporary password" type="password" value={tempPw} onChange={setTempPw} hint="At least 8 characters. The user must change it on first login." />
         </div>
         <div>
           <PrimaryButton onClick={onAdd} disabled={adding}>
