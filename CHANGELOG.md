@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.67
+
+- Refined the new logo into a clean, professional **filled microscope** (eyepiece, arm, stage,
+  base) with golden specimen drops, on a fresh **cyan → blue → indigo** gradient tile. Replaces
+  the rough first draft; stays crisp and clearly a microscope down to 16 px.
+- Synced the new art across the app icon (`.ico`/`.icns`/PNG), the in-app mark, the favicon and
+  the login/onboarding/sidebar logos.
+
 ## v1.3.66
 
 - **New app logo: a microscope + blood-drop** on the maroon tile (microscope = diagnostics,

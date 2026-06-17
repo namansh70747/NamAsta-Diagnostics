@@ -52,11 +52,31 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
           </PrimaryButton>
         </div>
 
+        {/* Master on/off. When OFF nothing is written anywhere (no default folder, no daily run) —
+            for a PC tight on disk space, or a lab that manages its own backups. */}
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-[#e6e7ee] bg-[#f7f8fb] px-4 py-3">
+          <div>
+            <div className="text-[13.5px] font-semibold text-[#14151c]">Automatic daily backup</div>
+            <p className="text-[12px] text-[#8a8b97] mt-0.5 max-w-md">
+              {enabled
+                ? "On — a copy of your data is saved once a day to the folder below. Turn off if this PC is low on space."
+                : "Off — this PC is NOT being backed up. A disk failure or reinstall would lose all data. Turn on to stay protected."}
+            </p>
+          </div>
+          <button type="button" role="switch" aria-checked={enabled} aria-label="Automatic daily backup"
+            onClick={() => f.set("backup_enabled", enabled ? "0" : "1")}
+            className={cn("relative mt-0.5 inline-flex h-[22px] w-[40px] shrink-0 items-center rounded-full transition-colors",
+              enabled ? "bg-[#4f46e5]" : "bg-[#dcdde6]")}>
+            <span className={cn("inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform", enabled ? "translate-x-[20px]" : "translate-x-[2px]")} />
+          </button>
+        </div>
+
         <TextField
           label="Backup folder 1 (local / USB)"
           value={f.get("backup_dir_1")}
           onChange={(v) => f.set("backup_dir_1", v)}
           placeholder="C:\\Backups\\SCL"
+          disabled={!enabled}
           hint="Defaults to your Documents › NamAsta Backups folder. Point it at a USB drive, or add a second location below, so a copy lives off this PC."
         />
         <TextField
@@ -64,6 +84,7 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
           value={f.get("backup_dir_2")}
           onChange={(v) => f.set("backup_dir_2", v)}
           placeholder="Path to a Drive-synced folder (optional)"
+          disabled={!enabled}
         />
         <TextField
           label="Retention (days)"
@@ -71,10 +92,11 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
           value={f.get("backup_retention_days") || "30"}
           onChange={(v) => f.set("backup_retention_days", v)}
           hint="Backups older than this many days are pruned."
+          disabled={!enabled}
         />
 
         <div className="flex items-center gap-3 flex-wrap pt-1">
-          <PrimaryButton onClick={runBackup} disabled={running || f.saving}>
+          <PrimaryButton onClick={runBackup} disabled={running || f.saving || !enabled}>
             <DatabaseBackup size={15} strokeWidth={1.8} />
             {running ? "Backing up…" : "Backup now"}
           </PrimaryButton>
