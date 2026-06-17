@@ -33,14 +33,16 @@ const A4 = { width: 11906, height: 16838 };
 const MARGIN = 680;                              // ~12mm
 const BODY_W = A4.width - 2 * MARGIN;            // 10546
 const PCTS = [0.24, 0.18, 0.12, 0.46];           // default column ratios (overridden by the report's live widths)
-const CBC_HISTO_W = 3515;                        // ~62mm
+const CBC_HISTO_W = 2780;                        // ~49mm — narrower so data sits closer to the graph
 const CBC_DATA = BODY_W - CBC_HISTO_W;
 
 // Colours (hex, no #)
 const NAVY = '1A3A8F', MAROON = '7B1B1B', GREY = '8A8B97', LINE = '9CA3AF', DARK = '111111';
-// Font sizes (half-points): body 10.5pt, col-head 11pt, dept 12pt, small 8pt, lab name 15pt.
-// (Matches the on-screen report so the Word file looks the same.)
-const S_BODY = 21, S_HEAD = 22, S_DEPT = 24, S_SMALL = 16, S_LAB = 30;
+// Font sizes (half-points): body 13pt, col-head 13pt, dept 14pt, name box 12pt, CBC 11pt,
+// interpretation 10pt, lab name 15pt.
+const S_BODY = 26, S_HEAD = 26, S_DEPT = 28, S_NAME = 24, S_CBC = 22, S_SMALL = 20, S_LAB = 30;
+const LINE_15 = 360;                             // 1.5 line spacing (240 = single)
+const SERIF = 'Times New Roman';                 // interpretation/remarks font (matches the lab's printed style)
 
 // ── helpers ──
 /** Decode a data-URL (or bare base64) into bytes for an ImageRun. */
@@ -81,7 +83,7 @@ const para = (children: (TextRun | ImageRun)[], o: { align?: Align; spacingAfter
 const alignOf = (a: ('left' | 'center' | 'right')[] | undefined, i: number): Align =>
   a?.[i] === 'center' ? AlignmentType.CENTER : a?.[i] === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT;
 type Margins = { top: number; bottom: number; left: number; right: number };
-const ROW_MARGINS: Margins = { top: 46, bottom: 46, left: 50, right: 50 };   // comfortable row breathing room
+const ROW_MARGINS: Margins = { top: 22, bottom: 22, left: 70, right: 70 };   // wide column gaps; 1.5 line spacing supplies the vertical room
 
 type BStyle = (typeof BorderStyle)[keyof typeof BorderStyle];
 type Edge = { style: BStyle; size: number; color: string };
@@ -120,24 +122,30 @@ function headRow(widths: number[], al?: ('left' | 'center' | 'right')[]): TableR
     children: labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })], { align: alignOf(al, i) })], { width: widths[i], borders: b, margins: ROW_MARGINS })),
   });
 }
-function dataRow(r: DocxRow, widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
+// A test row. `cantSplit` keeps the whole row on one page (a single test never breaks across
+// pages). Default body 13pt @ 1.5 line spacing; CBC passes a smaller size + single spacing to fit.
+function dataRow(r: DocxRow, widths: number[], al?: ('left' | 'center' | 'right')[], o: { size?: number; line?: number } = {}): TableRow {
   const bold = r.abnormal;
+  const size = o.size ?? S_BODY;
+  const line = o.line ?? LINE_15;
   return new TableRow({
+    cantSplit: true,
     children: [
-      cell([para([run(r.name, { bold, color: DARK })], { align: alignOf(al, 0) })], { width: widths[0], margins: ROW_MARGINS }),
-      cell([para([run(r.value || '—', { bold, color: DARK })], { align: alignOf(al, 1) })], { width: widths[1], margins: ROW_MARGINS }),
-      cell([para([run(r.unit, { color: '374151' })], { align: alignOf(al, 2) })], { width: widths[2], margins: ROW_MARGINS }),
-      cell([para([run(r.range, { color: '374151' })], { align: alignOf(al, 3) })], { width: widths[3], margins: ROW_MARGINS }),
+      cell([para([run(r.name, { bold, color: DARK, size })], { align: alignOf(al, 0), line })], { width: widths[0], margins: ROW_MARGINS }),
+      cell([para([run(r.value || '—', { bold, color: DARK, size })], { align: alignOf(al, 1), line })], { width: widths[1], margins: ROW_MARGINS }),
+      cell([para([run(r.unit, { color: '374151', size })], { align: alignOf(al, 2), line })], { width: widths[2], margins: ROW_MARGINS }),
+      cell([para([run(r.range, { color: '374151', size })], { align: alignOf(al, 3), line })], { width: widths[3], margins: ROW_MARGINS }),
     ],
   });
 }
-// full-width bordered interpretation note, sitting directly under its test — padded & comfortably
-// line-spaced so it reads as a clean callout (not a cramped strip).
+// Full-width bordered interpretation note, directly under its test. Smaller serif (Times) text at
+// single line spacing — matches the lab's printed style; still padded so it reads as a clean box.
 function noteRowEl(text: string, span = 4): TableRow {
   return new TableRow({
+    cantSplit: true,
     children: [cell(
-      [para([run(text, { size: S_SMALL + 2, color: '1F2937' })], { line: 288 })],
-      { columnSpan: span, borders: BOX_BORDERS, margins: { top: 70, bottom: 70, left: 110, right: 110 } },
+      [new Paragraph({ children: [run(text, { size: S_SMALL, color: '1F2937', font: SERIF })], spacing: { after: 0, line: 240, lineRule: 'auto' as const } })],
+      { columnSpan: span, borders: BOX_BORDERS, margins: { top: 60, bottom: 60, left: 100, right: 100 } },
     )],
   });
 }
@@ -155,6 +163,8 @@ export interface DocxLayoutOpts {
   noLetterhead?: boolean; preTopMm?: number; preBottomMm?: number;
   colWidths?: number[];                              // 4 percentages summing ~100 (from the on-screen report)
   colAlign?: ('left' | 'center' | 'right')[];        // per-column text alignment
+  sigHeightMm?: number;                              // signature image height (always printed)
+  sigBottomMm?: number;                              // signature distance from page bottom (user-movable)
 }
 
 // ── public: build the Word document ──
@@ -175,10 +185,13 @@ export async function buildReportDocx(
   const cbcColw = pcts.map(p => Math.round(CBC_DATA * p));
   const al = layout.colAlign && layout.colAlign.length === 4 ? layout.colAlign : undefined;
 
-  // pre-resolve header/footer images (skipped entirely in pre-printed-paper mode)
+  // Lab branding (logo/QR) is pre-printed on the stationery, so skip it in no-letterhead mode.
+  // The signature is ALWAYS resolved — it must print on every report, with or without letterhead —
+  // and is sized from the user's saved signature height (mm → px @96dpi).
   const logo = noLetterhead ? null : await imgRun(settings.logo_data, 52);
-  const sig = noLetterhead ? null : await imgRun(settings.signature_data, 46);
   const qrImg = noLetterhead ? null : await imgRun(qr, 60);
+  const sigPx = Math.max(20, Math.round((layout.sigHeightMm ?? 14) * 3.7795));
+  const sig = await imgRun(settings.signature_data, sigPx);
 
   // ── header (repeats on every page) ──
   const headerChildren: (Paragraph | Table)[] = [];
@@ -244,16 +257,19 @@ export async function buildReportDocx(
   // ── body ──
   const body: (Paragraph | Table)[] = [];
 
-  // patient info box (2-col bordered table, 4 rows)
+  // Patient info box (2-col bordered table). The LEFT column (Name, Collected AT …) is wider than
+  // the RIGHT column (Test Request ID, dates) — those values are short, so the extra width goes to
+  // the name side and a long "Collected AT" lab name fits on one line. Fixed 12pt (S_NAME).
+  const NAME_L = Math.round(BODY_W * 0.58), NAME_R = BODY_W - NAME_L;
   const infoRows: TableRow[] = [];
   for (let i = 0; i < model.patientPairs.length; i += 2) {
-    const mk = (pair?: [string, string]) => cell(
-      [new Paragraph({ children: pair ? [run(`${pair[0]} : `, { bold: true }), run(pair[1])] : [run('')] })],
-      { width: Math.round(BODY_W / 2), borders: BOX_BORDERS },
+    const mk = (pair: [string, string] | undefined, w: number) => cell(
+      [new Paragraph({ children: pair ? [run(`${pair[0]} : `, { bold: true, size: S_NAME }), run(pair[1], { size: S_NAME })] : [run('')] })],
+      { width: w, borders: BOX_BORDERS },
     );
-    infoRows.push(new TableRow({ children: [mk(model.patientPairs[i]), mk(model.patientPairs[i + 1])] }));
+    infoRows.push(new TableRow({ children: [mk(model.patientPairs[i], NAME_L), mk(model.patientPairs[i + 1], NAME_R)] }));
   }
-  body.push(fixedTable(infoRows, [Math.round(BODY_W / 2), Math.round(BODY_W / 2)]));
+  body.push(fixedTable(infoRows, [NAME_L, NAME_R]));
   body.push(para([run('')], { spacingAfter: 80 }));
 
   for (const p of model.panels) {
@@ -266,12 +282,13 @@ export async function buildReportDocx(
         let histoCell: TableCell | undefined;
         const png = histogramPngs[sec.label as keyof HistogramPngs];
         if (png) {
-          const dispW = 210, dispH = Math.round(210 * (png.height / png.width));
+          const dispW = 172, dispH = Math.round(172 * (png.height / png.width));   // fit the narrower histogram column
           histoCell = cell([para([new ImageRun({ data: png.bytes, transformation: { width: dispW, height: dispH }, type: 'png' })], { align: AlignmentType.CENTER })],
             { width: CBC_HISTO_W, rowSpan: 1 + sec.rows.length, valign: VerticalAlign.CENTER });
         }
         rows.push(sectionHeaderRow(sec.label, 4, cbcColw, histoCell));
-        for (const r of sec.rows) rows.push(dataRow(r, cbcColw, al));
+        // CBC has many rows — 11pt + single spacing keeps the whole panel on one page.
+        for (const r of sec.rows) rows.push(dataRow(r, cbcColw, al, { size: S_CBC, line: 240 }));
       }
       body.push(new Table({ rows, width: { size: BODY_W, type: WidthType.DXA }, columnWidths: [...cbcColw, CBC_HISTO_W], layout: TableLayoutType.FIXED }));
     } else if (p.layout === 'urine' && p.sections) {
@@ -292,19 +309,27 @@ export async function buildReportDocx(
   if (model.comment) body.push(para([run('Comments : ', { bold: true, size: S_SMALL }), run(model.comment, { size: S_SMALL })], { spacingBefore: 80 }));
   body.push(para([run('*** End Of Report ***', { bold: true, size: S_HEAD, color: DARK })], { align: AlignmentType.CENTER, spacingBefore: 120 }));
 
-  // In pre-printed-paper mode the top/bottom margins become the blank gaps that drop the data
-  // into the stationery's printed frame; with no header/footer there is nothing else on the page.
-  const topMargin = noLetterhead ? Math.round((layout.preTopMm ?? 40) * TWIPS_PER_MM) : MARGIN;
-  const bottomMargin = noLetterhead ? Math.round((layout.preBottomMm ?? 24) * TWIPS_PER_MM) : MARGIN;
+  // Pre-printed paper: top margin = the lab's header gap; the signature prints in a footer LOCKED
+  // ~45mm above the page bottom (just above the pre-printed "Lab Technician" line) — no label, that
+  // text is already on the paper. The bottom margin clears the signature band so content never
+  // overlaps it. With the digital letterhead on, the full footer (incl. "Lab Technician") is used.
+  const sigBottomMm = layout.sigBottomMm ?? 45;
+  const sigClearMm = sigBottomMm + (layout.sigHeightMm ?? 14) + 7;
+  const topMargin = noLetterhead ? Math.round((layout.preTopMm ?? 60) * TWIPS_PER_MM) : MARGIN;
+  const bottomMargin = noLetterhead ? Math.round(sigClearMm * TWIPS_PER_MM) : MARGIN;
+  const footerDist = Math.round(sigBottomMm * TWIPS_PER_MM);
+  const sigFooter = new Footer({ children: [para(sig ? [sig] : [run('')], { align: AlignmentType.RIGHT })] });
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: S_BODY } } } },
     sections: [{
-      properties: { page: { size: { width: A4.width, height: A4.height }, margin: { top: topMargin, right: MARGIN, bottom: bottomMargin, left: MARGIN } } },
-      ...(noLetterhead ? {} : {
-        headers: { default: new Header({ children: headerChildren }) },
-        footers: { default: new Footer({ children: footerChildren }) },
-      }),
+      properties: { page: {
+        size: { width: A4.width, height: A4.height },
+        margin: { top: topMargin, right: MARGIN, bottom: bottomMargin, left: MARGIN, ...(noLetterhead ? { footer: footerDist } : {}) },
+      } },
+      ...(noLetterhead
+        ? { footers: { default: sigFooter } }
+        : { headers: { default: new Header({ children: headerChildren }) }, footers: { default: new Footer({ children: footerChildren }) } }),
       children: body,
     }],
   });

@@ -392,10 +392,21 @@
 /* Each test page carries its own 12mm padding; in pre-printed mode that must be removed
    so the body's pre-top/pre-bottom gaps alone position the data inside the printed frame. */
 .report-sheet.no-letterhead .report-page { padding: 0 !important; }
-.report-sheet.no-letterhead .report-letterhead,
-.report-sheet.no-letterhead .report-letterfoot { display: none !important; }
+.report-sheet.no-letterhead .report-letterhead { display: none !important; }
+/* Pre-printed paper already carries the lab footer (disclaimers, QR, rules, "Lab Technician" line) —
+   hide all of those. Keep ONLY the technician's signature, LOCKED ~45mm above the page bottom so it
+   lands just above the pre-printed "Lab Technician" line. The label text is hidden here (it's on the
+   paper); it only shows when the digital letterhead is on. */
+.report-sheet.no-letterhead .report-letterfoot { position: static !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+.report-sheet.no-letterhead .report-letterfoot > *:not(.report-foot-top) { display: none !important; }
+.report-sheet.no-letterhead .report-foot-qr,
+.report-sheet.no-letterhead .report-sign-label { display: none !important; }
+.report-sheet.no-letterhead .report-foot-top {
+  position: absolute; bottom: var(--sig-bottom, 45mm); left: 12mm; right: 12mm;
+  display: flex; justify-content: flex-end; margin: 0;
+}
 .report-sheet.no-letterhead .report-body {
-  padding: var(--pre-top, 40mm) 12mm var(--pre-bottom, 24mm) 12mm;
+  padding: var(--pre-top, 60mm) 12mm var(--sig-clear, 66mm) 12mm;
 }
 
 /* ── TipTap report editor + saved edited-body rendering ─────────────────────────
