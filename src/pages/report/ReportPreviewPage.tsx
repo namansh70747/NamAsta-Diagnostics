@@ -18,7 +18,9 @@ import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { CbcSectionHistogram } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown, FileType2 } from "lucide-react";
+import { exportReportDocx, type ReportDocxModel, type DocxPanel, type DocxRow, type DocxSubSection } from "@/lib/docx";
+import { rasterizeHistograms } from "@/lib/docxHistograms";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -719,6 +721,74 @@ export function ReportPreviewPage() {
     });
   }
 
+  // Build the serializable model the .docx generator consumes, reusing the SAME value/range/
+  // flag/unit logic as the on-screen report so the Word file matches the preview exactly.
+  function buildDocxModel(): ReportDocxModel {
+    const ageDays = patient ? patientAgeDays(patient.age, patient.age_unit) : 0;
+    const toRow = (o: OrderWithResult): DocxRow => {
+      const value = resultValue(o);
+      const matched = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
+      const unit = o.order.unit_override || matched?.unit || o.test.unit || '';
+      const flag = patient ? computeFlag(o.test.result_type, value, rangesWithOverride(o.ranges, o.order.range_override), patient.sex, ageDays) : '';
+      return {
+        name: o.test.name,
+        value: value || '—',
+        unit: unit && unit !== '—' ? unit : '',
+        range: rangeText(o).replace(/ \/ /g, '\n'),
+        abnormal: flag === 'H' || flag === 'L',
+        note: o.test.interpretation_note || null,
+      };
+    };
+    const bandFor = (orders: OrderWithResult[]) =>
+      patient ? orders.map(r => findRange(r.ranges, patient.sex, ageDays)?.band_text).find(Boolean) ?? null : null;
+    const groupSections = (orders: OrderWithResult[], map: Record<string, string>): DocxSubSection[] => {
+      const out: DocxSubSection[] = [];
+      for (const o of orders) {
+        const label = map[o.test.code] ?? '';
+        let sec = out[out.length - 1];
+        if (!sec || sec.label !== label) { sec = { label, rows: [] }; out.push(sec); }
+        sec.rows.push(toRow(o));
+      }
+      return out;
+    };
+
+    let prevDept = '';
+    const panels: DocxPanel[] = sortedPanels.map(({ panel, orders }) => {
+      const dept = deptOf(panel);
+      const showDept = dept !== prevDept; prevDept = dept;
+      const heading = panel.report_heading !== dept ? panel.report_heading : undefined;
+      const bandText = bandFor(orders);
+      if (panel.code === 'CBC') return { code: panel.code, dept, showDept, heading, layout: 'cbc', sections: groupSections(orders, CBC_SECTION), bandText };
+      if (panel.code === 'URINE') return { code: panel.code, dept, showDept, heading, layout: 'urine', sections: groupSections(orders, URINE_SECTION), bandText };
+      return { code: panel.code, dept, showDept, heading, layout: 'standard', rows: orders.map(toRow), bandText };
+    });
+
+    const g = patient!.sex === 'MALE' ? 'Male' : patient!.sex === 'FEMALE' ? 'Female' : 'Other';
+    const patientPairs: [string, string][] = [
+      ['Name', `${patient!.title} ${patient!.name}`],
+      ['Test Request ID', String(patient!.test_no)],
+      ['Age/Gender', `${patient!.age} ${patient!.age_unit} / ${g}`],
+      ['Sample Collected ON', formatDate(patient!.sample_time)],
+      ['Collected AT', patient!.collected_at ?? ''],
+      ['Sample Received ON', formatDate(patient!.sample_time)],
+      ['Referred By', patient!.doctor_name ?? 'SELF'],
+      ['Report DATE', formatDate(patient!.report_time)],
+    ];
+    return { patientPairs, panels, comment: comment || undefined };
+  }
+
+  function handleDocx() {
+    withLog('pdf', 'Documents/SCL Reports', 'docx', async () => {
+      const model = buildDocxModel();
+      const histogramPngs = await rasterizeHistograms(sortedPanels, histograms);
+      const path = await exportReportDocx({
+        model, settings, histogramPngs, qr,
+        testNo: patient!.test_no, name: patient!.name, reportDate: patient!.report_time,
+      });
+      if (path) { await revealInFolder(path); toast.success('Word document saved & opened.'); }
+    });
+  }
+
   function handleWhatsApp() {
     if (!patient?.phone) return;
     const msg = buildWhatsAppMessage({
@@ -1050,6 +1120,12 @@ export function ReportPreviewPage() {
           </div>
         </div>
 
+        {editing && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#eef0fe] border border-[#c7c9ff] px-3 py-1.5 text-[12.5px] text-[#4f46e5] print:hidden">
+            <Pencil size={13} strokeWidth={2} />
+            <span><strong>Editing</strong> — click any value to change it; select text and use the toolbar to format. Header, name box &amp; footer are locked. Then <strong>Save</strong>.</span>
+          </div>
+        )}
         {editing && <RichTextToolbar />}
         <div className="overflow-auto pb-8">
           <div style={{ width: `${zoom}%`, transformOrigin: 'top left' }} className="mx-auto">
@@ -1183,6 +1259,12 @@ export function ReportPreviewPage() {
           )}
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
+          <OutputBtn icon={FileType2} label="Export to Word (full editing)" onClick={handleDocx} done={sent.docx} disabled={!isApproved || editing} busy={busy === 'docx'} />
+          {reportOverride && (
+            <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+              Word export uses the original report data — it won't include the in-app manual edits.
+            </p>
+          )}
           <OutputBtn icon={MessageCircle} label="WhatsApp" onClick={handleWhatsApp} done={sent.whatsapp} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'whatsapp'} green />
           <OutputBtn icon={Mail} label="Email" onClick={handleEmail} done={sent.email} disabled={!isApproved || editing || !patient?.email} busy={busy === 'email'} />
           <OutputBtn icon={Smartphone} label="SMS" onClick={handleSms} done={sent.sms} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'sms'} />
@@ -1213,8 +1295,11 @@ export function ReportPreviewPage() {
                   </p>
                 )}
                 <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
-                  <Pencil size={15} strokeWidth={1.8} /> Edit report
+                  <Pencil size={15} strokeWidth={1.8} /> Edit here (quick)
                 </button>
+                <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+                  For full Word-style editing, use <strong>Export to Word</strong> above and edit in Microsoft Word.
+                </p>
                 {reportOverride && (
                   <button onClick={revertEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#b91c1c] border border-[#f0d3d3] hover:bg-[#fdf6f6]">
                     <RotateCcw size={15} strokeWidth={1.8} /> Revert to original
