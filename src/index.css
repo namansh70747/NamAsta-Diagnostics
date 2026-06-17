@@ -402,7 +402,7 @@
 .report-sheet.no-letterhead .report-foot-qr,
 .report-sheet.no-letterhead .report-sign-label { display: none !important; }
 .report-sheet.no-letterhead .report-foot-top {
-  position: absolute; bottom: var(--sig-bottom, 45mm); left: 12mm; right: 12mm;
+  position: absolute; bottom: var(--sig-bottom, 35mm); left: 12mm; right: var(--sig-right, 25mm);
   display: flex; justify-content: flex-end; margin: 0;
 }
 .report-sheet.no-letterhead .report-body {

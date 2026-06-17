@@ -163,8 +163,10 @@ export interface DocxLayoutOpts {
   noLetterhead?: boolean; preTopMm?: number; preBottomMm?: number;
   colWidths?: number[];                              // 4 percentages summing ~100 (from the on-screen report)
   colAlign?: ('left' | 'center' | 'right')[];        // per-column text alignment
-  sigHeightMm?: number;                              // signature image height (always printed)
+  showSignature?: boolean;                           // print the signature at all (toggle)
+  sigHeightMm?: number;                              // signature image height
   sigBottomMm?: number;                              // signature distance from page bottom (user-movable)
+  sigRightMm?: number;                               // signature distance from right margin (move left/right)
 }
 
 // ── public: build the Word document ──
@@ -177,6 +179,7 @@ export async function buildReportDocx(
 ): Promise<Blob> {
   const labName = settings.lab_name || 'YOUR LABORATORY';
   const noLetterhead = !!layout.noLetterhead;
+  const sigShown = layout.showSignature !== false;
 
   // Column geometry & alignment from the on-screen report (so Word matches what the user tuned).
   const pcts = (layout.colWidths && layout.colWidths.length === 4 && layout.colWidths.every(w => w > 0))
@@ -234,10 +237,10 @@ export async function buildReportDocx(
     new TableRow({
       children: [
         cell([para(qrImg ? [qrImg] : [run('')])], { width: Math.round(BODY_W * 0.5) }),
-        cell([
+        cell(sigShown ? [
           para(sig ? [sig] : [run('')], { align: AlignmentType.RIGHT }),
           para([run('Lab Technician', { bold: true, color: MAROON, size: S_SMALL })], { align: AlignmentType.RIGHT }),
-        ], { width: Math.round(BODY_W * 0.5) }),
+        ] : [para([run('')])], { width: Math.round(BODY_W * 0.5) }),
       ],
     }),
   ], [Math.round(BODY_W * 0.5), Math.round(BODY_W * 0.5)]));
@@ -313,12 +316,16 @@ export async function buildReportDocx(
   // ~45mm above the page bottom (just above the pre-printed "Lab Technician" line) — no label, that
   // text is already on the paper. The bottom margin clears the signature band so content never
   // overlaps it. With the digital letterhead on, the full footer (incl. "Lab Technician") is used.
-  const sigBottomMm = layout.sigBottomMm ?? 45;
-  const sigClearMm = sigBottomMm + (layout.sigHeightMm ?? 14) + 7;
+  const sigBottomMm = layout.sigBottomMm ?? 35;
+  const sigClearMm = sigShown ? sigBottomMm + (layout.sigHeightMm ?? 24) + 7 : 20;
   const topMargin = noLetterhead ? Math.round((layout.preTopMm ?? 60) * TWIPS_PER_MM) : MARGIN;
   const bottomMargin = noLetterhead ? Math.round(sigClearMm * TWIPS_PER_MM) : MARGIN;
   const footerDist = Math.round(sigBottomMm * TWIPS_PER_MM);
-  const sigFooter = new Footer({ children: [para(sig ? [sig] : [run('')], { align: AlignmentType.RIGHT })] });
+  // Shift the signature left of the right margin by (sigRightMm − 12mm), matching the on-screen control.
+  const sigIndent = Math.max(0, Math.round(((layout.sigRightMm ?? 25) - 12) * TWIPS_PER_MM));
+  const sigFooter = new Footer({ children: [
+    new Paragraph({ children: sigShown && sig ? [sig] : [run('')], alignment: AlignmentType.RIGHT, indent: { right: sigIndent } }),
+  ] });
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: S_BODY } } } },

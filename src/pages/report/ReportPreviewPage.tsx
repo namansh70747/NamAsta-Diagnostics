@@ -52,6 +52,10 @@ const DEPARTMENT: Record<string, string> = {
   MISC: 'MISCELLANEOUS',
 };
 const deptOf = (p: Panel): string => DEPARTMENT[p.code] ?? p.report_heading;
+// A panel sub-heading that merely repeats the department (even with a spelling variant like
+// HAEMATOLOGY↔HEMATOLOGY) must NOT print twice. Normalise before comparing.
+const normHeading = (s: string): string => (s || '').toUpperCase().replace(/HAEM/g, 'HEM').replace(/[^A-Z0-9]/g, '');
+const sameHeading = (a: string, b: string): boolean => normHeading(a) === normHeading(b);
 
 /** Urine test-code → section header. */
 const URINE_SECTION: Record<string, string> = {
@@ -88,11 +92,13 @@ const CBC_SECTION: Record<string, string> = {
 
 // Bump this to force every layout setting back to the known-good defaults (clears any
 // accumulated experimental/buggy values from older builds).
-const LAYOUT_VERSION = '6';
+const LAYOUT_VERSION = '7';
 const layoutFresh = (): boolean => localStorage.getItem('scl_layout_v') === LAYOUT_VERSION;
-// Pre-printed paper: locked signature band — its bottom edge sits this far above the page bottom,
-// so it lands just above the pre-printed "Lab Technician" line (measured ~4.3–4.5cm).
-const SIG_BOTTOM_MM = 45;
+// Pre-printed paper signature defaults (all user-adjustable & persisted): distance from the page
+// bottom, image height, and distance from the right margin (shifts it left).
+const SIG_BOTTOM_MM = 35;
+const SIG_HEIGHT_MM = 24;
+const SIG_RIGHT_MM = 25;
 
 // Per-column minimum width (%). Test Name holds long names ("eGFR (CKD-EPI)") so it needs room —
 // below ~18% it collapses to one letter per line. The numeric columns can go narrower.
@@ -109,8 +115,11 @@ export function ReportPreviewPage() {
   // reset the pre-printed-paper gaps to the locked 50mm top / 25mm bottom standard.
   useEffect(() => {
     if (localStorage.getItem('scl_layout_v') !== LAYOUT_VERSION) {
-      localStorage.setItem('scl_pre_top', '60');     // header gap (measured ~6cm)
-      localStorage.setItem('scl_pre_bottom', '22');  // pre-printed footer strip (~2.2cm)
+      localStorage.setItem('scl_pre_top', '60');      // header gap (measured ~6cm)
+      localStorage.setItem('scl_pre_bottom', '22');   // pre-printed footer strip (~2.2cm)
+      localStorage.setItem('scl_sig_bottom', '35');   // signature 35mm above the page bottom
+      localStorage.setItem('scl_sig_height', '24');   // signature height
+      localStorage.setItem('scl_sig_right', '25');    // signature shifted left from the right margin
       localStorage.setItem('scl_layout_v', LAYOUT_VERSION);
     }
   }, []);
@@ -143,10 +152,12 @@ export function ReportPreviewPage() {
   // Pre-printed-paper gaps. Standard: 60mm top (lab header) / 22mm bottom (lab footer strip).
   const [preTop, setPreTop] = useState(() => layoutFresh() ? numLS('scl_pre_top', 60) : 60);
   const [preBottom, setPreBottom] = useState(() => layoutFresh() ? numLS('scl_pre_bottom', 22) : 22);
-  const [sigHeightMm, setSigHeightMm] = useState(() => numLS('scl_sig_height', 14));
-  // Signature distance from the page bottom (mm) — user-movable, persists. Default 45 (sits just
-  // above the pre-printed "Lab Technician" line).
+  // Signature: shown via a toggle, with adjustable height, distance-from-bottom and distance-from-
+  // right (move left/right) — all persisted so the lab places it exactly over its pre-printed line.
+  const [showSignature, setShowSignature] = useState(() => localStorage.getItem('scl_show_signature') !== '0');
+  const [sigHeightMm, setSigHeightMm] = useState(() => numLS('scl_sig_height', SIG_HEIGHT_MM));
   const [sigBottomMm, setSigBottomMm] = useState(() => numLS('scl_sig_bottom', SIG_BOTTOM_MM));
+  const [sigRightMm, setSigRightMm] = useState(() => numLS('scl_sig_right', SIG_RIGHT_MM));
   // Remark/interpretation boxes the user has deleted for THIS report (by order id) — persisted per
   // patient, and skipped everywhere (preview, PDF, Word). A "restore" link brings them back.
   const [hiddenNotes, setHiddenNotes] = useState<Set<number>>(() => {
@@ -794,7 +805,7 @@ export function ReportPreviewPage() {
     const panels: DocxPanel[] = sortedPanels.map(({ panel, orders }) => {
       const dept = deptOf(panel);
       const showDept = dept !== prevDept; prevDept = dept;
-      const heading = panel.report_heading !== dept ? panel.report_heading : undefined;
+      const heading = sameHeading(panel.report_heading, dept) ? undefined : panel.report_heading;
       const bandText = bandFor(orders);
       if (panel.code === 'CBC') return { code: panel.code, dept, showDept, heading, layout: 'cbc', sections: groupSections(orders, CBC_SECTION), bandText };
       if (panel.code === 'URINE') return { code: panel.code, dept, showDept, heading, layout: 'urine', sections: groupSections(orders, URINE_SECTION), bandText };
@@ -825,7 +836,7 @@ export function ReportPreviewPage() {
         // Mirror the on-screen "Print lab letterhead" switch: when OFF, the lab prints on
         // pre-printed stationery, so the .docx omits header/footer and uses blank gaps instead.
         // Also carry the tuned column widths/alignment so Word matches the preview.
-        layout: { noLetterhead: !printLetterhead, preTopMm: preTop, preBottomMm: preBottom, colWidths, colAlign, sigHeightMm, sigBottomMm },
+        layout: { noLetterhead: !printLetterhead, preTopMm: preTop, preBottomMm: preBottom, colWidths, colAlign, showSignature, sigHeightMm, sigBottomMm, sigRightMm },
       });
       if (path) { await revealInFolder(path); toast.success('Word document saved & opened.'); }
     });
@@ -1127,12 +1138,14 @@ export function ReportPreviewPage() {
           but hides the QR, so the technician's signature always prints. */}
       <div className="report-foot-top flex justify-between items-end">
         {qr ? <img src={qr} alt="QR" width={66} height={66} className="report-foot-qr opacity-90" /> : <span className="report-foot-qr" />}
-        <div className="text-center">
-          {settings.signature_data
-            ? <img src={settings.signature_data} alt="signature" style={{ height: `${sigHeightMm}mm` }} className="mx-auto object-contain" />
-            : <div style={{ height: `${sigHeightMm}mm` }} className="w-32 flex items-end justify-center text-gray-300 text-[10px] italic">[ upload signature in Settings ]</div>}
-          <p className="report-sign-label text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">Lab Technician</p>
-        </div>
+        {showSignature && (
+          <div className="text-center">
+            {settings.signature_data
+              ? <img src={settings.signature_data} alt="signature" style={{ height: `${sigHeightMm}mm` }} className="mx-auto object-contain" />
+              : <div style={{ height: `${sigHeightMm}mm` }} className="w-32 flex items-end justify-center text-gray-300 text-[10px] italic">[ upload signature in Settings ]</div>}
+            <p className="report-sign-label text-[11px] font-bold text-[#7b1b1b] underline underline-offset-2 mt-0.5">Lab Technician</p>
+          </div>
+        )}
       </div>
       {/* "End Of Report" prints on the LAST page only. */}
       {isLast && (
@@ -1150,7 +1163,7 @@ export function ReportPreviewPage() {
       )}
       {total > 1 && <div className="text-right text-[9px] text-gray-400 mt-1">Page {pageIndex + 1} of {total}</div>}
     </footer>
-  ), [qr, settings, sigHeightMm]);
+  ), [qr, settings, sigHeightMm, showSignature]);
 
   // All hooks are above this line — safe to early-return now.
   if (!patient) return <div className="p-8 text-center text-gray-400">Loading…</div>;
@@ -1201,7 +1214,7 @@ export function ReportPreviewPage() {
                 id="report-print-area"
                 ref={editHostRef}
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
-                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm`, outline: '2px solid #6366f1' }}
+                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm`, outline: '2px solid #6366f1' }}
               />
             ) : reportOverride ? (
               // Saved manual edit: render the stored full paginated report HTML statically.
@@ -1209,14 +1222,14 @@ export function ReportPreviewPage() {
                 key="ov"
                 id="report-print-area"
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
-                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
+                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
                 dangerouslySetInnerHTML={{ __html: reportOverride }}
               />
             ) : (
             <div
               id="report-print-area"
               className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
-              style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
+              style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
             >
               {compactReport ? (
                 <CompactPaginatedReport
@@ -1262,7 +1275,7 @@ export function ReportPreviewPage() {
                         {pg ? (
                           <div>
                             <div className="text-center font-bold text-[14.5px] tracking-wide text-black underline underline-offset-2 mb-1">{dept}</div>
-                            {pg.panel.report_heading !== dept && (
+                            {!sameHeading(pg.panel.report_heading, dept) && (
                               <div className="text-center font-semibold text-[14px] text-black underline underline-offset-2 mb-1.5">{pg.panel.report_heading}</div>
                             )}
                             {pg.panel.code === 'CBC' ? (
@@ -1483,11 +1496,15 @@ export function ReportPreviewPage() {
               <GapInput label="Bottom gap" value={preBottom} onChange={(v) => { setPreBottom(v); localStorage.setItem('scl_pre_bottom', String(v)); }} />
             </div>
           )}
-          {/* Signature always prints (with or without the lab letterhead). Both its size and its
-              distance from the page bottom are user-adjustable and saved, so you place it exactly
-              over your pre-printed signature line and it stays there. */}
-          <GapInput label="Signature height" value={sigHeightMm} onChange={(v) => { setSigHeightMm(v); localStorage.setItem('scl_sig_height', String(v)); }} />
-          <GapInput label="Signature from bottom" value={sigBottomMm} max={120} onChange={(v) => { setSigBottomMm(v); localStorage.setItem('scl_sig_bottom', String(v)); }} />
+          {/* Signature: toggle on/off, then place it precisely over your pre-printed line — height,
+              distance from the page bottom, and distance from the right margin (moves it left/right).
+              All saved, so it stays put. */}
+          <Toggle label="Signature" checked={showSignature} onChange={(v) => { setShowSignature(v); localStorage.setItem('scl_show_signature', v ? '1' : '0'); }} />
+          {showSignature && <>
+            <GapInput label="Signature height" value={sigHeightMm} onChange={(v) => { setSigHeightMm(v); localStorage.setItem('scl_sig_height', String(v)); }} />
+            <GapInput label="Signature from bottom" value={sigBottomMm} max={120} onChange={(v) => { setSigBottomMm(v); localStorage.setItem('scl_sig_bottom', String(v)); }} />
+            <GapInput label="Signature from right" value={sigRightMm} max={120} onChange={(v) => { setSigRightMm(v); localStorage.setItem('scl_sig_right', String(v)); }} />
+          </>}
           <Toggle label="Watermark" checked={showWatermark} onChange={(v) => { setShowWatermark(v); localStorage.setItem('scl_watermark', v ? '1' : '0'); }} />
           {hiddenNotes.size > 0 && (
             <button onClick={restoreNotes} className="text-[11px] text-[#4f46e5] hover:underline">
@@ -1829,7 +1846,7 @@ function CompactPaginatedReport({
         key: `${pg.panel.code}-${i}`,
         dept,
         showDept: dept !== prevDept,
-        showSub: pg.panel.report_heading !== dept,
+        showSub: !sameHeading(pg.panel.report_heading, dept),
         kind: 'panel',
         pg,
       });
