@@ -2,6 +2,15 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.59
+
+- Name box now **repeats on every page by default**. A new "Hide name box on page #" field lets
+  you name a single page number to omit it on (e.g. page 2 for a long test that continues there).
+- Fixed long panels bleeding past the page edge: pages auto-fit with a safety margin and the
+  manual page-resize handles can no longer stretch content off the page.
+- Smoother editor: drag-selection only recomputes when you cross into a new cell, and column
+  resize is frame-throttled.
+
 ## v1.3.58
 
 - **Spreadsheet-grade report editor.** "Edit report" now behaves like a real spreadsheet for the

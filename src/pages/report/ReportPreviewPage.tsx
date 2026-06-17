@@ -174,10 +174,11 @@ export function ReportPreviewPage() {
   const [bottomGapMm, setBottomGapMm] = useState(() => { const v = Number(localStorage.getItem('scl_bottom_gap')); return (layoutFresh() && v >= 0 && v <= 60) ? v : 12; });
   // Compact = pack panels across A4 pages (no panel split). Per-page = one A4 per panel.
   const [compactReport, setCompactReport] = useState(() => localStorage.getItem('scl_compact_report') !== '0');
-  // Name box (patient strip) repeats on every page when ON; when OFF (default) it shows only on
-  // the FIRST page — pages 2+ are clean continuation pages (letterhead + footer + signature, no
-  // name box), e.g. when a long single test is pushed to the next page.
-  const [repeatNameBox, setRepeatNameBox] = useState(() => localStorage.getItem('scl_repeat_namebox') === '1');
+  // Name box (patient strip) repeats on every page by DEFAULT. Turn it off to show the name box
+  // on the first page only. Separately, `nameBoxSkipPage` (0 = none) lets the user name ONE page
+  // number whose name box should be omitted — e.g. when a long single test continues there.
+  const [repeatNameBox, setRepeatNameBox] = useState(() => localStorage.getItem('scl_repeat_namebox') !== '0');
+  const [nameBoxSkipPage, setNameBoxSkipPage] = useState(() => Number(localStorage.getItem('scl_namebox_skip') ?? 0));
   // Manual page placement: per-panel overrides on the auto-pagination. 'pull' = drag this
   // panel UP onto the previous page; 'before' = push it DOWN to start a fresh page.
   const [pageBreaks, setPageBreaks] = useState<Record<string, 'pull' | 'before'>>(() => {
@@ -1291,6 +1292,7 @@ export function ReportPreviewPage() {
                   onPageScaleReset={resetPageScale}
                   editing={editing}
                   repeatNameBox={repeatNameBox}
+                  nameBoxSkipPage={nameBoxSkipPage}
                   Watermark={Watermark}
                   Letterhead={Letterhead}
                   PatientStrip={PatientStrip}
@@ -1319,7 +1321,7 @@ export function ReportPreviewPage() {
                     <Watermark />
                     <Letterhead />
                     <div className="report-body relative flex-1">
-                      {(idx === 0 || repeatNameBox) && <PatientStrip />}
+                      {(idx === 0 || repeatNameBox) && (idx + 1 !== nameBoxSkipPage) && <PatientStrip />}
                       <section data-editable-body suppressContentEditableWarning className="relative mt-3" style={{ zoom: contentScale }}>
                         {pg ? (
                           <div>
@@ -1454,12 +1456,22 @@ export function ReportPreviewPage() {
             </div>
           )}
           <Toggle label="Repeat name box on every page" checked={repeatNameBox} onChange={(v) => { setRepeatNameBox(v); localStorage.setItem('scl_repeat_namebox', v ? '1' : '0'); }} />
-          {!repeatNameBox && (
-            <p className="text-[10.5px] text-[#54555f] leading-snug -mt-1">
-              Continuation pages (page 2+) keep the letterhead, footer &amp; signature but omit the
-              patient name box — ideal when a long test runs onto the next page.
-            </p>
-          )}
+          <label className="flex items-center justify-between text-[11.5px] text-[#54555f]">
+            <span>Hide name box on page #</span>
+            <span className="flex items-center gap-1">
+              <input
+                type="number" min={0} max={50} value={nameBoxSkipPage || ''}
+                placeholder="—"
+                onChange={(e) => { const v = Math.max(0, Math.min(50, Number(e.target.value) || 0)); setNameBoxSkipPage(v); localStorage.setItem('scl_namebox_skip', String(v)); }}
+                className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
+              />
+            </span>
+          </label>
+          <p className="text-[10.5px] text-[#54555f] leading-snug -mt-1">
+            The name box shows on every page. Type a page number above to omit it on just that page
+            (e.g. <strong>2</strong> for a long test that continues onto page 2). Page 1 still keeps
+            the letterhead, footer &amp; signature throughout.
+          </p>
           <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={(v) => { setPrintLetterhead(v); localStorage.setItem('scl_print_letterhead', v ? '1' : '0'); }} />
           {!printLetterhead && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
@@ -2606,7 +2618,7 @@ function EditedReportView({ html, className, styleVars, overrides, onChange, onR
 
 function CompactPaginatedReport({
   sortedPanels, deptOf, renderPanelBody, comment, bottomGapMm, contentScale, measureKey, breaks, onMove,
-  pageScaleOverrides, onPageScaleChange, onPageScaleReset, editing, repeatNameBox,
+  pageScaleOverrides, onPageScaleChange, onPageScaleReset, editing, repeatNameBox, nameBoxSkipPage,
   Watermark, Letterhead, PatientStrip, PageFooter,
 }: {
   sortedPanels: PanelGroup[];
@@ -2620,6 +2632,7 @@ function CompactPaginatedReport({
   onPageScaleReset?: (idx: number) => void;
   editing?: boolean;
   repeatNameBox?: boolean;
+  nameBoxSkipPage?: number;
   measureKey: string;
   breaks: Record<string, 'pull' | 'before'>;
   onMove: (key: string, dir: 'up' | 'down') => void;
@@ -2730,7 +2743,9 @@ function CompactPaginatedReport({
     return groups.map(g => {
       const rawH = g.reduce((s, b) => s + blockH(b), 0);
       const wanted = rawH * contentScale;
-      const scale = wanted > cap && rawH > 0 ? cap / rawH : contentScale;
+      // 0.96 safety margin so a slight measurement under-estimate can't let a tall panel bleed
+      // past the page edge onto the footer / next page.
+      const scale = wanted > cap && rawH > 0 ? (cap / rawH) * 0.96 : contentScale;
       return { blocks: g, scale };
     });
   }, [blocks, heights, capacity, breaks, contentScale]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -2851,7 +2866,9 @@ function CompactPaginatedReport({
         // down to the signature line. At syMax the scaled frame is exactly `fullH` tall, so the
         // page can always be stretched to the signature regardless of the natural-height guess.
         const sxMax = 1;
-        const syMax = Math.min(Math.max(fullH / naturalH, base, 1), 3);
+        // Cap height scaling at "fills the page down to the signature line" — never beyond, so a
+        // tall panel can't be stretched off the page. (No `1` floor: tall content caps below 100%.)
+        const syMax = Math.min(Math.max(fullH / naturalH, base), 3);
         const overridden = ov != null;
         // 8 bounding-box handles (Google-Slides style), positioned on the SCALED frame.
         const HANDLES: { dir: string; pos: React.CSSProperties }[] = [
@@ -2874,9 +2891,9 @@ function CompactPaginatedReport({
           <Watermark />
           <Letterhead />
           <div className="report-body relative flex-1">
-            {/* Name box on the first page only (unless set to repeat). Pages 2+ are continuation
-                pages: letterhead + footer + signature stay, but no name box. */}
-            {(idx === 0 || repeatNameBox) && <PatientStrip />}
+            {/* Name box repeats on every page by default; shows on page 1 only when repeat is off;
+                and is always omitted on the one page number the user chose to skip. */}
+            {(idx === 0 || repeatNameBox) && (idx + 1 !== nameBoxSkipPage) && <PatientStrip />}
             {/* Resizable content frame. The WRAPPER takes the scaled box size (real layout, so
                 it survives html2canvas/PDF capture); the SECTION is pinned top-left at natural
                 size and visually scaled with a non-uniform transform (independent W/H). */}
