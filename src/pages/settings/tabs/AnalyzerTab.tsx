@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Cable, Copy, Check } from "lucide-react";
+import { Save, RefreshCw, Cable, Copy, Check, ImageDown } from "lucide-react";
 import { Card, TabHeader, TextField, SelectField, PrimaryButton, SecondaryButton, NoteBox } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
 import { listSerialPorts, readSerialRaw, readTcpRaw, localIps } from "@/lib/serial";
 import { parseAnalyzer } from "@/lib/astm";
+import { captureRawB64Tcp, captureRawB64Serial, inspectCaptureB64, type CaptureInspection } from "@/lib/analyzerBinary";
 import { errMessage } from "../toast";
 
 const KEYS = ["analyzer_conn", "analyzer_tcp_mode", "analyzer_host", "analyzer_tcp_port", "analyzer_port", "analyzer_baud"];
@@ -16,6 +17,10 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
   const [raw, setRaw] = useState<string>("");
   const [pcIps, setPcIps] = useState<string[]>([]);
   const [rawCopied, setRawCopied] = useState(false);
+  const [binBusy, setBinBusy] = useState(false);
+  const [inspect, setInspect] = useState<CaptureInspection | null>(null);
+  const [binB64, setBinB64] = useState<string>("");
+  const [b64Copied, setB64Copied] = useState(false);
 
   const conn = f.get("analyzer_conn") || "network";
   const tcpMode = f.get("analyzer_tcp_mode") || "listen";
@@ -42,6 +47,34 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       f.toast.error(errMessage(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Binary-safe capture — keeps the raw bytes intact so an embedded histogram image
+  // (PNG/BMP) survives, then inspects them (hex + detected images) to reverse-engineer the
+  // H360's histogram transmission format. The numeric "Capture raw (test)" above is unaffected.
+  async function captureBinary() {
+    if (!(await f.save())) return;
+    setBinBusy(true);
+    setInspect(null);
+    setBinB64("");
+    try {
+      const b64 = conn === "network"
+        ? await captureRawB64Tcp(tcpMode, f.get("analyzer_host"), Number(f.get("analyzer_tcp_port") || "5000"), 60000)
+        : await captureRawB64Serial(f.get("analyzer_port"), Number(f.get("analyzer_baud") || "9600"), 20000);
+      setBinB64(b64);
+      const info = inspectCaptureB64(b64);
+      setInspect(info);
+      const imgs = info.rawImages.length + info.base64Images.length;
+      f.toast.success(
+        imgs
+          ? `Captured ${info.byteCount.toLocaleString()} bytes — found ${imgs} histogram image(s).`
+          : `Captured ${info.byteCount.toLocaleString()} bytes — no image detected yet (see hex below).`,
+      );
+    } catch (e) {
+      f.toast.error(errMessage(e));
+    } finally {
+      setBinBusy(false);
     }
   }
 
@@ -138,12 +171,65 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
         </>
       )}
 
-      <div>
-        <SecondaryButton onClick={capture} disabled={busy}>
+      <NoteBox>
+        <b>To import the CBC histogram graphs:</b> on the H360's <b>LIS Communication</b> screen set
+        <b> Graph Format = PNG</b> and <b>Histogram Transmission Method = “Bitmap”</b> (not “for
+        printing”, not “Not transmit”). Then run a sample and use <b>Capture raw (binary)</b> below —
+        it shows whether the histogram images are arriving and in what format.
+      </NoteBox>
+
+      <div className="flex flex-wrap gap-2">
+        <SecondaryButton onClick={capture} disabled={busy || binBusy}>
           <Cable size={15} strokeWidth={1.8} />
           {busy ? "Listening… (now re-transmit on the H360)" : "Capture raw (test)"}
         </SecondaryButton>
+        <SecondaryButton onClick={captureBinary} disabled={busy || binBusy}>
+          <ImageDown size={15} strokeWidth={1.8} />
+          {binBusy ? "Listening for graphs… (re-transmit on the H360)" : "Capture raw (binary) — graphs"}
+        </SecondaryButton>
       </div>
+
+      {inspect && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">
+              Binary capture — {inspect.byteCount.toLocaleString()} bytes
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(binB64)
+                  .then(() => { setB64Copied(true); setTimeout(() => setB64Copied(false), 1500); })
+                  .catch(() => f.toast.error("Could not copy."));
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-[#fafafe] transition-colors"
+            >
+              {b64Copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy base64 (send to support)</>}
+            </button>
+          </div>
+
+          <div className="text-[12.5px] text-[#34353f]">
+            Detected: <b>{inspect.rawImages.length}</b> image(s) in the raw stream,{" "}
+            <b>{inspect.base64Images.length}</b> inside <b>{inspect.base64BlockCount}</b> base64 block(s).
+          </div>
+
+          {[...inspect.rawImages, ...inspect.base64Images].length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {[...inspect.rawImages, ...inspect.base64Images].map((img, i) => (
+                <div key={i} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
+                  <img src={img.dataUrl} alt={`histogram ${i + 1}`} className="max-h-32 w-auto" />
+                  <div className="mt-1 text-[10.5px] text-[#8a8b97]">{img.format.toUpperCase()} · @{img.start}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1.5">Hex dump (first 4 KB)</div>
+            <pre className="max-h-72 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[10.5px] leading-tight p-3 select-all">{inspect.hex}</pre>
+          </div>
+        </div>
+      )}
 
       {raw && (
         <div>

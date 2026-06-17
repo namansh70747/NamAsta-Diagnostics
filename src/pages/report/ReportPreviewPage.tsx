@@ -2599,7 +2599,9 @@ function EditedReportView({ html, className, styleVars, overrides, onChange, onR
       const body = p.sec.closest<HTMLElement>('.report-body');
       const frameTop = frame ? frame.offsetTop : p.sec.offsetTop;
       const avail = body ? body.clientHeight - frameTop : h * 2;
-      const syMax = Math.min(Math.max(avail / h, 1), 3);
+      // Ceiling = fill all the way down to just above the signature line (no 300% cap), so the
+      // wasted space under a short panel can be used.
+      const syMax = Math.max(avail / h, 1);
       nat[idx] = { w, h, syMax };
       const host = frame ?? (p.sec.parentElement as HTMLElement);
       if (host && getComputedStyle(host).position === 'static') host.style.position = 'relative';
@@ -2866,9 +2868,10 @@ function CompactPaginatedReport({
         // down to the signature line. At syMax the scaled frame is exactly `fullH` tall, so the
         // page can always be stretched to the signature regardless of the natural-height guess.
         const sxMax = 1;
-        // Cap height scaling at "fills the page down to the signature line" — never beyond, so a
-        // tall panel can't be stretched off the page. (No `1` floor: tall content caps below 100%.)
-        const syMax = Math.min(Math.max(fullH / naturalH, base), 3);
+        // Ceiling = "fills down to just above the signature line" (fullH). No 300% clamp, so a
+        // short panel can be stretched to use all the space down to the signature; tall content
+        // still caps below 100% (fullH/naturalH < 1) so it can't bleed off the page.
+        const syMax = Math.max(fullH / naturalH, base);
         const overridden = ov != null;
         // 8 bounding-box handles (Google-Slides style), positioned on the SCALED frame.
         const HANDLES: { dir: string; pos: React.CSSProperties }[] = [

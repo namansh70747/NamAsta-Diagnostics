@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.60
+
+- Page resize can now stretch a short panel **all the way down to just above the signature**,
+  using the empty space that was previously wasted. (The old 300% limit stopped well short of
+  the signature on short reports.) Tall panels still stay clamped so they never bleed off the page.
+
 ## v1.3.59
 
 - Name box now **repeats on every page by default**. A new "Hide name box on page #" field lets

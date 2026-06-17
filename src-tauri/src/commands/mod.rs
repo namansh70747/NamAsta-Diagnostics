@@ -447,12 +447,25 @@ pub fn serial_list_ports() -> Result<Vec<String>, String> {
 /// Async wrapper (see tcp_capture) — run the blocking serial read off the UI thread.
 #[tauri::command]
 pub async fn serial_read(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || serial_read_blocking(port, baud, window_ms))
+    let bytes = tauri::async_runtime::spawn_blocking(move || serial_read_blocking(port, baud, window_ms))
         .await
-        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"))??;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
-fn serial_read_blocking(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
+/// Binary-safe variant of `serial_read`: returns BASE64 of the raw bytes so an embedded
+/// histogram image (PNG/BMP) survives intact (a UTF-8 conversion would corrupt it). Used by
+/// the analyzer diagnostic to reverse-engineer the histogram transmission format.
+#[tauri::command]
+pub async fn serial_read_b64(port: String, baud: u32, window_ms: u64) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let bytes = tauri::async_runtime::spawn_blocking(move || serial_read_blocking(port, baud, window_ms))
+        .await
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"))??;
+    Ok(STANDARD.encode(&bytes))
+}
+
+fn serial_read_blocking(port: String, baud: u32, window_ms: u64) -> Result<Vec<u8>, String> {
     use std::io::Read;
     let mut sp = serialport::new(&port, baud)
         .timeout(std::time::Duration::from_millis(400))
@@ -488,7 +501,7 @@ fn serial_read_blocking(port: String, baud: u32, window_ms: u64) -> Result<Strin
     if acc.is_empty() {
         return Err("No data received from the analyzer. Check the cable, port and baud rate, then re-transmit the result from the machine.".into());
     }
-    Ok(String::from_utf8_lossy(&acc).into_owned())
+    Ok(acc)
 }
 
 /// This PC's primary LAN IPv4 address — shown in Settings → Analyzer so the user knows what
@@ -604,6 +617,23 @@ pub fn device_id() -> String {
 /// main thread for the whole window and the app would appear to "stop responding".
 #[tauri::command]
 pub async fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
+    let bytes = tcp_capture_run(mode, host, port, window_ms).await?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Binary-safe variant of `tcp_capture`: returns BASE64 of the raw bytes so an embedded
+/// histogram image (PNG/BMP) survives intact (a UTF-8 conversion would corrupt it). Used by
+/// the analyzer diagnostic to reverse-engineer the histogram transmission format.
+#[tauri::command]
+pub async fn tcp_capture_b64(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let bytes = tcp_capture_run(mode, host, port, window_ms).await?;
+    Ok(STANDARD.encode(&bytes))
+}
+
+/// Shared runner: holds the single-capture guard and runs the blocking read off the UI thread,
+/// returning the raw bytes. Callers encode as text or base64.
+async fn tcp_capture_run(mode: String, host: String, port: u16, window_ms: u64) -> Result<Vec<u8>, String> {
     // Reject immediately if a previous capture is still running (e.g. user navigated
     // away from Settings and back, resetting frontend `busy` while Rust still holds the port).
     if TCP_CAPTURE_RUNNING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
@@ -611,12 +641,12 @@ pub async fn tcp_capture(mode: String, host: String, port: u16, window_ms: u64) 
     }
     let result = tauri::async_runtime::spawn_blocking(move || tcp_capture_blocking(mode, host, port, window_ms))
         .await
-        .map_err(|e| format!("Analyzer read task failed to start: {e}"))?;
+        .map_err(|e| format!("Analyzer read task failed to start: {e}"));
     TCP_CAPTURE_RUNNING.store(false, Ordering::SeqCst);
-    result
+    result?
 }
 
-fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -> Result<String, String> {
+fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -> Result<Vec<u8>, String> {
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream, ToSocketAddrs};
     use std::time::{Duration, Instant};
@@ -664,29 +694,41 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
     let mut got_eot = false;
     // ASTM E1394 low-level handshake. Many analyzers (incl. ERBA) won't send their result
     // unless the receiver acknowledges: ENQ → ACK, each frame (…ETX/ETB) → ACK, EOT = done.
-    // We ACK every ENQ/ETX/ETB byte and stop on EOT. For analyzers that just "dump" the
-    // message and close, these extra ACK bytes are harmless and the loop still reads it.
+    // We ACK every ENQ/ETX/ETB byte and stop on EOT.
+    //
+    // BUT this control-byte handling is ONLY safe for genuine ASTM framing. HL7-over-TCP and
+    // raw bitmap transmissions put unescaped binary in the stream, where a 0x04 INSIDE a PNG/BMP
+    // would falsely look like EOT and truncate the histogram image. So we decide from the first
+    // chunk: ASTM streams lead with ENQ (0x05) or STX (0x02); for anything else we DON'T touch
+    // control bytes and just read until the peer closes (or the long idle fallback fires). In
+    // real ASTM the image payload is escaped (`&Xhhhh&`), so honouring EOT stays safe there.
+    let mut astm: Option<bool> = None;
     const ACK: [u8; 1] = [0x06];
     while start.elapsed() < window && !got_eot {
         match stream.read(&mut buf) {
             Ok(0) => break, // peer closed — transmission complete
             Ok(n) => {
                 let chunk = &buf[..n];
+                if astm.is_none() {
+                    astm = Some(chunk.iter().any(|&b| b == 0x05 || b == 0x02));
+                }
                 acc.extend_from_slice(chunk);
                 idle_after_data = 0;
-                let mut acks = 0usize;
-                for &b in chunk {
-                    match b {
-                        0x05 | 0x03 | 0x17 => acks += 1, // ENQ / ETX / ETB
-                        0x04 => got_eot = true,          // EOT
-                        _ => {}
+                if astm == Some(true) {
+                    let mut acks = 0usize;
+                    for &b in chunk {
+                        match b {
+                            0x05 | 0x03 | 0x17 => acks += 1, // ENQ / ETX / ETB
+                            0x04 => got_eot = true,          // EOT
+                            _ => {}
+                        }
                     }
-                }
-                for _ in 0..acks {
-                    let _ = stream.write_all(&ACK);
-                }
-                if acks > 0 {
-                    let _ = stream.flush();
+                    for _ in 0..acks {
+                        let _ = stream.write_all(&ACK);
+                    }
+                    if acks > 0 {
+                        let _ = stream.flush();
+                    }
                 }
             }
             Err(ref e)
@@ -713,7 +755,7 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
     if acc.is_empty() {
         return Err("Connected, but the analyzer sent no data. Re-transmit the result from the H360.".into());
     }
-    Ok(String::from_utf8_lossy(&acc).into_owned())
+    Ok(acc)
 }
 
 /// Send the report PDF to a patient over the WhatsApp Business Cloud API.
