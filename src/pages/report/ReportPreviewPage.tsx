@@ -1001,29 +1001,30 @@ export function ReportPreviewPage() {
   // contenteditable="false" so it stays locked; everything else is editable. The host is filled
   // and made editable IMPERATIVELY via a ref (React must not manage the editable DOM).
   function startEdit() {
-    // Freeze the current rendered report (all pages, chrome) into a snapshot, minus the
-    // on-screen move/resize controls, then edit that snapshot. Strip the per-page auto-fit
-    // `zoom` so the editor (and the saved override) aren't permanently shrunk by a one-off fit.
-    const el = document.getElementById('report-print-area');
-    const clone = el?.cloneNode(true) as HTMLElement | null;
-    clone?.querySelectorAll('[data-report-control]').forEach(n => n.remove());
-    // Strip ALL CSS `zoom` from the editable body. WebKit (the macOS WebView engine) corrupts
-    // text selection — getSelection()/caret — inside a zoomed contentEditable, which is why the
-    // toolbar buttons (and even Ctrl/Cmd+A) appeared dead. The editor therefore renders at natural
-    // 1:1; print/PDF auto-fit each page back to A4, so output is unaffected.
-    clone?.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => {
-      // Undo the per-page resize transform so the editor flows the content naturally (top-left
-      // absolute + scale() would otherwise collapse/overlap the editable text).
-      s.style.zoom = '';
-      s.style.transform = '';
-      s.style.position = '';
-      s.style.top = '';
-      s.style.left = '';
-      s.style.width = '';
+    // Build the editor snapshot from EITHER the saved override OR the live rendered report, then
+    // ALWAYS sanitise it so the editor flows content naturally. This must run on both sources —
+    // a saved override can carry baked-in absolute-positioning + scale() transforms (from the
+    // resize feature), and editing those raw would collapse/overlap/hide the content.
+    const src = document.createElement('div');
+    if (reportOverride) {
+      src.innerHTML = reportOverride;
+    } else {
+      const el = document.getElementById('report-print-area');
+      src.innerHTML = (el?.cloneNode(true) as HTMLElement | null)?.innerHTML ?? '';
+    }
+    // Drop on-screen move/resize controls.
+    src.querySelectorAll('[data-report-control]').forEach(n => n.remove());
+    // Undo the per-page resize transform/zoom so each section flows top-to-bottom (absolute +
+    // scale() would otherwise collapse or hide the editable text). WebKit also corrupts caret
+    // selection inside a zoomed contentEditable, so the editor always renders 1:1; print/PDF
+    // re-fit each page to A4 from the saved HTML.
+    src.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => {
+      s.style.zoom = ''; s.style.transform = ''; s.style.transformOrigin = '';
+      s.style.position = ''; s.style.top = ''; s.style.left = ''; s.style.width = '';
     });
     // Collapse the per-page resize frame back to natural flow (drop its fixed scaled W/H).
-    clone?.querySelectorAll<HTMLElement>('[data-scale-frame]').forEach(f => { f.style.width = ''; f.style.height = ''; });
-    setEditHtml(reportOverride ?? clone?.innerHTML ?? '');
+    src.querySelectorAll<HTMLElement>('[data-scale-frame]').forEach(f => { f.style.width = ''; f.style.height = ''; });
+    setEditHtml(src.innerHTML);
     setEditing(true);
   }
   function cancelEdit() { setEditing(false); setEditHtml(null); }

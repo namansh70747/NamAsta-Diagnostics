@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.62
+
+- Fixed "Edit report" on a report that already has saved edits: the content no longer collapses
+  / slides down and disappears. The editor snapshot is now always normalised to natural top-to-
+  bottom flow (stripping any baked-in resize transforms), whether it starts from the saved edit
+  or the live report.
+- Includes v1.3.61: page stretch reaches exactly down to just above the signature (measured live).
+
 ## v1.3.61
 
 - Page stretch now reaches **exactly down to just above the signature**. The ceiling is measured
