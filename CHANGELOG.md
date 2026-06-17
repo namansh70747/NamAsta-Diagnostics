@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.66
+
+- **New app logo: a microscope + blood-drop** on the maroon tile (microscope = diagnostics,
+  blood drop = pathology). Bolder and fuller so it stays clearly visible at small sizes — fixes
+  the icon looking tiny/blank on the Windows 7/10 taskbar and on the downloaded `.exe`.
+- Regenerated all platform icons (Windows `.ico`, macOS `.icns`, PNGs) and updated the in-app
+  brand mark, the browser favicon and the login/onboarding/sidebar logos to match.
+
 ## v1.3.65
 
 - Every lab-specific string printed on a report is now editable in **Settings → Lab Identity** —

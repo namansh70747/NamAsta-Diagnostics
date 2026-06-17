@@ -5,8 +5,9 @@ import { Card, TabHeader, TextField, PrimaryButton, SecondaryButton, NoteBox } f
 import { useSettingsForm } from "../useSettingsForm";
 import { backupNow } from "@/lib/backup";
 import { errMessage } from "../toast";
+import { cn } from "@/lib/utils";
 
-const KEYS = ["backup_dir_1", "backup_dir_2", "backup_retention_days"];
+const KEYS = ["backup_enabled", "backup_dir_1", "backup_dir_2", "backup_retention_days"];
 
 export function BackupsTab({ settings }: { settings: Record<string, string> }) {
   const f = useSettingsForm(settings, KEYS);
@@ -15,6 +16,8 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
   const [lastPaths, setLastPaths] = useState<string[] | null>(null);
 
   const lastBackupDate = settings.last_backup_date || "Never";
+  // Backups are ON by default (protective); a lab tight on disk space can switch them fully off.
+  const enabled = f.get("backup_enabled") !== "0";
 
   async function onSave() {
     if (await f.save()) f.toast.success("Backup settings saved.");
@@ -54,6 +57,7 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
           value={f.get("backup_dir_1")}
           onChange={(v) => f.set("backup_dir_1", v)}
           placeholder="C:\\Backups\\SCL"
+          hint="Defaults to your Documents › NamAsta Backups folder. Point it at a USB drive, or add a second location below, so a copy lives off this PC."
         />
         <TextField
           label="Backup folder 2 (Google Drive / network)"

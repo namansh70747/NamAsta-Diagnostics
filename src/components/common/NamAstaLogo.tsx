@@ -1,10 +1,10 @@
 /**
  * NamAsta Diagnostics brand mark.
  *
- * Concept: a laboratory blood-sample tube — white glass holding RED BLOOD, with a blood
- * drop above it. Deep maroon tile. Reads instantly as a pathology / blood-test lab, even for
- * non-technical staff. The "A" in the wordmark is gold so the brand name pops on the maroon.
- * Designed to stay legible from a 28 px favicon up to full size.
+ * Concept: a bold white MICROSCOPE on a deep maroon tile, with a RED BLOOD DROP as the
+ * specimen on the stage — microscope (diagnostics) + blood (pathology). Reads instantly as a
+ * lab, even for non-technical staff, and the heavy white silhouette stays sharp from a 16 px
+ * taskbar icon up to full size. The "A" in the wordmark is gold so the name pops on the maroon.
  */
 export function NamAstaMark({
   size = 44,
@@ -37,15 +37,8 @@ export function NamAstaMark({
             <stop offset="1" stopColor="#3c0813" />
           </linearGradient>
 
-          {/* Blood — bright scarlet → deep red so it pops against the maroon */}
-          <linearGradient id={`${u}-blood`} x1="24" y1="24" x2="24" y2="37" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#ff5a5f" />
-            <stop offset="0.55" stopColor="#ef2b2b" />
-            <stop offset="1" stopColor="#b3091a" />
-          </linearGradient>
-
-          {/* Drop gradient */}
-          <linearGradient id={`${u}-drop`} x1="24" y1="4" x2="24" y2="12" gradientUnits="userSpaceOnUse">
+          {/* Blood-drop gradient (the specimen on the stage) */}
+          <linearGradient id={`${u}-drop`} x1="24" y1="19" x2="24" y2="29" gradientUnits="userSpaceOnUse">
             <stop stopColor="#ff6b70" />
             <stop offset="1" stopColor="#d61f2b" />
           </linearGradient>
@@ -56,11 +49,6 @@ export function NamAstaMark({
             <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.05" />
             <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
-
-          {/* Clip the blood to the inside of the tube so it never spills past the glass */}
-          <clipPath id={`${u}-tube`}>
-            <path d="M 16.4,13 L 16.4,30 Q 16.4,36.6 24,36.6 Q 31.6,36.6 31.6,30 L 31.6,13 Z" />
-          </clipPath>
         </defs>
 
         {/* ── Tile ── */}
@@ -68,38 +56,31 @@ export function NamAstaMark({
         <rect x="2" y="2" width="44" height="44" rx="13" fill={`url(#${u}-gloss)`} />
         <rect x="2.6" y="2.6" width="42.8" height="42.8" rx="12.5" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
 
-        {/* ── Blood drop above the tube ── */}
-        <path
-          d="M 24,4.2 C 25.9,7 27.2,8.6 27.2,10 C 27.2,11.8 25.8,12.9 24,12.9 C 22.2,12.9 20.8,11.8 20.8,10 C 20.8,8.6 22.1,7 24,4.2 Z"
-          fill={`url(#${u}-drop)`}
-        />
-        {/* drop highlight */}
-        <ellipse cx="22.9" cy="9.6" rx="0.9" ry="1.4" fill="#ffffff" opacity="0.55" transform="rotate(-20 22.9 9.6)" />
-
-        {/* ── Blood inside the tube (lower ~50%), clipped to the glass interior ── */}
-        <g clipPath={`url(#${u}-tube)`}>
-          <rect x="15" y="24.5" width="18" height="14" fill={`url(#${u}-blood)`} />
-          {/* surface shine */}
-          <ellipse cx="24" cy="24.7" rx="7.6" ry="1.5" fill="#ffd0d2" opacity="0.5" />
-          {/* darker blood cells / bubbles */}
-          <circle cx="20.4" cy="30.5" r="1.3" fill="#7d0512" opacity="0.5" />
-          <circle cx="27.1" cy="32.8" r="1.7" fill="#7d0512" opacity="0.45" />
-          <circle cx="23.6" cy="34.2" r="0.9" fill="#7d0512" opacity="0.5" />
+        {/* ── Microscope + blood specimen (same art as the app icon, mapped into the tile) ── */}
+        <g transform="translate(6.84,6.27) scale(0.716)">
+          <g stroke="#ffffff" strokeWidth="3.05" strokeLinecap="round" strokeLinejoin="round" fill="none">
+            {/* eyepiece tube (angled, top) */}
+            <line x1="30.2" y1="8.6" x2="24.6" y2="16.4" />
+            {/* arm: sweeping curve from the head down to the base */}
+            <path d="M 24.6,16.4 Q 34.4,20.5 31.2,31.5" />
+            {/* objective barrel down toward the stage */}
+            <line x1="24.6" y1="16.4" x2="21.6" y2="23.2" />
+            {/* stage (specimen platform) */}
+            <line x1="13.4" y1="28.2" x2="29.6" y2="28.2" />
+            {/* pillar from the stage to the base */}
+            <line x1="22.4" y1="28.2" x2="22.4" y2="33.4" />
+            {/* curved foot / base */}
+            <path d="M 13,38 Q 23,33.2 33,38" />
+          </g>
+          {/* eyepiece lens cap (solid) */}
+          <circle cx="31.4" cy="7.4" r="3.05" fill="#ffffff" />
+          {/* blood specimen drop sitting on the stage, just under the objective */}
+          <path
+            d="M 20.4,19.4 C 22.3,22.2 23.6,23.8 23.6,25.2 C 23.6,27 22.2,28.1 20.4,28.1 C 18.6,28.1 17.2,27 17.2,25.2 C 17.2,23.8 18.5,22.2 20.4,19.4 Z"
+            fill={`url(#${u}-drop)`}
+          />
+          <ellipse cx="19.4" cy="24.8" rx="0.85" ry="1.3" fill="#ffffff" opacity="0.6" transform="rotate(-20 19.4 24.8)" />
         </g>
-
-        {/* ── Glass tube outline (open top, rounded bottom) ── */}
-        <path
-          d="M 15,15 L 15,30 Q 15,38 24,38 Q 33,38 33,30 L 33,15"
-          stroke="#ffffff"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-        {/* mouth rim */}
-        <ellipse cx="24" cy="15" rx="9" ry="2.1" stroke="#ffffff" strokeWidth="2.1" fill="none" />
-        {/* soft vertical glass highlight */}
-        <path d="M 19,18 L 19,29" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
 
       {/* Sheen sweep (animated only) */}
