@@ -32,6 +32,13 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
   const savedPreviewZoom = previewZoom?.style.zoom ?? null;
   if (previewZoom) previewZoom.style.zoom = "1";
 
+  // Hide all on-screen-only controls (the per-page resize handles, badges, move buttons, etc.)
+  // so they're never rasterised into the PDF/print. This covers EVERY export path that goes
+  // through here (Save PDF, Print, WhatsApp, Email), regardless of the caller.
+  const controls = Array.from(el.querySelectorAll<HTMLElement>("[data-report-control]"));
+  const savedControlDisplay = controls.map(c => c.style.display);
+  controls.forEach(c => { c.style.display = "none"; });
+
   try {
     for (let p = 0; p < targets.length; p++) {
       const target = targets[p];
@@ -66,6 +73,7 @@ async function renderReportPdf(el: HTMLElement): Promise<jsPDF> {
   } finally {
     zoomedSections.forEach((s, i) => { s.style.zoom = savedZoom[i]; });
     if (previewZoom) previewZoom.style.zoom = savedPreviewZoom ?? "";
+    controls.forEach((c, i) => { c.style.display = savedControlDisplay[i]; });
   }
   return pdf;
 }

@@ -360,6 +360,8 @@
   body * { visibility: hidden; }
   #report-print-area,
   #report-print-area * { visibility: visible; }
+  /* On-screen-only controls (per-page resize handles, badges, move buttons) never print. */
+  [data-report-control], [data-report-control] * { display: none !important; visibility: hidden !important; }
   #report-print-area {
     position: absolute;
     left: 0;
@@ -408,6 +410,59 @@
 .report-sheet.no-letterhead .report-body {
   padding: var(--pre-top, 60mm) 12mm var(--sig-clear, 66mm) 12mm;
 }
+
+/* ── Excel-like editing affordances (SCREEN ONLY — never printed or in the PDF) ──────
+   While the report host is being edited it carries `.report-editing`, which draws faint
+   cell gridlines plus hover/selection highlights so formatting feels like a spreadsheet.
+   Everything here is drawn with `outline`/`background` (no layout shift) and scoped to
+   `.report-editing`. That class lives only on the on-screen editor — it is absent from the
+   non-editing render that print uses and from the PDF capture (which runs while NOT editing),
+   so the printed/exported report is always a clean grid-free document. */
+.report-editing [data-editable-body] td,
+.report-editing [data-editable-body] th {
+  outline: 1px solid #e4e7f5;
+  outline-offset: -1px;
+  cursor: cell;
+  transition: background-color .1s ease, outline-color .1s ease;
+}
+.report-editing [data-editable-body] td:hover,
+.report-editing [data-editable-body] th:hover {
+  background-color: rgba(99, 102, 241, 0.06);
+  outline-color: #c7c9ff;
+}
+/* Column headers read as the click target for selecting a whole column. */
+.report-editing [data-editable-body] thead th { cursor: cell; font-weight: 700; }
+/* Cells in the active selection (single cell, column, row, or dragged block). The crisp indigo
+   ring + soft fill mimic a spreadsheet's selection box. Screen-only — see scope note above. */
+.report-editing .report-cell-selected,
+.report-editing .report-cell-selected:hover {
+  background-color: rgba(99, 102, 241, 0.14) !important;
+  outline: 1.5px solid #6366f1 !important;
+  outline-offset: -1.5px;
+  box-shadow: inset 0 0 0 1px rgba(99,102,241,0.25);
+}
+/* The cell currently in text-edit mode: a solid focus ring, white fill, text caret. */
+.report-editing .report-cell-editing,
+.report-editing .report-cell-editing:hover {
+  background-color: #fff !important;
+  outline: 2px solid #4f46e5 !important;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.18);
+  cursor: text !important;
+}
+.report-editing .report-cell-editing * { cursor: text !important; }
+/* While block-selecting, suppress the native text-highlight flash for a clean spreadsheet feel. */
+.report-editing.is-cell-dragging { user-select: none; -webkit-user-select: none; }
+/* While dragging a column border, lock the cursor and stop text selection everywhere. */
+.report-editing.is-col-resizing,
+.report-editing.is-col-resizing * { cursor: col-resize !important; user-select: none; -webkit-user-select: none; }
+/* A faint grip on each heading's right edge hints that columns are resizable. */
+.report-editing [data-editable-body] thead th { position: relative; }
+.report-editing [data-editable-body] thead th::after {
+  content: ""; position: absolute; top: 0; right: -1px; width: 3px; height: 100%;
+  background: #6366f1; opacity: 0; transition: opacity .1s ease; pointer-events: none;
+}
+.report-editing [data-editable-body] thead th:hover::after { opacity: 0.35; }
 
 /* ── TipTap report editor + saved edited-body rendering ─────────────────────────
    Keeps the edited body looking like the lab report: clean borderless tables with a

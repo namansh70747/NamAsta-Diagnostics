@@ -18,7 +18,7 @@ import { formatDate } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { CbcSectionHistogram } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown, FileType2 } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown, FileType2, Rows3, Columns3, Eraser, Square, Copy, ClipboardPaste, Scissors, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd } from "lucide-react";
 import { exportReportDocx, type ReportDocxModel, type DocxPanel, type DocxRow, type DocxSubSection } from "@/lib/docx";
 import { rasterizeHistograms } from "@/lib/docxHistograms";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from "react";
@@ -174,6 +174,10 @@ export function ReportPreviewPage() {
   const [bottomGapMm, setBottomGapMm] = useState(() => { const v = Number(localStorage.getItem('scl_bottom_gap')); return (layoutFresh() && v >= 0 && v <= 60) ? v : 12; });
   // Compact = pack panels across A4 pages (no panel split). Per-page = one A4 per panel.
   const [compactReport, setCompactReport] = useState(() => localStorage.getItem('scl_compact_report') !== '0');
+  // Name box (patient strip) repeats on every page when ON; when OFF (default) it shows only on
+  // the FIRST page — pages 2+ are clean continuation pages (letterhead + footer + signature, no
+  // name box), e.g. when a long single test is pushed to the next page.
+  const [repeatNameBox, setRepeatNameBox] = useState(() => localStorage.getItem('scl_repeat_namebox') === '1');
   // Manual page placement: per-panel overrides on the auto-pagination. 'pull' = drag this
   // panel UP onto the previous page; 'before' = push it DOWN to start a fresh page.
   const [pageBreaks, setPageBreaks] = useState<Record<string, 'pull' | 'before'>>(() => {
@@ -264,6 +268,14 @@ export function ReportPreviewPage() {
   // pagination accounts for it, so scaling down packs more onto each sheet.
   const [contentScale, setContentScale] = useState(() => { const v = Number(localStorage.getItem('scl_content_scale')); return (layoutFresh() && v >= 0.6 && v <= 1.15) ? v : 1; });
   const setScale = (v: number) => { const s = Math.min(1.15, Math.max(0.6, +v.toFixed(2))); setContentScale(s); localStorage.setItem('scl_content_scale', String(s)); };
+  // Per-page manual resize: independent width (sx) and height (sy) scale factors. null entry
+  // (or absent) → use the page's auto-fit scale. Applied as a CSS transform so it survives
+  // PDF capture (pdf.ts only neutralises `zoom`, not `transform`).
+  const [pageScaleOverrides, setPageScaleOverrides] = useState<Record<number, { sx: number; sy: number }>>({});
+  const handlePageScaleChange = (idx: number, sx: number, sy: number) => setPageScaleOverrides(prev => ({ ...prev, [idx]: { sx, sy } }));
+  const resetPageScale = (idx: number) => setPageScaleOverrides(prev => { const n = { ...prev }; delete n[idx]; return n; });
+  // Reset per-page overrides when patient changes
+  useEffect(() => { setPageScaleOverrides({}); }, [pid]);
   // Per-column horizontal alignment for the 4 standard columns.
   const [colAlign, setColAlign] = useState<('left' | 'center' | 'right')[]>(() => {
     try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colalign') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
@@ -988,7 +1000,18 @@ export function ReportPreviewPage() {
     // text selection — getSelection()/caret — inside a zoomed contentEditable, which is why the
     // toolbar buttons (and even Ctrl/Cmd+A) appeared dead. The editor therefore renders at natural
     // 1:1; print/PDF auto-fit each page back to A4, so output is unaffected.
-    clone?.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => { s.style.zoom = ''; });
+    clone?.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(s => {
+      // Undo the per-page resize transform so the editor flows the content naturally (top-left
+      // absolute + scale() would otherwise collapse/overlap the editable text).
+      s.style.zoom = '';
+      s.style.transform = '';
+      s.style.position = '';
+      s.style.top = '';
+      s.style.left = '';
+      s.style.width = '';
+    });
+    // Collapse the per-page resize frame back to natural flow (drop its fixed scaled W/H).
+    clone?.querySelectorAll<HTMLElement>('[data-scale-frame]').forEach(f => { f.style.width = ''; f.style.height = ''; });
     setEditHtml(reportOverride ?? clone?.innerHTML ?? '');
     setEditing(true);
   }
@@ -999,17 +1022,23 @@ export function ReportPreviewPage() {
       clearReportOverride(pid).then(() => qc.invalidateQueries({ queryKey: ['report-override', pid] })).catch(() => {});
     }
   }, [rawOverride, overrideValid, pid, qc]);
-  // Fill the editable host imperatively, lock the chrome, make the rest editable, focus it.
+  // Fill the editable host imperatively and set up the GRID editing model:
+  //   • the host itself is NOT contentEditable
+  //   • each report body section (headings, notes, comments) IS editable text
+  //   • table CELLS are NOT editable — they're grid cells. Selection/deselection is therefore
+  //     crisp (no browser text-selection fighting us); you double-click / type to edit a cell.
+  // This is what makes the experience feel like a real spreadsheet.
   useEffect(() => {
     if (!editing || editHtml == null) return;
     const host = editHostRef.current;
     if (!host) return;
     host.innerHTML = editHtml;
-    host.contentEditable = 'true';
+    host.contentEditable = 'false';
     host.spellcheck = false;
-    // Re-assert locked chrome (in case a snapshot lost the attribute).
-    host.querySelectorAll<HTMLElement>('.report-letterhead, .report-letterfoot').forEach(el => { el.contentEditable = 'false'; });
-    host.querySelectorAll<HTMLElement>('section[contenteditable], [data-name-box]').forEach(el => { el.contentEditable = 'false'; });
+    // Editable text regions = the report body sections (NOT the letterhead / name box / footer).
+    host.querySelectorAll<HTMLElement>('[data-editable-body]').forEach(b => { b.contentEditable = 'true'; b.spellcheck = false; });
+    // Cells become non-editable grid cells (double-click to edit — handled by the toolbar).
+    host.querySelectorAll<HTMLElement>('[data-editable-body] td, [data-editable-body] th').forEach(c => { c.contentEditable = 'false'; });
     // At natural size some pages can be taller than A4; the print layout clips them
     // (overflow:hidden) which would HIDE content while editing. Let pages grow so everything is
     // visible & editable — print/PDF re-fit each page to A4 from the saved HTML.
@@ -1018,7 +1047,6 @@ export function ReportPreviewPage() {
       p.style.height = 'auto';
       p.style.minHeight = '297mm';
     });
-    host.focus({ preventScroll: true });
   }, [editing, editHtml]);
 
   async function saveEditedBody(html: string) {
@@ -1033,7 +1061,16 @@ export function ReportPreviewPage() {
   function saveEdit() {
     const host = editHostRef.current;
     if (!host) { setEditing(false); return; }
-    saveEditedBody(host.innerHTML);
+    // Serialize from a CLONE so we can strip all editing-only artefacts (contentEditable flags,
+    // selection/active/editing highlight classes) without disturbing the live editor — they must
+    // never leak into the saved report / PDF / print.
+    const clone = host.cloneNode(true) as HTMLElement;
+    clone.removeAttribute('contenteditable');
+    clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    clone.querySelectorAll('.report-cell-selected, .report-cell-editing').forEach(c => {
+      c.classList.remove('report-cell-selected', 'report-cell-editing');
+    });
+    saveEditedBody(clone.innerHTML);
   }
   // Ctrl/Cmd + and − zoom the preview (and Ctrl/Cmd 0 resets) — like a browser/Word, so the
   // whole report can be scaled to fit the screen. Intercepts the WebView's own zoom.
@@ -1173,10 +1210,13 @@ export function ReportPreviewPage() {
   const pageList = sortedPanels.length ? sortedPanels : [null];
 
   return (
-    <div className="flex gap-6">
+    // Fill the workspace exactly (viewport − topbar(60px) − main's bottom padding(32px)) and
+    // hide outer overflow, so the page itself never scrolls. Each column below owns its own
+    // scrollbar — the preview sheets and the config sidebar scroll fully independently.
+    <div className="flex gap-6 h-[calc(100vh-92px)] overflow-hidden">
       {/* ── Preview pane ── */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-4 print:hidden">
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-4 print:hidden shrink-0">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-sm">
             <ChevronLeft size={16} /> Back to Results
           </button>
@@ -1195,11 +1235,11 @@ export function ReportPreviewPage() {
         {editing && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#eef0fe] border border-[#c7c9ff] px-3 py-1.5 text-[12.5px] text-[#4f46e5] print:hidden">
             <Pencil size={13} strokeWidth={2} />
-            <span><strong>Editing</strong> — click any value to change it; select text and use the toolbar to format. Header, name box &amp; footer are locked. Then <strong>Save</strong>.</span>
+            <span><strong>Spreadsheet editing</strong> — <strong>click</strong>/<strong>arrows</strong> to move, <strong>type</strong> or <strong>F2</strong> to edit, <strong>Tab</strong>/<strong>Enter</strong> to move on. <strong>Drag</strong> or <strong>Shift+arrows</strong> select a block; a <strong>column heading</strong> selects the column; <strong>⌘/Ctrl+A</strong> selects all. <strong>⌘/Ctrl+C/X/V</strong> copy/cut/paste, <strong>Del</strong> clears, <strong>Esc</strong> deselects. <strong>Right-click</strong> for insert/delete rows &amp; columns &amp; borders; drag a heading's right edge to resize. Toolbar styles the whole selection. Then <strong>Save</strong>.</span>
           </div>
         )}
         {editing && <RichTextToolbar />}
-        <div className="overflow-auto pb-8">
+        <div className="overflow-auto pb-8 flex-1 min-h-0">
           {/* Zoom the WHOLE A4 sheet uniformly (CSS zoom keeps the 210mm page fixed-width so it
               never reflows) and keep it centred. `width:210mm` + mx-auto means the scaled sheet
               stays centred in the pane at any zoom — no left/right drift. Neutralised for PDF
@@ -1213,17 +1253,21 @@ export function ReportPreviewPage() {
                 key="edit"
                 id="report-print-area"
                 ref={editHostRef}
-                className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
+                className={cn("report-sheet report-editing relative", !printLetterhead && "no-letterhead")}
                 style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm`, outline: '2px solid #6366f1' }}
               />
             ) : reportOverride ? (
-              // Saved manual edit: render the stored full paginated report HTML statically.
-              <div
+              // Saved manual edit: render the stored full paginated report HTML, but keep the
+              // per-page drag-resize alive by re-attaching handles + transforms to the
+              // [data-scale-frame]/[data-editable-body] markers preserved in the saved HTML.
+              <EditedReportView
                 key="ov"
-                id="report-print-area"
+                html={reportOverride}
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
-                style={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
-                dangerouslySetInnerHTML={{ __html: reportOverride }}
+                styleVars={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
+                overrides={pageScaleOverrides}
+                onChange={handlePageScaleChange}
+                onReset={resetPageScale}
               />
             ) : (
             <div
@@ -1242,6 +1286,11 @@ export function ReportPreviewPage() {
                   measureKey={JSON.stringify([rowPad, colWidths, colOffset, colAlign])}
                   breaks={pageBreaks}
                   onMove={moveBlock}
+                  pageScaleOverrides={pageScaleOverrides}
+                  onPageScaleChange={handlePageScaleChange}
+                  onPageScaleReset={resetPageScale}
+                  editing={editing}
+                  repeatNameBox={repeatNameBox}
                   Watermark={Watermark}
                   Letterhead={Letterhead}
                   PatientStrip={PatientStrip}
@@ -1270,7 +1319,7 @@ export function ReportPreviewPage() {
                     <Watermark />
                     <Letterhead />
                     <div className="report-body relative flex-1">
-                      <PatientStrip />
+                      {(idx === 0 || repeatNameBox) && <PatientStrip />}
                       <section data-editable-body suppressContentEditableWarning className="relative mt-3" style={{ zoom: contentScale }}>
                         {pg ? (
                           <div>
@@ -1315,7 +1364,7 @@ export function ReportPreviewPage() {
       </div>
 
       {/* ── Action panel ── */}
-      <aside className="w-[252px] shrink-0 space-y-4 pt-4 print:hidden">
+      <aside className="w-[252px] shrink-0 space-y-4 pt-4 pb-8 pr-1 print:hidden h-full overflow-y-auto">
         <div className="card p-4 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1">Deliver</p>
           {!isApproved && (
@@ -1393,98 +1442,23 @@ export function ReportPreviewPage() {
         )}
 
         <div className="card p-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Adjust content</p>
-          {reportOverride && (
-            <p className="text-[12px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
-              This report has manual edits, so these layout controls don't apply.{' '}
-              <button onClick={revertEdit} className="font-semibold underline">Revert to original</button> to use them.
-            </p>
-          )}
-          <div className={cn("space-y-3", reportOverride && "opacity-40 pointer-events-none")}>
-
-          {/* Overall content size — shrink to fit more per page, or enlarge */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[12.5px] text-[#54555f]">Content size</span>
-              <span className="text-[12px] tabular-nums text-[#8a8b97]">{Math.round(contentScale * 100)}%</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => setScale(contentScale - 0.05)} className="h-7 w-7 rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">−</button>
-              <input type="range" min={0.6} max={1.15} step={0.01} value={contentScale}
-                onChange={e => setScale(parseFloat(e.target.value))} className="flex-1 accent-[#6366f1]" />
-              <button onClick={() => setScale(contentScale + 0.05)} className="h-7 w-7 rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">+</button>
-            </div>
-            <button onClick={() => setScale(1)} className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset to 100%</button>
-          </div>
-
-          {/* Per-column WIDTH — always-visible − / + buttons that widen/narrow each column.
-              These directly resize the report columns (no hovering needed). */}
-          <div>
-            <span className="text-[12.5px] text-[#54555f]">Column widths</span>
-            <div className="mt-1 space-y-1">
-              {['Test Name', 'Results', 'Units', 'Normal Ranges'].map((lbl, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <span className="flex-1 text-[12px] text-[#34353f] truncate">{lbl}</span>
-                  <span className="w-9 text-right text-[11px] tabular-nums text-[#8a8b97]">{Math.round(colWidths[i])}%</span>
-                  <button onClick={() => adjustColWidth(i, -3)} title="Narrower"
-                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">−</button>
-                  <button onClick={() => adjustColWidth(i, 3)} title="Wider"
-                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">+</button>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => { setColWidths([24, 18, 12, 46]); localStorage.setItem('scl_colw', JSON.stringify([24, 18, 12, 46])); }}
-              className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset widths</button>
-          </div>
-
-          {/* Move each column LEFT/RIGHT independently (shifts only that column's content). */}
-          <div>
-            <span className="text-[12.5px] text-[#54555f]">Move column ← →</span>
-            <div className="mt-1 space-y-1">
-              {['Test Name', 'Results', 'Units', 'Normal Ranges'].map((lbl, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <span className="flex-1 text-[12px] text-[#34353f] truncate">{lbl}</span>
-                  <button onClick={() => moveColumn(i, 'left')} title="Move left"
-                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">‹</button>
-                  <button onClick={() => moveColumn(i, 'right')} title="Move right"
-                    className="h-6 w-6 inline-flex items-center justify-center rounded-md border border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]">›</button>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => { setColOffset([0, 8, 8, 56]); localStorage.setItem('scl_coloff', JSON.stringify([0, 8, 8, 56])); }}
-              className="mt-1 text-[11px] text-[#4f46e5] hover:underline">Reset positions</button>
-          </div>
-
-          {/* Per-column alignment — click each to cycle Left → Centre → Right */}
-          <div>
-            <span className="text-[12.5px] text-[#54555f]">Column alignment</span>
-            <div className="mt-1 grid grid-cols-4 gap-1">
-              {['Name', 'Result', 'Unit', 'Range'].map((lbl, i) => (
-                <button key={i} onClick={() => cycleAlign(i)} title={`${lbl}: ${colAlign[i]}`}
-                  className="flex flex-col items-center gap-0.5 rounded-md border border-[#e6e7ee] py-1 hover:border-[#c7c9ff]">
-                  {colAlign[i] === 'left' ? <AlignLeft size={13} /> : colAlign[i] === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}
-                  <span className="text-[9px] text-[#8a8b97]">{lbl}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Row spacing / density */}
-          <GapInput label="Row spacing" value={rowPad} onChange={setRowPadding} max={10} unit="px" />
-          </div>
-        </div>
-
-        <div className="card p-4 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Layout</p>
           <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           {compactReport && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
               <p className="text-[10.5px] text-[#54555f] leading-snug">
                 Panels are packed onto pages without splitting any test; a test that doesn't fit moves
-                whole to the next page. Header, name box &amp; footer repeat on every page.
+                whole to the next page. Use the ↑/↓ arrows on a panel to move it between pages.
               </p>
               <GapInput label="Bottom gap" value={bottomGapMm} onChange={(v) => { setBottomGapMm(v); localStorage.setItem('scl_bottom_gap', String(v)); }} />
             </div>
+          )}
+          <Toggle label="Repeat name box on every page" checked={repeatNameBox} onChange={(v) => { setRepeatNameBox(v); localStorage.setItem('scl_repeat_namebox', v ? '1' : '0'); }} />
+          {!repeatNameBox && (
+            <p className="text-[10.5px] text-[#54555f] leading-snug -mt-1">
+              Continuation pages (page 2+) keep the letterhead, footer &amp; signature but omit the
+              patient name box — ideal when a long test runs onto the next page.
+            </p>
           )}
           <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={(v) => { setPrintLetterhead(v); localStorage.setItem('scl_print_letterhead', v ? '1' : '0'); }} />
           {!printLetterhead && (
@@ -1540,6 +1514,473 @@ function RichTextToolbar() {
   const savedRange = useRef<Range | null>(null);
   const undoStack = useRef<string[]>([]);
   const redoStack = useRef<string[]>([]);
+  // ── Spreadsheet-style cell selection ─────────────────────────────────────────────
+  // `selectedCells` holds whole <td>/<th> elements that are block-selected. When that set is
+  // non-empty AND there is no character-level text selection, the toolbar's format buttons act
+  // on the whole cells (cell-level styling) — so you can select a column / row / range / single
+  // cell and bold, recolour or resize all of it at once. The gestures (below) are:
+  //   • click a cell           → select just that cell (and place the caret so you can type)
+  //   • drag across cells      → select a rectangular block (covers rows & columns too)
+  //   • click a column heading → select the whole column
+  //   • Shift+click            → extend the selection from the anchor to the clicked cell
+  //   • Cmd/Ctrl+click         → add/remove a single cell from the selection
+  const selectedCells = useRef<HTMLElement[]>([]);
+  const anchorCell = useRef<HTMLElement | null>(null);
+  // The cell currently in text-edit mode (made contentEditable on double-click / typing).
+  const editingCell = useRef<HTMLElement | null>(null);
+  // The focused ("active") cell — the moving end for keyboard navigation & range extension.
+  const activeCell = useRef<HTMLElement | null>(null);
+  // Internal cell clipboard (2D innerHTML grid) for copy/cut/paste.
+  const clipboard = useRef<string[][] | null>(null);
+  const clearCellSel = () => {
+    selectedCells.current.forEach(c => c.classList.remove('report-cell-selected'));
+    selectedCells.current = [];
+  };
+  const setCellSel = (cells: HTMLElement[]) => {
+    clearCellSel();
+    cells.forEach(c => c.classList.add('report-cell-selected'));
+    selectedCells.current = cells;
+  };
+  /** Finish editing the active cell: lock it back to a non-editable grid cell. */
+  const commitEdit = () => {
+    const cell = editingCell.current;
+    if (!cell) return;
+    cell.contentEditable = 'false';
+    cell.classList.remove('report-cell-editing');
+    editingCell.current = null;
+  };
+  /** Enter text-edit mode for a cell. `selectAll` highlights its text (typing replaces it). */
+  const enterEdit = (cell: HTMLElement, selectAll: boolean) => {
+    if (editingCell.current && editingCell.current !== cell) commitEdit();
+    setCellSel([cell]);
+    anchorCell.current = cell;
+    editingCell.current = cell;
+    cell.contentEditable = 'true';
+    cell.classList.add('report-cell-editing');
+    cell.focus({ preventScroll: true });
+    const r = document.createRange();
+    r.selectNodeContents(cell);
+    if (!selectAll) r.collapse(false);   // caret at end
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    savedRange.current = r.cloneRange();
+  };
+  /** All cells in `th`'s column (same table, same cellIndex). */
+  const columnCells = (th: HTMLTableCellElement): HTMLElement[] => {
+    const table = th.closest('table'); if (!table) return [th];
+    const idx = th.cellIndex; const out: HTMLElement[] = [];
+    table.querySelectorAll('tr').forEach(tr => { const c = (tr as HTMLTableRowElement).cells[idx]; if (c) out.push(c as HTMLElement); });
+    return out;
+  };
+  /** Every cell in the rectangle spanned by cells `a` and `b` (same table). */
+  const rangeCells = (a: HTMLElement, b: HTMLElement): HTMLElement[] => {
+    const table = a.closest('table');
+    if (!table || b.closest('table') !== table) return [b];
+    const rows = Array.from((table as HTMLTableElement).rows);
+    const ra = rows.indexOf((a.closest('tr') as HTMLTableRowElement));
+    const rb = rows.indexOf((b.closest('tr') as HTMLTableRowElement));
+    const ca = (a as HTMLTableCellElement).cellIndex, cb = (b as HTMLTableCellElement).cellIndex;
+    const [rlo, rhi] = [Math.min(ra, rb), Math.max(ra, rb)];
+    const [clo, chi] = [Math.min(ca, cb), Math.max(ca, cb)];
+    const out: HTMLElement[] = [];
+    for (let r = rlo; r <= rhi; r++) {
+      const row = rows[r]; if (!row) continue;
+      for (let c = clo; c <= chi; c++) { const cell = row.cells[c]; if (cell) out.push(cell as HTMLElement); }
+    }
+    return out;
+  };
+  /** True when the user has highlighted characters inside the editor (so formatting should
+   *  target that text rather than the whole selected cells). */
+  const hasTextSel = (): boolean => {
+    const s = window.getSelection();
+    if (!s || s.rangeCount === 0) return false;
+    const r = s.getRangeAt(0);
+    return !r.collapsed && !!editorHost()?.contains(r.commonAncestorContainer);
+  };
+  /** If a cell selection is active (and no text is highlighted), run `fn` on every selected
+   *  cell with one undo checkpoint and return true; else return false so the caller falls back
+   *  to text-range formatting. */
+  const applyToCells = (fn: (el: HTMLElement) => void): boolean => {
+    if (hasTextSel() || !selectedCells.current.length) return false;
+    pushUndo();
+    selectedCells.current.forEach(fn);
+    return true;
+  };
+
+  // ── Structural table operations (act on the current cell selection) ───────────────
+  const tableOf = (): HTMLTableElement | null => (selectedCells.current[0]?.closest('table') as HTMLTableElement) ?? null;
+  const distinctRows = (): HTMLTableRowElement[] => {
+    const set = new Set<HTMLTableRowElement>();
+    selectedCells.current.forEach(c => { const tr = c.closest('tr'); if (tr) set.add(tr as HTMLTableRowElement); });
+    const table = tableOf();
+    if (!table) return [...set];
+    // Return in document order.
+    return Array.from(table.rows).filter(r => set.has(r));
+  };
+  const distinctCols = (): number[] => {
+    const set = new Set<number>();
+    selectedCells.current.forEach(c => set.add((c as HTMLTableCellElement).cellIndex));
+    return [...set].sort((a, b) => a - b);
+  };
+  const deleteRows = () => {
+    if (!selectedCells.current.length) return;
+    pushUndo();
+    distinctRows().forEach(tr => tr.remove());
+    clearCellSel(); anchorCell.current = null;
+  };
+  const deleteCols = () => {
+    const table = tableOf(); if (!table) return;
+    pushUndo();
+    const cg = table.querySelector('colgroup');
+    // Remove from the highest index first so earlier indices stay valid.
+    distinctCols().sort((a, b) => b - a).forEach(idx => {
+      Array.from(table.rows).forEach(r => { const cell = r.cells[idx]; if (cell) cell.remove(); });
+      if (cg && cg.children[idx]) cg.children[idx].remove();
+    });
+    clearCellSel(); anchorCell.current = null;
+  };
+  const clearContents = () => {
+    if (!selectedCells.current.length) return;
+    pushUndo();
+    selectedCells.current.forEach(c => { c.innerHTML = '<br>'; });
+  };
+  const insertRow = (below: boolean) => {
+    const rows = distinctRows(); if (!rows.length) return;
+    pushUndo();
+    const ref = below ? rows[rows.length - 1] : rows[0];
+    const clone = ref.cloneNode(true) as HTMLTableRowElement;
+    Array.from(clone.cells).forEach(c => { c.innerHTML = '<br>'; c.classList.remove('report-cell-selected'); });
+    if (below) ref.after(clone); else ref.before(clone);
+  };
+  const insertCol = (right: boolean) => {
+    const table = tableOf(); if (!table) return;
+    const cols = distinctCols(); if (!cols.length) return;
+    pushUndo();
+    const idx = right ? cols[cols.length - 1] : cols[0];
+    Array.from(table.rows).forEach(r => {
+      const refCell = r.cells[idx];
+      const tag = refCell?.tagName.toLowerCase() === 'th' ? 'th' : 'td';
+      const nc = document.createElement(tag);
+      nc.innerHTML = '<br>';
+      if (refCell) { if (right) refCell.after(nc); else refCell.before(nc); } else r.appendChild(nc);
+    });
+    const cg = table.querySelector('colgroup');
+    if (cg) {
+      const refCol = cg.children[idx];
+      const nc = document.createElement('col');
+      if (refCol) { if (right) refCol.after(nc); else refCol.before(nc); } else cg.appendChild(nc);
+    }
+    clearCellSel(); anchorCell.current = null;
+  };
+  /** Number / bullet each selected cell in order (toggles off if markers already present). */
+  const listCells = (ordered: boolean) => {
+    pushUndo();
+    let n = 0;
+    selectedCells.current.forEach(c => {
+      const existing = c.querySelector(':scope > [data-list-marker]');
+      if (existing) { existing.remove(); return; }
+      n += 1;
+      const marker = document.createElement('span');
+      marker.setAttribute('data-list-marker', '');
+      marker.style.marginRight = '6px';
+      marker.textContent = ordered ? `${n}.` : '•';
+      c.insertBefore(marker, c.firstChild);
+    });
+  };
+
+  // ── Keyboard navigation ───────────────────────────────────────────────────────
+  /** Move the active cell by (dr, dc). `extend` grows the selection from the anchor (Shift). */
+  const moveActive = (dr: number, dc: number, extend: boolean) => {
+    const active = activeCell.current ?? selectedCells.current[selectedCells.current.length - 1];
+    if (!active) return;
+    const table = active.closest('table'); if (!table) return;
+    const rows = Array.from((table as HTMLTableElement).rows);
+    const r = rows.indexOf(active.closest('tr') as HTMLTableRowElement);
+    const c = (active as HTMLTableCellElement).cellIndex;
+    if (r < 0) return;
+    const nr = Math.max(0, Math.min(rows.length - 1, r + dr));
+    const row = rows[nr]; if (!row || !row.cells.length) return;
+    const nc = Math.max(0, Math.min(row.cells.length - 1, c + dc));
+    const next = row.cells[nc] as HTMLElement; if (!next) return;
+    activeCell.current = next;
+    if (extend && anchorCell.current) setCellSel(rangeCells(anchorCell.current, next));
+    else { anchorCell.current = next; setCellSel([next]); }
+    next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+  const selectAllInTable = () => {
+    const active = activeCell.current ?? selectedCells.current[0];
+    const table = active?.closest('table'); if (!table) return;
+    setCellSel(Array.from(table.querySelectorAll<HTMLElement>('td,th')));
+    anchorCell.current = (table.querySelector('td,th') as HTMLElement) ?? null;
+  };
+
+  // ── Clipboard (copy / cut / paste cell blocks) ────────────────────────────────
+  const htmlToText = (html: string) => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent ?? ''; };
+  /** The selection as a rectangular 2D grid of cell innerHTML (fills gaps from the table). */
+  const selectionGrid = (): { grid: string[][] } | null => {
+    const cells = selectedCells.current; if (!cells.length) return null;
+    const table = cells[0].closest('table') as HTMLTableElement | null; if (!table) return null;
+    const rows = Array.from(table.rows);
+    let rmin = Infinity, rmax = -1, cmin = Infinity, cmax = -1;
+    const pos = new Map<string, HTMLElement>();
+    cells.forEach(cell => {
+      const r = rows.indexOf(cell.closest('tr') as HTMLTableRowElement);
+      const c = (cell as HTMLTableCellElement).cellIndex;
+      if (r < 0) return;
+      pos.set(`${r}_${c}`, cell);
+      rmin = Math.min(rmin, r); rmax = Math.max(rmax, r); cmin = Math.min(cmin, c); cmax = Math.max(cmax, c);
+    });
+    if (rmax < 0) return null;
+    const grid: string[][] = [];
+    for (let r = rmin; r <= rmax; r++) {
+      const rowArr: string[] = [];
+      for (let c = cmin; c <= cmax; c++) {
+        const cell = pos.get(`${r}_${c}`) ?? (rows[r]?.cells[c] as HTMLElement | undefined);
+        rowArr.push(cell ? cell.innerHTML : '');
+      }
+      grid.push(rowArr);
+    }
+    return { grid };
+  };
+  const copySel = () => {
+    const g = selectionGrid(); if (!g) return;
+    clipboard.current = g.grid;
+    try { navigator.clipboard?.writeText(g.grid.map(r => r.map(htmlToText).join('\t')).join('\n')); } catch { /* clipboard blocked — internal paste still works */ }
+  };
+  const cutSel = () => { copySel(); pushUndo(); selectedCells.current.forEach(c => { c.innerHTML = '<br>'; }); };
+  const pasteSel = () => {
+    const cb = clipboard.current; if (!cb) return;
+    pushUndo();
+    // A single copied cell pasted onto a multi-cell selection fills them all (Excel behaviour).
+    if (cb.length === 1 && cb[0].length === 1 && selectedCells.current.length > 1) {
+      const val = cb[0][0];
+      selectedCells.current.forEach(c => { c.innerHTML = val; });
+      return;
+    }
+    const active = activeCell.current ?? selectedCells.current[0]; if (!active) return;
+    const table = active.closest('table') as HTMLTableElement | null; if (!table) return;
+    const rows = Array.from(table.rows);
+    const r0 = rows.indexOf(active.closest('tr') as HTMLTableRowElement);
+    const c0 = (active as HTMLTableCellElement).cellIndex;
+    const pasted: HTMLElement[] = [];
+    for (let i = 0; i < cb.length; i++) {
+      const row = rows[r0 + i]; if (!row) break;
+      for (let j = 0; j < cb[i].length; j++) {
+        const cell = row.cells[c0 + j] as HTMLElement | undefined;
+        if (cell) { cell.innerHTML = cb[i][j]; pasted.push(cell); }
+      }
+    }
+    if (pasted.length) setCellSel(pasted);
+  };
+
+  // ── Cell-level formatting (borders, vertical alignment) ───────────────────────
+  const forEachSelCell = (fn: (el: HTMLElement) => void) => {
+    if (!selectedCells.current.length) return;
+    pushUndo();
+    selectedCells.current.forEach(fn);
+  };
+  const toggleBorders = () => forEachSelCell(c => {
+    const on = !!c.style.border && c.style.border !== 'none' && c.style.border !== '';
+    c.style.border = on ? 'none' : '1px solid #111';
+  });
+  const vAlign = (v: string) => forEachSelCell(c => { c.style.verticalAlign = v; });
+
+  // Right-click context menu (table operations). Positioned at the cursor.
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Wire the gestures. Lives only while the toolbar (edit mode) is mounted. Delegation on the
+  // host means it keeps working after the editable HTML is (re)written.
+  useEffect(() => {
+    const host = editorHost();
+    if (!host) return;
+    let downCell: HTMLElement | null = null;
+    let dragging = false;
+    let lastDragCell: HTMLElement | null = null;   // last cell the drag extended to (smoothness)
+    // Column resize state.
+    let resizeTh: HTMLTableCellElement | null = null;
+    let resizeStartX = 0, resizeStartW = 0;
+    let rafPending = false;   // coalesce resize updates to one per frame
+
+    const cellOf = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      const c = el?.closest('td,th') as HTMLElement | null;
+      return c && host.contains(c) ? c : null;
+    };
+    const setColWidth = (th: HTMLTableCellElement, w: number) => {
+      const table = th.closest('table'); if (!table) return;
+      const idx = th.cellIndex;
+      const cg = table.querySelector('colgroup');
+      if (cg && cg.children[idx]) (cg.children[idx] as HTMLElement).style.width = `${w}px`;
+      else th.style.width = `${w}px`;
+    };
+
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      setMenu(null);
+      const cell = cellOf(e.target);
+      // Clicking inside the cell that's already being edited → let the browser place the caret.
+      if (cell && cell === editingCell.current) return;
+      // Clicking anywhere else commits an in-progress cell edit.
+      if (editingCell.current) commitEdit();
+
+      // Column resize: grab the right edge (~7px) of a column heading.
+      const th = (e.target as HTMLElement | null)?.closest('thead th') as HTMLTableCellElement | null;
+      if (th && host.contains(th)) {
+        const rect = th.getBoundingClientRect();
+        if (rect.right - e.clientX <= 7) {
+          e.preventDefault();
+          resizeTh = th; resizeStartX = e.clientX; resizeStartW = rect.width;
+          host.classList.add('is-col-resizing');
+          return;
+        }
+      }
+      // Clicked a non-cell area (heading/notes/blank) → clear the grid selection and let the
+      // editable text region take the caret.
+      if (!cell) { clearCellSel(); anchorCell.current = null; return; }
+
+      // Cells are non-editable grid cells: WE own the pointer (no browser text-selection here),
+      // which is exactly why selection & deselection feel clean.
+      e.preventDefault();
+      if (e.shiftKey && anchorCell.current) { activeCell.current = cell; setCellSel(rangeCells(anchorCell.current, cell)); return; }
+      if (e.metaKey || e.ctrlKey) {
+        const set = new Set(selectedCells.current);
+        if (set.has(cell)) { cell.classList.remove('report-cell-selected'); set.delete(cell); }
+        else { cell.classList.add('report-cell-selected'); set.add(cell); }
+        selectedCells.current = [...set];
+        anchorCell.current = cell; activeCell.current = cell;
+        return;
+      }
+      // Header → select whole column; body cell → select just it. Drag extends either.
+      if (cell.closest('thead')) { setCellSel(columnCells(cell as HTMLTableCellElement)); }
+      else setCellSel([cell]);
+      anchorCell.current = cell; activeCell.current = cell;
+      downCell = cell; dragging = false; lastDragCell = cell;
+    };
+
+    const onMove = (e: MouseEvent) => {
+      if (resizeTh) {
+        e.preventDefault();
+        const x = e.clientX;
+        if (rafPending) return;            // one width update per animation frame = buttery resize
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          if (resizeTh) setColWidth(resizeTh, Math.max(30, resizeStartW + (x - resizeStartX)));
+        });
+        return;
+      }
+      // Show a col-resize cursor when hovering a heading's right edge.
+      if (!downCell && (e.buttons & 1) === 0) {
+        const th = (e.target as HTMLElement | null)?.closest('thead th') as HTMLTableCellElement | null;
+        if (th && host.contains(th)) {
+          const r = th.getBoundingClientRect();
+          th.style.cursor = r.right - e.clientX <= 7 ? 'col-resize' : 'cell';
+        }
+        return;
+      }
+      if (!downCell || (e.buttons & 1) === 0) return;
+      const cell = cellOf(e.target);
+      if (!cell || cell === lastDragCell) return;   // only recompute when the hovered cell changes
+      lastDragCell = cell;
+      dragging = true;
+      host.classList.add('is-cell-dragging');
+      e.preventDefault();
+      activeCell.current = cell;
+      setCellSel(rangeCells(downCell, cell));   // covers dragging back to the origin (collapses)
+    };
+
+    const onUp = () => {
+      lastDragCell = null;
+      host.classList.remove('is-cell-dragging');
+      if (resizeTh) { resizeTh = null; host.classList.remove('is-col-resizing'); }
+      downCell = null; dragging = false;
+    };
+
+    // Double-click a cell → edit its text (caret at the end).
+    const onDbl = (e: MouseEvent) => {
+      const cell = cellOf(e.target);
+      if (cell) { e.preventDefault(); enterEdit(cell, false); }
+    };
+
+    // Right-click a cell → table-operations menu. If the cell isn't already selected, select it.
+    const onCtx = (e: MouseEvent) => {
+      const cell = cellOf(e.target);
+      if (!cell) return;
+      e.preventDefault();
+      if (editingCell.current) commitEdit();
+      if (!selectedCells.current.includes(cell)) { setCellSel([cell]); anchorCell.current = cell; }
+      setMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    // Full spreadsheet keyboard model.
+    const ARROWS: Record<string, [number, number]> = {
+      ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1],
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const host2 = editorHost();
+      if (!host2) return;
+      // Only act when our editor is focused or cells are selected.
+      if (!host2.contains(document.activeElement) && !selectedCells.current.length && !editingCell.current) return;
+
+      if (e.key === 'Escape') {
+        if (editingCell.current) commitEdit();
+        else { clearCellSel(); anchorCell.current = null; activeCell.current = null; }
+        return;
+      }
+      // While editing a cell: Tab / Enter commit and move (Excel); everything else types normally.
+      if (editingCell.current) {
+        if (e.key === 'Tab') { e.preventDefault(); commitEdit(); moveActive(0, e.shiftKey ? -1 : 1, false); }
+        else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); moveActive(1, 0, false); }
+        return;
+      }
+      const sel = selectedCells.current;
+      if (!sel.length) return;
+
+      // Clipboard / select-all (Ctrl/Cmd). Other Ctrl combos (B/I/U/Z/Y) handled elsewhere.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'c') { e.preventDefault(); copySel(); return; }
+        if (k === 'x') { e.preventDefault(); cutSel(); return; }
+        if (k === 'v') { e.preventDefault(); pasteSel(); return; }
+        if (k === 'a') { e.preventDefault(); selectAllInTable(); return; }
+        return;
+      }
+      // Navigation.
+      if (e.key in ARROWS) { e.preventDefault(); const [dr, dc] = ARROWS[e.key]; moveActive(dr, dc, e.shiftKey); return; }
+      if (e.key === 'Tab') { e.preventDefault(); moveActive(0, e.shiftKey ? -1 : 1, false); return; }
+      if (e.key === 'Enter') { e.preventDefault(); moveActive(e.shiftKey ? -1 : 1, 0, false); return; }
+      if (e.key === 'F2') { e.preventDefault(); enterEdit(activeCell.current ?? sel[0], false); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault(); pushUndo();
+        sel.forEach(c => { c.innerHTML = '<br>'; });
+        return;
+      }
+      // A printable key on a single selected cell → start editing, replacing its content (Excel).
+      if (sel.length === 1 && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        pushUndo();
+        sel[0].innerHTML = '';
+        enterEdit(sel[0], false);   // the keypress itself then inserts the character
+      }
+    };
+    document.addEventListener('keydown', onKey);
+
+    host.addEventListener('mousedown', onDown);
+    host.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    host.addEventListener('dblclick', onDbl);
+    host.addEventListener('contextmenu', onCtx);
+    return () => {
+      host.removeEventListener('mousedown', onDown);
+      host.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      host.removeEventListener('dblclick', onDbl);
+      host.removeEventListener('contextmenu', onCtx);
+      document.removeEventListener('keydown', onKey);
+      commitEdit();
+      clearCellSel();
+    };
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Continuously remember the last selection that was inside the editable host, so a command
   // still has a target even after a dropdown/colour-picker briefly stole focus.
@@ -1564,7 +2005,9 @@ function RichTextToolbar() {
   const getRange = (expand: boolean): Range | null => {
     const host = editorHost();
     if (!host) return null;
-    host.focus({ preventScroll: true });
+    // Focus the active editable region (the cell being edited, else an editable body section) —
+    // NOT the host, which is non-editable in the grid model and focusing it would drop the caret.
+    (editingCell.current ?? host.querySelector<HTMLElement>('[data-editable-body]') ?? host).focus({ preventScroll: true });
     const sel = window.getSelection();
     if (!sel) return null;
     let range: Range | null = null;
@@ -1665,34 +2108,138 @@ function RichTextToolbar() {
     blocks.forEach(apply);
   };
 
-  const bold        = () => wrapInline(s => s.style.fontWeight = /^(bold|[6-9]00)/.test(styleAt('font-weight')) ? 'normal' : 'bold');
-  const italic      = () => wrapInline(s => s.style.fontStyle = styleAt('font-style') === 'italic' ? 'normal' : 'italic');
-  const underline   = () => wrapInline(s => s.style.textDecoration = styleAt('text-decoration-line').includes('underline') ? 'none' : 'underline');
-  const strike      = () => wrapInline(s => s.style.textDecoration = styleAt('text-decoration-line').includes('line-through') ? 'none' : 'line-through');
-  const fontFamily  = (f: string) => wrapInline(s => s.style.fontFamily = f);
-  const fontSize    = (px: string) => wrapInline(s => s.style.fontSize = `${px}px`);
-  const foreColor   = (c: string) => wrapInline(s => s.style.color = c);
-  const highlight   = (c: string) => wrapInline(s => s.style.backgroundColor = c);
-  const align       = (v: string) => styleBlock(el => el.style.textAlign = v);
-  const indent      = (delta: number) => styleBlock(el => {
-    const cur = parseFloat(el.style.marginLeft || '0') || 0;
-    el.style.marginLeft = `${Math.max(0, cur + delta)}px`;
-  });
-
-  /** Turn the selection into a bullet/numbered list. */
-  const makeList = (ordered: boolean) => {
+  /** Native browser editing command — used for the formats that must TOGGLE cleanly (underline,
+   *  strike, lists). CSS text-decoration can't be removed by a nested span, and the browser's
+   *  execCommand correctly splits/unwraps elements to turn a format off (exactly like Word).
+   *  Falls back to `fallback` if the command is a no-op in this WebView. */
+  const execCmd = (cmd: string, fallback?: () => void) => {
     const range = getRange(true);
     if (!range) return;
+    const host = editorHost();
+    const before = host?.innerHTML;
     pushUndo();
+    try { document.execCommand('styleWithCSS', false, 'false'); } catch { /* ignore */ }
+    let ok = false;
+    try { ok = document.execCommand(cmd); } catch { ok = false; }
+    // Some WebViews report success but make no change (or aren't supported at all). If the DOM
+    // didn't actually change, run the pure-DOM fallback so the button never feels dead.
+    if ((!ok || host?.innerHTML === before) && fallback) { fallback(); return; }
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) savedRange.current = sel.getRangeAt(0).cloneRange();
+  };
+
+  // Pure-DOM apply of a text-decoration (fallback when execCommand can't toggle here).
+  const wrapDeco = (kind: string) => {
+    const range = getRange(true);
+    if (!range || range.collapsed) return;
+    const span = document.createElement('span');
+    span.style.textDecoration = kind;
+    try { range.surroundContents(span); }
+    catch { const frag = range.extractContents(); span.appendChild(frag); range.insertNode(span); }
+    reselect(span);
+  };
+
+  // Each format first tries the column/cell selection (Excel-style: style the whole cells);
+  // if none is active it falls back to text-range formatting.
+  const bold        = () => { if (applyToCells(c => { c.style.fontWeight = /^(bold|[6-9]00)/.test(getComputedStyle(c).fontWeight) ? 'normal' : 'bold'; })) return; wrapInline(s => s.style.fontWeight = /^(bold|[6-9]00)/.test(styleAt('font-weight')) ? 'normal' : 'bold'); };
+  const italic      = () => { if (applyToCells(c => { c.style.fontStyle = getComputedStyle(c).fontStyle === 'italic' ? 'normal' : 'italic'; })) return; wrapInline(s => s.style.fontStyle = styleAt('font-style') === 'italic' ? 'normal' : 'italic'); };
+  // Underline & strike TOGGLE via the native engine (it splits/unwraps elements correctly — a
+  // nested text-decoration span can't undo a decoration drawn by an ancestor). Pure-DOM apply
+  // is the fallback if execCommand is a no-op in this WebView.
+  const underline   = () => { if (applyToCells(c => { c.style.textDecoration = c.style.textDecoration.includes('underline') ? 'none' : 'underline'; })) return; execCmd('underline', () => wrapDeco('underline')); };
+  const strike      = () => { if (applyToCells(c => { c.style.textDecoration = c.style.textDecoration.includes('line-through') ? 'none' : 'line-through'; })) return; execCmd('strikeThrough', () => wrapDeco('line-through')); };
+  const fontFamily  = (f: string) => { if (applyToCells(c => { c.style.fontFamily = f; })) return; wrapInline(s => s.style.fontFamily = f); };
+  const fontSize    = (px: string) => { if (applyToCells(c => { c.style.fontSize = `${px}px`; })) return; wrapInline(s => s.style.fontSize = `${px}px`); };
+  const foreColor   = (c: string) => { if (applyToCells(cell => { cell.style.color = c; })) return; wrapInline(s => s.style.color = c); };
+  const highlight   = (c: string) => { if (applyToCells(cell => { cell.style.backgroundColor = c; })) return; wrapInline(s => s.style.backgroundColor = c); };
+  const align       = (v: string) => { if (applyToCells(c => { c.style.textAlign = v; })) return; styleBlock(el => el.style.textAlign = v); };
+  /** Shift a block left/right. Table cells IGNORE margin, so for a <td>/<th> we shift an inner
+   *  wrapper div instead. No lower clamp — negative margins let content slide all the way to the
+   *  far left (and positive all the way right), so the user can position it anywhere on the page. */
+  const indent = (delta: number) => styleBlock(el => {
+    let target = el;
+    if (el.tagName === 'TD' || el.tagName === 'TH') {
+      let wrap = el.querySelector<HTMLElement>(':scope > [data-indent-wrap]');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.setAttribute('data-indent-wrap', '');
+        while (el.firstChild) wrap.appendChild(el.firstChild);
+        el.appendChild(wrap);
+      }
+      target = wrap;
+    }
+    const cur = parseFloat(target.style.marginLeft || '0') || 0;
+    target.style.marginLeft = `${cur + delta}px`;
+  });
+
+  /** Toggle the selection in/out of a bullet/numbered list (Word-style: click once → markers
+   *  appear; click again → markers removed). Pure DOM with the marker styles FORCED inline,
+   *  because Tailwind's reset strips list markers/padding from every <ul>/<ol> — which is why
+   *  lists looked like they "did nothing". Works inside table cells, notes and paragraphs. */
+  const makeList = (ordered: boolean) => {
+    // Multiple cells selected → number/bullet each selected cell in order (e.g. number the rows).
+    if (!hasTextSel() && selectedCells.current.length > 1) { listCells(ordered); return; }
+    const range = getRange(true);
+    if (!range) return;
+    const host = editorHost();
+    if (!host) return;
+    pushUndo();
+    // Already inside a list? → toggle OFF: unwrap each <li> back to a <div> line.
+    let n: Node | null = range.startContainer;
+    if (n.nodeType === Node.TEXT_NODE) n = n.parentElement;
+    const existing = (n as Element | null)?.closest('ul,ol') as HTMLElement | null;
+    if (existing && host.contains(existing) && existing !== host) {
+      const parent = existing.parentNode!;
+      const frag = document.createDocumentFragment();
+      existing.querySelectorAll(':scope > li').forEach(li => {
+        li.querySelectorAll('[data-list-marker]').forEach(m => m.remove());   // drop the • / 1. text
+        const div = document.createElement('div');
+        while (li.firstChild) div.appendChild(li.firstChild);
+        if (!div.childNodes.length) div.appendChild(document.createElement('br'));
+        frag.appendChild(div);
+      });
+      const first = frag.firstChild;
+      parent.replaceChild(frag, existing);
+      if (first) reselect(first);
+      return;
+    }
+    // Otherwise wrap. The marker (• or 1. 2. 3.) is a real TEXT node, not a CSS list-style —
+    // because (a) Tailwind's reset hides CSS markers and (b) html2canvas (PDF/print) doesn't
+    // render CSS markers reliably. As text it shows identically on screen, in PDF and in Word.
     const list = document.createElement(ordered ? 'ol' : 'ul');
-    list.style.paddingLeft = '22px';
-    list.style.listStyleType = ordered ? 'decimal' : 'disc';
-    const li = document.createElement('li');
-    try { li.appendChild(range.extractContents()); } catch { li.textContent = range.toString(); }
-    if (!li.childNodes.length) li.appendChild(document.createElement('br'));
-    list.appendChild(li);
-    range.insertNode(list);
-    savedRange.current = null;   // content moved — old range is stale
+    list.style.cssText = 'margin:2px 0;padding-left:6px;list-style:none';
+    let counter = 0;
+    const mkLi = () => {
+      counter += 1;
+      const li = document.createElement('li');
+      li.style.cssText = 'display:block;list-style:none';
+      const marker = document.createElement('span');
+      marker.setAttribute('data-list-marker', '');
+      marker.style.marginRight = '6px';
+      marker.textContent = ordered ? counter + '.' : '•';
+      li.appendChild(marker);
+      return li;
+    };
+    // Prefer converting the whole enclosing line/block; split multi-line blocks on <br> so each
+    // line becomes its own bullet/number.
+    let bn: Node | null = range.startContainer;
+    if (bn.nodeType === Node.TEXT_NODE) bn = bn.parentElement;
+    const block = (bn as Element | null)?.closest('td,th,li,p,div,section') as HTMLElement | null;
+    if (block && block !== host) {
+      const lines = block.innerHTML.split(/<br\s*\/?>/i);
+      for (const line of lines) { const li = mkLi(); const span = document.createElement('span'); span.innerHTML = line.trim() || '&nbsp;'; li.appendChild(span); list.appendChild(li); }
+      block.innerHTML = '';
+      block.appendChild(list);
+    } else {
+      const li = mkLi();
+      const wrap = document.createElement('span');
+      try { wrap.appendChild(range.extractContents()); } catch { wrap.textContent = range.toString(); }
+      if (!wrap.childNodes.length) wrap.innerHTML = '&nbsp;';
+      li.appendChild(wrap);
+      list.appendChild(li);
+      range.insertNode(list);
+    }
+    reselect(list);
   };
 
   const clearFormat = () => {
@@ -1708,15 +2255,17 @@ function RichTextToolbar() {
 
   // After an innerHTML swap every node is detached, so the saved range must be discarded or
   // the next command would act on stale/detached nodes (corruption).
-  const undo = () => { const h = editorHost(); if (h && undoStack.current.length) { redoStack.current.push(h.innerHTML); h.innerHTML = undoStack.current.pop()!; savedRange.current = null; } };
-  const redo = () => { const h = editorHost(); if (h && redoStack.current.length) { undoStack.current.push(h.innerHTML); h.innerHTML = redoStack.current.pop()!; savedRange.current = null; } };
+  const undo = () => { const h = editorHost(); if (h && undoStack.current.length) { clearCellSel(); redoStack.current.push(h.innerHTML); h.innerHTML = undoStack.current.pop()!; savedRange.current = null; } };
+  const redo = () => { const h = editorHost(); if (h && redoStack.current.length) { clearCellSel(); undoStack.current.push(h.innerHTML); h.innerHTML = redoStack.current.pop()!; savedRange.current = null; } };
 
   // Keyboard shortcuts inside the editor: Ctrl/Cmd + B / I / U (Word-style). (Ctrl/Cmd+A select-all
   // is left to the browser — it works natively now that the editor is zoom-free.)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const host = editorHost();
-      if (!host || !host.contains(document.activeElement)) return;
+      // Fire when focus is inside the editor OR when grid cells are selected (cells aren't
+      // focusable until edited, so the activeElement check alone would miss them).
+      if (!host || (!host.contains(document.activeElement) && !selectedCells.current.length)) return;
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'b') { e.preventDefault(); bold(); }
@@ -1803,7 +2352,94 @@ function RichTextToolbar() {
       <Btn title="Outdent"       onAction={() => indent(-24)}><IndentDecrease size={15} /></Btn>
       <Sep />
 
+      {/* Table structure — act on the selected cells/rows/columns (or right-click for the full menu). */}
+      <Btn title="Insert row below"            onAction={() => insertRow(true)}><Rows3 size={15} /></Btn>
+      <Btn title="Delete selected row(s)"      onAction={deleteRows}><Rows3 size={15} className="text-[#b91c1c]" /></Btn>
+      <Btn title="Insert column to the right"  onAction={() => insertCol(true)}><Columns3 size={15} /></Btn>
+      <Btn title="Delete selected column(s)"   onAction={deleteCols}><Columns3 size={15} className="text-[#b91c1c]" /></Btn>
+      <Btn title="Clear cell contents"         onAction={clearContents}><Eraser size={15} /></Btn>
+      <Btn title="Toggle cell borders"         onAction={toggleBorders}><Square size={15} /></Btn>
+      <Sep />
+
+      {/* Vertical alignment of the selected cells. */}
+      <Btn title="Align top"    onAction={() => vAlign('top')}><AlignVerticalJustifyStart size={15} /></Btn>
+      <Btn title="Align middle" onAction={() => vAlign('middle')}><AlignVerticalJustifyCenter size={15} /></Btn>
+      <Btn title="Align bottom" onAction={() => vAlign('bottom')}><AlignVerticalJustifyEnd size={15} /></Btn>
+      <Sep />
+
+      {/* Clipboard (also Ctrl/Cmd+C / X / V). */}
+      <Btn title="Copy (⌘/Ctrl+C)"  onAction={copySel}><Copy size={15} /></Btn>
+      <Btn title="Cut (⌘/Ctrl+X)"   onAction={cutSel}><Scissors size={15} /></Btn>
+      <Btn title="Paste (⌘/Ctrl+V)" onAction={pasteSel}><ClipboardPaste size={15} /></Btn>
+      <Sep />
+
       <Btn title="Clear formatting" onAction={clearFormat}><RemoveFormatting size={15} /></Btn>
+
+      {menu && createPortal(
+        <CellContextMenu
+          x={menu.x} y={menu.y} onClose={() => setMenu(null)}
+          actions={{
+            copy: copySel, cut: cutSel, paste: pasteSel,
+            insertRowAbove: () => insertRow(false), insertRowBelow: () => insertRow(true), deleteRows,
+            insertColLeft: () => insertCol(false), insertColRight: () => insertCol(true), deleteCols,
+            clearContents, toggleBorders,
+          }}
+        />, document.body)}
+    </div>
+  );
+}
+
+/** Right-click table menu — Excel/Sheets-style operations on the cell selection. */
+function CellContextMenu({ x, y, onClose, actions }: {
+  x: number; y: number; onClose: () => void;
+  actions: {
+    copy: () => void; cut: () => void; paste: () => void;
+    insertRowAbove: () => void; insertRowBelow: () => void; deleteRows: () => void;
+    insertColLeft: () => void; insertColRight: () => void; deleteCols: () => void;
+    clearContents: () => void; toggleBorders: () => void;
+  };
+}) {
+  useEffect(() => {
+    const close = () => onClose();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+  const Item = ({ label, danger, icon: Icon, kbd, onPick }: { label: string; danger?: boolean; icon: typeof Rows3; kbd?: string; onPick: () => void }) => (
+    <button
+      type="button"
+      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onPick(); onClose(); }}
+      className={cn("flex w-full items-center gap-2.5 px-3 py-1.5 text-[13px] text-left hover:bg-[#eef0fe] transition-colors",
+        danger ? "text-[#b91c1c] hover:bg-[#fdf3f3]" : "text-[#34353f]")}
+    >
+      <Icon size={14} /> <span className="flex-1">{label}</span>
+      {kbd && <kbd className="text-[10px] text-[#9a9cab]">{kbd}</kbd>}
+    </button>
+  );
+  // Keep the menu on-screen.
+  const top = Math.min(y, window.innerHeight - 420);
+  const left = Math.min(x, window.innerWidth - 230);
+  return (
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      className="fixed z-[60] w-[222px] rounded-xl border border-[#e6e7ee] bg-white py-1.5 shadow-[0_12px_40px_-8px_rgba(20,21,28,0.25)]"
+      style={{ top, left }}
+    >
+      <Item label="Cut"   icon={Scissors}       kbd="⌘X" onPick={actions.cut} />
+      <Item label="Copy"  icon={Copy}           kbd="⌘C" onPick={actions.copy} />
+      <Item label="Paste" icon={ClipboardPaste} kbd="⌘V" onPick={actions.paste} />
+      <div className="my-1 h-px bg-[#eef0f4]" />
+      <Item label="Insert row above"   icon={Rows3}    onPick={actions.insertRowAbove} />
+      <Item label="Insert row below"   icon={Rows3}    onPick={actions.insertRowBelow} />
+      <Item label="Delete row(s)"      icon={Rows3}    danger onPick={actions.deleteRows} />
+      <div className="my-1 h-px bg-[#eef0f4]" />
+      <Item label="Insert column left"  icon={Columns3} onPick={actions.insertColLeft} />
+      <Item label="Insert column right" icon={Columns3} onPick={actions.insertColRight} />
+      <Item label="Delete column(s)"    icon={Columns3} danger onPick={actions.deleteCols} />
+      <div className="my-1 h-px bg-[#eef0f4]" />
+      <Item label="Toggle borders"     icon={Square}   onPick={actions.toggleBorders} />
+      <Item label="Clear contents"     icon={Eraser}   kbd="Del" onPick={actions.clearContents} />
     </div>
   );
 }
@@ -1818,8 +2454,159 @@ const PX_PER_MM = 96 / 25.4;
 type PanelGroup = { panel: Panel; orders: OrderWithResult[] };
 type CompactBlock = { key: string; dept: string; showDept: boolean; showSub: boolean; kind: 'panel' | 'comment'; pg?: PanelGroup; comment?: string };
 
+type PageScale = { sx: number; sy: number };
+
+/** Renders a saved manual-edit (override) report from its stored HTML, while keeping the
+ *  per-page drag-resize working. The saved HTML preserves the [data-scale-frame] wrapper and
+ *  [data-editable-body] section for each page (startEdit strips only their inline scaling), so
+ *  here we fill the HTML imperatively (React doesn't manage the inner DOM), measure each page's
+ *  natural content size, inject 8 resize handles per page, and re-apply the transform when the
+ *  user drags. Handles are tagged data-report-control so pdf.ts strips them from the output. */
+function EditedReportView({ html, className, styleVars, overrides, onChange, onReset }: {
+  html: string;
+  className: string;
+  styleVars: React.CSSProperties;
+  overrides: Record<number, PageScale>;
+  onChange: (idx: number, sx: number, sy: number) => void;
+  onReset: (idx: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const natRef = useRef<Record<number, { w: number; h: number; syMax: number }>>({});
+  const ovRef = useRef(overrides); ovRef.current = overrides;
+  const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
+  const onResetRef = useRef(onReset); onResetRef.current = onReset;
+  const dragRef = useRef<{ startX: number; startY: number; sx: number; sy: number; idx: number; nat: { w: number; h: number; syMax: number }; dir: string } | null>(null);
+
+  const partsFor = (root: HTMLElement, idx: number) => {
+    const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
+    const pg = pages[idx];
+    if (!pg) return null;
+    const frame = pg.querySelector<HTMLElement>('[data-scale-frame]');
+    const sec = frame?.querySelector<HTMLElement>('[data-editable-body]') ?? pg.querySelector<HTMLElement>('[data-editable-body]');
+    return sec ? { pg, frame, sec } : null;
+  };
+
+  const applyTransforms = () => {
+    const root = ref.current; if (!root) return;
+    const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
+    pages.forEach((_, idx) => {
+      const p = partsFor(root, idx); const nat = natRef.current[idx];
+      if (!p || !nat) return;
+      const ov = ovRef.current[idx];
+      const sx = ov ? ov.sx : 1, sy = ov ? ov.sy : 1;
+      p.sec.style.position = 'absolute'; p.sec.style.top = '0'; p.sec.style.left = '0';
+      p.sec.style.width = `${nat.w}px`;
+      p.sec.style.transform = `scale(${sx}, ${sy})`; p.sec.style.transformOrigin = 'top left';
+      if (p.frame) { p.frame.style.width = `${nat.w * sx}px`; p.frame.style.height = `${nat.h * sy}px`; }
+      const badge = p.pg.querySelector<HTMLElement>('[data-scale-badge]');
+      if (badge) badge.textContent = `W ${Math.round(sx * 100)}% · H ${Math.round(sy * 100)}%`;
+      const reset = p.pg.querySelector<HTMLElement>('[data-scale-reset]');
+      if (reset) reset.style.display = ov ? '' : 'none';
+    });
+  };
+
+  const startDrag = (e: MouseEvent, idx: number, dir: string) => {
+    e.preventDefault(); e.stopPropagation();
+    const nat = natRef.current[idx]; if (!nat) return;
+    const ov = ovRef.current[idx];
+    dragRef.current = { startX: e.clientX, startY: e.clientY, sx: ov ? ov.sx : 1, sy: ov ? ov.sy : 1, idx, nat, dir };
+    const move = (ev: MouseEvent) => {
+      const d = dragRef.current; if (!d) return;
+      const dx = ev.clientX - d.startX, dy = ev.clientY - d.startY;
+      let nsx = d.sx, nsy = d.sy;
+      if (d.dir.includes('e')) nsx = d.sx + dx / d.nat.w;
+      if (d.dir.includes('w')) nsx = d.sx - dx / d.nat.w;
+      if (d.dir.includes('s')) nsy = d.sy + dy / d.nat.h;
+      if (d.dir.includes('n')) nsy = d.sy - dy / d.nat.h;
+      nsx = Math.min(1, Math.max(0.5, nsx));
+      nsy = Math.min(d.nat.syMax, Math.max(0.5, nsy));
+      onChangeRef.current(d.idx, +nsx.toFixed(3), +nsy.toFixed(3));
+    };
+    const up = () => { dragRef.current = null; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+  };
+
+  const injectControls = (host: HTMLElement, pg: HTMLElement, idx: number) => {
+    const HANDLES: [string, Partial<CSSStyleDeclaration>][] = [
+      ['nw', { top: '-5px', left: '-5px', cursor: 'nwse-resize' }],
+      ['n', { top: '-5px', left: '50%', marginLeft: '-5px', cursor: 'ns-resize' }],
+      ['ne', { top: '-5px', right: '-5px', cursor: 'nesw-resize' }],
+      ['e', { top: '50%', right: '-5px', marginTop: '-5px', cursor: 'ew-resize' }],
+      ['se', { bottom: '-5px', right: '-5px', cursor: 'nwse-resize' }],
+      ['s', { bottom: '-5px', left: '50%', marginLeft: '-5px', cursor: 'ns-resize' }],
+      ['sw', { bottom: '-5px', left: '-5px', cursor: 'nesw-resize' }],
+      ['w', { top: '50%', left: '-5px', marginTop: '-5px', cursor: 'ew-resize' }],
+    ];
+    for (const [dir, css] of HANDLES) {
+      const el = document.createElement('div');
+      el.setAttribute('data-report-control', '');
+      Object.assign(el.style, { position: 'absolute', width: '10px', height: '10px', background: '#6366f1', border: '1.5px solid #fff', borderRadius: '2px', boxShadow: '0 0 0 1px #6366f1', zIndex: '12' } as Partial<CSSStyleDeclaration>, css);
+      el.addEventListener('mousedown', (ev) => startDrag(ev, idx, dir));
+      host.appendChild(el);
+    }
+    // W×H badge + reset, top-right of the frame
+    const bar = document.createElement('div');
+    bar.setAttribute('data-report-control', '');
+    Object.assign(bar.style, { position: 'absolute', top: '-18px', right: '0', display: 'flex', gap: '4px', alignItems: 'center', zIndex: '13' } as Partial<CSSStyleDeclaration>);
+    const badge = document.createElement('span');
+    badge.setAttribute('data-scale-badge', '');
+    Object.assign(badge.style, { fontSize: '9px', background: '#6366f1', color: '#fff', padding: '0 4px', borderRadius: '3px', lineHeight: '1.4' } as Partial<CSSStyleDeclaration>);
+    const reset = document.createElement('button');
+    reset.type = 'button'; reset.textContent = 'reset'; reset.setAttribute('data-scale-reset', '');
+    Object.assign(reset.style, { fontSize: '9px', background: '#fff', color: '#6366f1', border: '1px solid #c7c9ff', borderRadius: '3px', padding: '0 4px', lineHeight: '1.4', cursor: 'pointer', display: 'none' } as Partial<CSSStyleDeclaration>);
+    reset.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); onResetRef.current(idx); });
+    bar.appendChild(badge); bar.appendChild(reset);
+    host.appendChild(bar);
+    void pg;
+  };
+
+  // Fill HTML once per change, measure naturals, inject handles, then apply current transforms.
+  useLayoutEffect(() => {
+    const root = ref.current; if (!root) return;
+    root.innerHTML = html;
+    const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
+    const nat: Record<number, { w: number; h: number; syMax: number }> = {};
+    pages.forEach((pg, idx) => {
+      const p = partsFor(root, idx); if (!p) return;
+      // Older overrides (saved before the resize feature) have no [data-scale-frame] wrapper.
+      // Create one so the absolute+scaled section has a real sized layout box.
+      let frame = p.frame;
+      if (!frame && p.sec.parentElement) {
+        frame = document.createElement('div');
+        frame.setAttribute('data-scale-frame', '');
+        frame.style.position = 'relative';
+        p.sec.parentElement.insertBefore(frame, p.sec);
+        frame.appendChild(p.sec);
+      }
+      // Reset to natural to measure the unscaled content box.
+      p.sec.style.position = ''; p.sec.style.transform = ''; p.sec.style.width = ''; p.sec.style.top = ''; p.sec.style.left = '';
+      if (frame) { frame.style.width = ''; frame.style.height = ''; }
+      const w = p.sec.offsetWidth || 186 * PX_PER_MM;
+      const h = p.sec.offsetHeight || 1;
+      // Height can stretch down to the footer/signature line within the body region.
+      const body = p.sec.closest<HTMLElement>('.report-body');
+      const frameTop = frame ? frame.offsetTop : p.sec.offsetTop;
+      const avail = body ? body.clientHeight - frameTop : h * 2;
+      const syMax = Math.min(Math.max(avail / h, 1), 3);
+      nat[idx] = { w, h, syMax };
+      const host = frame ?? (p.sec.parentElement as HTMLElement);
+      if (host && getComputedStyle(host).position === 'static') host.style.position = 'relative';
+      if (host) injectControls(host, pg, idx);
+    });
+    natRef.current = nat;
+    applyTransforms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html]);
+
+  // Re-apply transforms whenever the per-page scale changes.
+  useLayoutEffect(() => { applyTransforms(); }, [overrides]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <div ref={ref} id="report-print-area" className={className} style={styleVars} />;
+}
+
 function CompactPaginatedReport({
   sortedPanels, deptOf, renderPanelBody, comment, bottomGapMm, contentScale, measureKey, breaks, onMove,
+  pageScaleOverrides, onPageScaleChange, onPageScaleReset, editing, repeatNameBox,
   Watermark, Letterhead, PatientStrip, PageFooter,
 }: {
   sortedPanels: PanelGroup[];
@@ -1828,6 +2615,11 @@ function CompactPaginatedReport({
   comment: string;
   bottomGapMm: number;
   contentScale: number;
+  pageScaleOverrides?: Record<number, { sx: number; sy: number }>;
+  onPageScaleChange?: (idx: number, sx: number, sy: number) => void;
+  onPageScaleReset?: (idx: number) => void;
+  editing?: boolean;
+  repeatNameBox?: boolean;
   measureKey: string;
   breaks: Record<string, 'pull' | 'before'>;
   onMove: (key: string, dir: 'up' | 'down') => void;
@@ -1860,13 +2652,19 @@ function CompactPaginatedReport({
   const probeRef = useRef<HTMLDivElement>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
   const [capacity, setCapacity] = useState(0);
+  // Full usable body height with NO bottom-gap reserved — the real distance from the content
+  // top down to the footer/signature line. Used as the manual-resize height ceiling so a page
+  // can be stretched right down to the signature (the bottom gap is only for auto-pagination).
+  const [capacityFull, setCapacityFull] = useState(0);
 
   // Re-measure whenever the block set or the bottom gap changes.
   const sig = blocks.map(b => b.key).join('|') + `#${bottomGapMm}#${measureKey}`;
   useLayoutEffect(() => {
     const measure = () => {
       const probe = probeRef.current;
-      const cap = probe ? probe.clientHeight - bottomGapMm * PX_PER_MM : 0;
+      const full = probe ? probe.clientHeight : 0;
+      setCapacityFull(full > 0 ? full : 0);
+      const cap = full ? full - bottomGapMm * PX_PER_MM : 0;
       setCapacity(cap > 0 ? cap : 0);
       const root = measureRef.current;
       if (root) {
@@ -1986,6 +2784,14 @@ function CompactPaginatedReport({
     color: '#111', WebkitFontSmoothing: 'antialiased',
   };
 
+  // Per-page drag state (ref so no re-render during drag). dir is one of the 8 compass points.
+  // NOTE: this useRef MUST stay above the early `return` below — calling a hook after a
+  // conditional return violates the Rules of Hooks and crashes when `blocks` is briefly empty.
+  const pageResizeDrag = useRef<{
+    startX: number; startY: number; startSx: number; startSy: number;
+    idx: number; naturalW: number; naturalH: number; sxMax: number; syMax: number; dir: string;
+  } | null>(null);
+
   if (!blocks.length) {
     return (
       <div data-report-page className="report-page bg-white shadow-sm relative mx-auto flex flex-col" style={pageStyle}>
@@ -1999,27 +2805,114 @@ function CompactPaginatedReport({
     );
   }
 
+  const startPageResize = (
+    e: React.MouseEvent, idx: number,
+    o: { startSx: number; startSy: number; naturalW: number; naturalH: number; sxMax: number; syMax: number; dir: string },
+  ) => {
+    e.preventDefault(); e.stopPropagation();
+    pageResizeDrag.current = { startX: e.clientX, startY: e.clientY, idx, ...o };
+    const onMove2 = (ev: MouseEvent) => {
+      const d = pageResizeDrag.current;
+      if (!d) return;
+      const dx = ev.clientX - d.startX;
+      const dy = ev.clientY - d.startY;
+      // Dragging a handle OUTWARD enlarges that dimension, INWARD shrinks it. Side handles
+      // (e/w) change WIDTH only; top/bottom (n/s) change HEIGHT only; corners change BOTH
+      // (diagonal). Width grows rightward, height grows downward (content is pinned top-left).
+      let nsx = d.startSx, nsy = d.startSy;
+      if (d.dir.includes('e')) nsx = d.startSx + dx / d.naturalW;   // right edge out → wider
+      if (d.dir.includes('w')) nsx = d.startSx - dx / d.naturalW;   // left edge out (←) → wider
+      if (d.dir.includes('s')) nsy = d.startSy + dy / d.naturalH;   // bottom out (↓) → taller
+      if (d.dir.includes('n')) nsy = d.startSy - dy / d.naturalH;   // top out (↑) → taller
+      nsx = Math.min(d.sxMax, Math.max(0.5, nsx));
+      nsy = Math.min(d.syMax, Math.max(0.5, nsy));
+      onPageScaleChange?.(d.idx, +nsx.toFixed(3), +nsy.toFixed(3));
+    };
+    const onUp = () => { pageResizeDrag.current = null; document.removeEventListener('mousemove', onMove2); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove2);
+    document.addEventListener('mouseup', onUp);
+  };
+
   return (
     <>
       {/* Visible, paginated pages */}
-      {pages.map((page, idx) => (
+      {pages.map((page, idx) => {
+        // Natural (unscaled) content box, in px. Width = body content width (186mm);
+        // height = measured sum of this page's blocks.
+        const naturalW = 186 * PX_PER_MM;
+        const naturalH = Math.max(page.blocks.reduce((s, b) => s + blockH(b), 0), 1);
+        // Resize ceiling = the full body height down to the footer/signature line.
+        const fullH = capacityFull > 0 ? capacityFull : (capacity > 0 ? capacity : 230 * PX_PER_MM);
+        const base = page.scale;                          // auto-fit scale (uniform)
+        const ov = pageScaleOverrides?.[idx];
+        const sx = ov ? ov.sx : base;
+        const sy = ov ? ov.sy : base;
+        // Width can't exceed the body margin (→ right-edge clip). Height can fill all the way
+        // down to the signature line. At syMax the scaled frame is exactly `fullH` tall, so the
+        // page can always be stretched to the signature regardless of the natural-height guess.
+        const sxMax = 1;
+        const syMax = Math.min(Math.max(fullH / naturalH, base, 1), 3);
+        const overridden = ov != null;
+        // 8 bounding-box handles (Google-Slides style), positioned on the SCALED frame.
+        const HANDLES: { dir: string; pos: React.CSSProperties }[] = [
+          { dir: 'nw', pos: { top: -5, left: -5, cursor: 'nwse-resize' } },
+          { dir: 'n',  pos: { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' } },
+          { dir: 'ne', pos: { top: -5, right: -5, cursor: 'nesw-resize' } },
+          { dir: 'e',  pos: { top: '50%', right: -5, marginTop: -5, cursor: 'ew-resize' } },
+          { dir: 'se', pos: { bottom: -5, right: -5, cursor: 'nwse-resize' } },
+          { dir: 's',  pos: { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' } },
+          { dir: 'sw', pos: { bottom: -5, left: -5, cursor: 'nesw-resize' } },
+          { dir: 'w',  pos: { top: '50%', left: -5, marginTop: -5, cursor: 'ew-resize' } },
+        ];
+        return (
         <div
           key={idx}
           data-report-page
-          className="report-page bg-white shadow-sm relative mx-auto flex flex-col"
+          className="report-page bg-white shadow-sm relative mx-auto flex flex-col group/page"
           style={{ ...pageStyle, marginBottom: idx === pages.length - 1 ? 0 : '18px' }}
         >
           <Watermark />
           <Letterhead />
           <div className="report-body relative flex-1">
-            <PatientStrip />
-            <section data-editable-body suppressContentEditableWarning className="relative mt-3" style={{ zoom: page.scale }}>
-              {page.blocks.map((b, i) => <BlockView key={b.key} b={b} first={i === 0} controls />)}
-            </section>
+            {/* Name box on the first page only (unless set to repeat). Pages 2+ are continuation
+                pages: letterhead + footer + signature stay, but no name box. */}
+            {(idx === 0 || repeatNameBox) && <PatientStrip />}
+            {/* Resizable content frame. The WRAPPER takes the scaled box size (real layout, so
+                it survives html2canvas/PDF capture); the SECTION is pinned top-left at natural
+                size and visually scaled with a non-uniform transform (independent W/H). */}
+            <div data-scale-frame className="relative mt-3" style={{ width: naturalW * sx, height: naturalH * sy }}>
+              <section data-editable-body suppressContentEditableWarning
+                style={{ position: 'absolute', top: 0, left: 0, width: naturalW, transform: `scale(${sx}, ${sy})`, transformOrigin: 'top left' }}>
+                {page.blocks.map((b, i) => <BlockView key={b.key} b={b} first={i === 0} controls />)}
+              </section>
+              {!editing && (
+                <div data-report-control className="absolute inset-0 pointer-events-none print:hidden" style={{ zIndex: 12 }}>
+                  {/* selection outline — only visible on hover of the page */}
+                  <div className="absolute inset-0 border border-dashed border-[#a5b4fc] opacity-0 group-hover/page:opacity-100 transition-opacity rounded-sm" />
+                  {/* 8 drag handles */}
+                  {HANDLES.map(h => (
+                    <div key={h.dir}
+                      onMouseDown={e => startPageResize(e, idx, { startSx: sx, startSy: sy, naturalW, naturalH, sxMax, syMax, dir: h.dir })}
+                      className="absolute opacity-0 group-hover/page:opacity-100 transition-opacity pointer-events-auto"
+                      style={{ width: 10, height: 10, background: '#6366f1', border: '1.5px solid #fff', borderRadius: 2, boxShadow: '0 0 0 1px #6366f1', ...h.pos }} />
+                  ))}
+                  {/* W×H badge + reset, top-right corner of the frame */}
+                  <div className="absolute -top-5 right-0 flex items-center gap-1 opacity-0 group-hover/page:opacity-100 transition-opacity pointer-events-auto">
+                    <span className="text-[9px] tabular-nums px-1 rounded bg-[#6366f1] text-white leading-tight">W {Math.round(sx * 100)}% · H {Math.round(sy * 100)}%</span>
+                    {overridden && (
+                      <button type="button" onClick={() => onPageScaleReset?.(idx)}
+                        className="text-[9px] px-1 rounded bg-white border border-[#c7c9ff] text-[#6366f1] leading-tight hover:bg-[#eef0fe]"
+                        title="Reset this page to auto">reset</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <PageFooter pageIndex={idx} total={pages.length} isLast={idx === pages.length - 1} />
         </div>
-      ))}
+        );
+      })}
 
       {/* Hidden measurers — PORTALED to <body> so they're never inside #report-print-area
           (which would double content in the PDF capture and the "Edit report" HTML seed).

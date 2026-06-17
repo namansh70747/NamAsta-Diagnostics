@@ -195,6 +195,9 @@ export async function buildReportDocx(
   const qrImg = noLetterhead ? null : await imgRun(qr, 60);
   const sigPx = Math.max(20, Math.round((layout.sigHeightMm ?? 14) * 3.7795));
   const sig = await imgRun(settings.signature_data, sigPx);
+  // Shift the signature in from the right margin by (sigRightMm − 12mm), matching the on-screen
+  // "Signature from right" control — used in BOTH letterhead and pre-printed footers.
+  const sigRightIndent = Math.max(0, Math.round(((layout.sigRightMm ?? 25) - 12) * TWIPS_PER_MM));
 
   // ── header (repeats on every page) ──
   const headerChildren: (Paragraph | Table)[] = [];
@@ -238,8 +241,8 @@ export async function buildReportDocx(
       children: [
         cell([para(qrImg ? [qrImg] : [run('')])], { width: Math.round(BODY_W * 0.5) }),
         cell(sigShown ? [
-          para(sig ? [sig] : [run('')], { align: AlignmentType.RIGHT }),
-          para([run('Lab Technician', { bold: true, color: MAROON, size: S_SMALL })], { align: AlignmentType.RIGHT }),
+          new Paragraph({ children: sig ? [sig] : [run('')], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
+          new Paragraph({ children: [run('Lab Technician', { bold: true, color: MAROON, size: S_SMALL })], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
         ] : [para([run('')])], { width: Math.round(BODY_W * 0.5) }),
       ],
     }),
@@ -280,20 +283,25 @@ export async function buildReportDocx(
     if (p.heading) body.push(para([run(p.heading, { bold: true, size: S_HEAD, color: DARK })], { spacingBefore: 40, spacingAfter: 40 }));
 
     if (p.layout === 'cbc' && p.sections) {
-      const rows: TableRow[] = [headRowCbc(cbcColw, al)];
+      // Column header once at the top (data columns only, width = CBC_DATA).
+      body.push(new Table({ rows: [headRowCbcData(cbcColw, al)], width: { size: CBC_DATA, type: WidthType.DXA }, columnWidths: cbcColw, layout: TableLayoutType.FIXED }));
+      // Each section is its OWN 2-column table: left = the section's data sub-table, right = the
+      // histogram image. This avoids the rowSpan+columnSpan-across-uneven-rows combination, which
+      // produced OOXML that Word refused to open ("can't open this file") for CBC reports.
       for (const sec of p.sections) {
-        let histoCell: TableCell | undefined;
+        const dataRows: TableRow[] = [sectionHeaderRow(sec.label, 4, cbcColw)];
+        for (const r of sec.rows) dataRows.push(dataRow(r, cbcColw, al, { size: S_CBC, line: 240 }));
+        const nested = new Table({ rows: dataRows, width: { size: CBC_DATA, type: WidthType.DXA }, columnWidths: cbcColw, layout: TableLayoutType.FIXED });
+
         const png = histogramPngs[sec.label as keyof HistogramPngs];
-        if (png) {
-          const dispW = 172, dispH = Math.round(172 * (png.height / png.width));   // fit the narrower histogram column
-          histoCell = cell([para([new ImageRun({ data: png.bytes, transformation: { width: dispW, height: dispH }, type: 'png' })], { align: AlignmentType.CENTER })],
-            { width: CBC_HISTO_W, rowSpan: 1 + sec.rows.length, valign: VerticalAlign.CENTER });
-        }
-        rows.push(sectionHeaderRow(sec.label, 4, cbcColw, histoCell));
-        // CBC has many rows — 11pt + single spacing keeps the whole panel on one page.
-        for (const r of sec.rows) rows.push(dataRow(r, cbcColw, al, { size: S_CBC, line: 240 }));
+        const histoChildren: Paragraph[] = png
+          ? [para([new ImageRun({ data: png.bytes, transformation: { width: 172, height: Math.max(1, Math.round(172 * (png.height / png.width))) }, type: 'png' })], { align: AlignmentType.CENTER })]
+          : [para([run('')])];
+
+        const leftCell = new TableCell({ children: [nested], width: { size: CBC_DATA, type: WidthType.DXA }, borders: NO_BORDERS, margins: { top: 0, bottom: 0, left: 0, right: 0 }, verticalAlign: VerticalAlign.TOP });
+        const rightCell = new TableCell({ children: histoChildren, width: { size: CBC_HISTO_W, type: WidthType.DXA }, borders: NO_BORDERS, verticalAlign: VerticalAlign.CENTER });
+        body.push(new Table({ rows: [new TableRow({ children: [leftCell, rightCell] })], width: { size: BODY_W, type: WidthType.DXA }, columnWidths: [CBC_DATA, CBC_HISTO_W], layout: TableLayoutType.FIXED }));
       }
-      body.push(new Table({ rows, width: { size: BODY_W, type: WidthType.DXA }, columnWidths: [...cbcColw, CBC_HISTO_W], layout: TableLayoutType.FIXED }));
     } else if (p.layout === 'urine' && p.sections) {
       const rows: TableRow[] = [headRow(colw, al)];
       for (const sec of p.sections) {
@@ -321,10 +329,8 @@ export async function buildReportDocx(
   const topMargin = noLetterhead ? Math.round((layout.preTopMm ?? 60) * TWIPS_PER_MM) : MARGIN;
   const bottomMargin = noLetterhead ? Math.round(sigClearMm * TWIPS_PER_MM) : MARGIN;
   const footerDist = Math.round(sigBottomMm * TWIPS_PER_MM);
-  // Shift the signature left of the right margin by (sigRightMm − 12mm), matching the on-screen control.
-  const sigIndent = Math.max(0, Math.round(((layout.sigRightMm ?? 25) - 12) * TWIPS_PER_MM));
   const sigFooter = new Footer({ children: [
-    new Paragraph({ children: sigShown && sig ? [sig] : [run('')], alignment: AlignmentType.RIGHT, indent: { right: sigIndent } }),
+    new Paragraph({ children: sigShown && sig ? [sig] : [run('')], alignment: AlignmentType.RIGHT, indent: { right: sigRightIndent } }),
   ] });
 
   const doc = new Document({
@@ -343,12 +349,11 @@ export async function buildReportDocx(
   return Packer.toBlob(doc);
 }
 
-// CBC header row carries a 5th (empty) histogram-column header so widths line up.
-function headRowCbc(widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
+// CBC column header (data columns only — the histogram sits in a separate right cell per section).
+function headRowCbcData(widths: number[], al?: ('left' | 'center' | 'right')[]): TableRow {
   const labels = ['Test Name', 'Results', 'Units', 'Normal Ranges'];
   const b = { ...NO_BORDERS, bottom: { style: BorderStyle.SINGLE, size: 6, color: '6B7280' } };
   const cells = labels.map((l, i) => cell([para([run(l, { bold: true, size: S_HEAD, color: DARK })], { align: alignOf(al, i) })], { width: widths[i], borders: b, margins: ROW_MARGINS }));
-  cells.push(cell([para([run('')])], { width: CBC_HISTO_W }));
   return new TableRow({ children: cells });
 }
 

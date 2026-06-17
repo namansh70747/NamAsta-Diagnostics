@@ -2,6 +2,25 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.58
+
+- **Spreadsheet-grade report editor.** "Edit report" now behaves like a real spreadsheet for the
+  test tables: click a cell to select it, double-click / F2 / start typing to edit, arrow keys to
+  move, Tab/Enter to move on (Excel-style). Drag or Shift+arrows select a block, a column heading
+  selects the whole column, Ctrl/⌘+A selects all. Ctrl/⌘+C / X / V copy, cut and paste cell blocks
+  (a single copied cell fills a whole selection). Delete clears, Esc deselects.
+- Table structure editing: right-click (or the toolbar) to insert / delete rows & columns, clear
+  contents, and toggle cell borders. Drag a column heading's right edge to resize. Vertical
+  alignment (top / middle / bottom) for selected cells.
+- Selection, gridlines and highlights are on-screen only — the printed report, PDF and WhatsApp
+  copy stay clean with no grid.
+- **Continuation pages.** The patient name box now prints only on the first page; pages 2+ are
+  clean continuation pages (letterhead, footer and signature stay, name box omitted) — ideal when
+  a long single test runs onto the next page. A "Repeat name box on every page" toggle restores
+  the old behaviour.
+- Urine report is grouped under PHYSICAL / CHEMICAL / MICROSCOPIC EXAMINATION headings.
+- Report preview and the configuration sidebar now scroll independently.
+
 ## v1.1.9
 
 - CBC report: abnormal values now bold the **test name** too, not just the result — matching
