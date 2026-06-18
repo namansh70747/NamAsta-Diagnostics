@@ -4,7 +4,7 @@ import { Card, TabHeader, TextField, SelectField, PrimaryButton, SecondaryButton
 import { useSettingsForm } from "../useSettingsForm";
 import { listSerialPorts, readSerialRaw, readTcpRaw, localIps } from "@/lib/serial";
 import { parseAnalyzer } from "@/lib/astm";
-import { captureRawB64Tcp, captureRawB64Serial, inspectCaptureB64, type CaptureInspection } from "@/lib/analyzerBinary";
+import { captureRawB64Tcp, captureRawB64Serial, inspectCaptureB64, extractHistogramImages, type CaptureInspection } from "@/lib/analyzerBinary";
 import { errMessage } from "../toast";
 
 const KEYS = ["analyzer_conn", "analyzer_tcp_mode", "analyzer_host", "analyzer_tcp_port", "analyzer_port", "analyzer_baud"];
@@ -19,6 +19,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
   const [rawCopied, setRawCopied] = useState(false);
   const [binBusy, setBinBusy] = useState(false);
   const [inspect, setInspect] = useState<CaptureInspection | null>(null);
+  const [edImgs, setEdImgs] = useState<{ wbcImg?: string; rbcImg?: string; pltImg?: string }>({});
   const [binB64, setBinB64] = useState<string>("");
   const [b64Copied, setB64Copied] = useState(false);
 
@@ -57,6 +58,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
     if (!(await f.save())) return;
     setBinBusy(true);
     setInspect(null);
+    setEdImgs({});
     setBinB64("");
     try {
       const b64 = conn === "network"
@@ -65,12 +67,16 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       setBinB64(b64);
       const info = inspectCaptureB64(b64);
       setInspect(info);
-      const imgs = info.rawImages.length + info.base64Images.length;
-      f.toast.success(
-        imgs
-          ? `Captured ${info.byteCount.toLocaleString()} bytes — found ${imgs} histogram image(s).`
-          : `Captured ${info.byteCount.toLocaleString()} bytes — no image detected yet (see hex below).`,
-      );
+      const ed = await extractHistogramImages(info.bytes).catch(() => ({} as { wbcImg?: string; rbcImg?: string; pltImg?: string }));
+      setEdImgs(ed);
+      const got = [ed.wbcImg, ed.rbcImg, ed.pltImg].filter(Boolean).length;
+      if (got && info.mllpComplete) {
+        f.toast.success(`Captured ${info.byteCount.toLocaleString()} bytes — ${got} histogram graph(s) decoded.`);
+      } else if (info.imageFieldCount > 0) {
+        f.toast.error(`Captured ${info.byteCount.toLocaleString()} bytes — histogram fields seen but the message was CUT OFF (no end marker). Re-transmit; if it persists, send the base64.`);
+      } else {
+        f.toast.error(`Captured ${info.byteCount.toLocaleString()} bytes — no histogram field yet. Check Graph Format = PNG, Histogram Transmission = Bitmap, then re-transmit.`);
+      }
     } catch (e) {
       f.toast.error(errMessage(e));
     } finally {
@@ -208,17 +214,23 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
             </button>
           </div>
 
-          <div className="text-[12.5px] text-[#34353f]">
-            Detected: <b>{inspect.rawImages.length}</b> image(s) in the raw stream,{" "}
-            <b>{inspect.base64Images.length}</b> inside <b>{inspect.base64BlockCount}</b> base64 block(s).
-          </div>
+          {(() => {
+            const got = [edImgs.wbcImg, edImgs.rbcImg, edImgs.pltImg].filter(Boolean).length;
+            return (
+              <div className={`text-[12.5px] rounded-lg px-3 py-2 ${got === 3 && inspect.mllpComplete ? 'bg-[#eafaf0] text-[#14743a]' : inspect.imageFieldCount > 0 ? 'bg-[#fdf0d7] text-[#92600a]' : 'bg-[#fafafe] text-[#54555f]'}`}>
+                Histogram graphs decoded: <b>{got} / 3</b>{" "}(WBC {edImgs.wbcImg ? '✓' : '—'}, RBC {edImgs.rbcImg ? '✓' : '—'}, PLT {edImgs.pltImg ? '✓' : '—'}).{" "}
+                Image fields in message: <b>{inspect.imageFieldCount}</b>.{" "}
+                {inspect.mllpComplete ? "Full message received." : <b>Message was cut off (no end marker) — re-transmit.</b>}
+              </div>
+            );
+          })()}
 
-          {[...inspect.rawImages, ...inspect.base64Images].length > 0 && (
+          {[edImgs.wbcImg, edImgs.rbcImg, edImgs.pltImg].some(Boolean) && (
             <div className="flex flex-wrap gap-3">
-              {[...inspect.rawImages, ...inspect.base64Images].map((img, i) => (
-                <div key={i} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
-                  <img src={img.dataUrl} alt={`histogram ${i + 1}`} className="max-h-32 w-auto" />
-                  <div className="mt-1 text-[10.5px] text-[#8a8b97]">{img.format.toUpperCase()} · @{img.start}</div>
+              {([['WBC', edImgs.wbcImg], ['RBC', edImgs.rbcImg], ['PLT', edImgs.pltImg]] as const).filter(([, u]) => u).map(([label, url]) => (
+                <div key={label} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
+                  <img src={url} alt={label} className="max-h-32 w-auto" />
+                  <div className="mt-1 text-[10.5px] text-[#8a8b97]">{label}</div>
                 </div>
               ))}
             </div>

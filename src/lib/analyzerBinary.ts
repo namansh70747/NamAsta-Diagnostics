@@ -152,19 +152,24 @@ export interface CaptureInspection {
   rawImages: FoundImage[]; // images sitting raw in the byte stream
   base64Images: FoundImage[]; // images decoded out of base64 text blocks
   base64BlockCount: number;
+  imageFieldCount: number; // HL7 OBX "^Image^…^Base64^" histogram fields seen (even if cut off)
+  mllpComplete: boolean; // the HL7 message ended with FS (0x1C) → full report captured
 }
 
 export function inspectCaptureB64(b64: string): CaptureInspection {
   const bytes = b64ToBytes(b64);
+  const text = latin1(bytes);
   const blocks = scanForBase64Blocks(bytes);
   return {
     bytes,
     byteCount: bytes.length,
     hex: toHexDump(bytes),
-    text: latin1(bytes),
+    text,
     rawImages: scanForImages(bytes),
     base64Images: blocks.flatMap((b) => b.images),
     base64BlockCount: blocks.length,
+    imageFieldCount: (text.match(/\^Image\^[A-Za-z]+\^Base64\^/gi) || []).length,
+    mllpComplete: bytes.includes(0x1c),
   };
 }
 
@@ -226,12 +231,19 @@ async function extractHl7EdImages(text: string): Promise<Partial<Record<ImgKey, 
     if (!key || out[key]) continue;
     const b64 = seg.slice(at + "Base64^".length).replace(/[^A-Za-z0-9+/=]/g, "");
     if (b64.length < 40) continue;
+    // Build the image straight from the OBX field (its declared format) rather than requiring a
+    // perfectly-terminated PNG — so a complete bitmap always works and a slightly-cut one still
+    // previews as far as it decoded.
+    const fmt = (/\^Image\^([A-Za-z]+)\^Base64\^/i.exec(seg)?.[1] || "PNG").toLowerCase();
     try {
-      const imgs = scanForImages(b64ToBytes(b64));
-      if (!imgs.length) continue;
-      const img = imgs[0];
-      out[key] = img.format === "bmp" ? await bmpToPngDataUrl(img.dataUrl).catch(() => img.dataUrl) : img.dataUrl;
-    } catch { /* skip a malformed/truncated block */ }
+      let bytes: Uint8Array;
+      try { bytes = b64ToBytes(b64); } catch { continue; }
+      const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+      const isBmp = bytes[0] === 0x42 && bytes[1] === 0x4d;
+      if (!isPng && !isBmp) continue;
+      const dataUrl = `data:image/${isBmp ? "bmp" : "png"};base64,${b64}`;
+      out[key] = (isBmp || fmt === "bmp") ? await bmpToPngDataUrl(dataUrl).catch(() => dataUrl) : dataUrl;
+    } catch { /* skip a malformed block */ }
   }
   return out;
 }

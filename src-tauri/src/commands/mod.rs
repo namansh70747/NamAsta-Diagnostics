@@ -865,11 +865,12 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
                 // (the Ok(0) arm above). This idle timer is only a fallback for machines that
                 // keep the socket open. It must be generous: a cell counter sends the numeric
                 // results, then PAUSES while it renders the histogram bitmap, then sends that.
-                // A short timeout (the old 2 s) ended the capture in that gap and lost the
-                // graphs. Only a fallback now (HL7 ends on FS, ASTM on EOT, most machines close
-                // the socket): 40 × 500 ms = 20 s of continuous silence before we give up, generous
-                // enough for the render pause between the numeric block and each histogram bitmap.
-                if !acc.is_empty() {
+                // HL7 (the H360) frames the WHOLE report — numbers + the WBC/RBC/PLT histogram
+                // bitmaps — in one message that ends with FS (0x1C); it PAUSES to render each
+                // bitmap, so an idle gap does NOT mean "done". For HL7 we therefore never give up
+                // on idle — we wait for the FS end marker, the socket close, or the overall window
+                // (so all three graphs arrive). For ASTM/other, keep the 20 s idle fallback.
+                if !acc.is_empty() && !hl7 {
                     idle_after_data += 1;
                     if idle_after_data >= 40 {
                         break;
