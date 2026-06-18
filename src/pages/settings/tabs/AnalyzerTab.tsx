@@ -62,7 +62,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
     setBinB64("");
     try {
       const b64 = conn === "network"
-        ? await captureRawB64Tcp(tcpMode, f.get("analyzer_host"), Number(f.get("analyzer_tcp_port") || "5000"), 60000)
+        ? await captureRawB64Tcp(tcpMode, f.get("analyzer_host"), Number(f.get("analyzer_tcp_port") || "5000"), 120000)
         : await captureRawB64Serial(f.get("analyzer_port"), Number(f.get("analyzer_baud") || "9600"), 20000);
       setBinB64(b64);
       const info = inspectCaptureB64(b64);
@@ -227,12 +227,19 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
 
           {[edImgs.wbcImg, edImgs.rbcImg, edImgs.pltImg].some(Boolean) && (
             <div className="flex flex-wrap gap-3">
-              {([['WBC', edImgs.wbcImg], ['RBC', edImgs.rbcImg], ['PLT', edImgs.pltImg]] as const).filter(([, u]) => u).map(([label, url]) => (
-                <div key={label} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
-                  <img src={url} alt={label} className="max-h-32 w-auto" />
-                  <div className="mt-1 text-[10.5px] text-[#8a8b97]">{label}</div>
-                </div>
-              ))}
+              {([['WBC', edImgs.wbcImg], ['RBC', edImgs.rbcImg], ['PLT', edImgs.pltImg]] as const).filter(([, u]) => u).map(([label, url]) => {
+                // Decoded image size. Capture the SAME report twice — these sizes (and the byte
+                // count above) must be IDENTICAL. Any difference means the capture truncated.
+                const b64 = (url || '').split(',')[1] || '';
+                const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+                const bytes = Math.max(0, Math.floor(b64.length * 3 / 4) - pad);
+                return (
+                  <div key={label} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
+                    <img src={url} alt={label} className="max-h-32 w-auto" />
+                    <div className="mt-1 text-[10.5px] text-[#8a8b97]">{label} · {bytes.toLocaleString()} B</div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

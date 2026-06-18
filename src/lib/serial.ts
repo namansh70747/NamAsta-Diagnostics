@@ -46,8 +46,10 @@ export async function readAnalyzerConfigured(s: Record<string, string>): Promise
         s.analyzer_tcp_mode || 'listen',
         s.analyzer_host || '',
         Number(s.analyzer_tcp_port || '5000'),
-        // Wide window: the operator clicks "Read", walks to the H360 and presses transmit.
-        60000,
+        // Wide window: the operator clicks "Read", walks to the H360 and presses transmit, and
+        // the machine pauses to render each of the 3 histogram bitmaps. The Rust loop still stops
+        // the instant the MLLP end marker / socket close arrives, so this only widens the cap.
+        120000,
       )
     : await captureRawB64Serial(s.analyzer_port || '', Number(s.analyzer_baud || '9600'), 20000);
 

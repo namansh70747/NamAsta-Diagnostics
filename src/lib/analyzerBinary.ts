@@ -12,7 +12,12 @@ import { invoke, isTauri } from "@/lib/tauri";
 
 // ── transport: fetch the raw bytes (base64) from the Rust capture commands ──
 
-export async function captureRawB64Tcp(mode: string, host: string, port: number, windowMs = 60000): Promise<string> {
+// 120 s window: the H360 PAUSES to render each of the 3 histogram bitmaps, so the whole
+// numbers+WBC+RBC+PLT transmission (which ends with the MLLP FS marker) can take well over
+// 60 s. A short window cut the stream mid-render at a DIFFERENT point each run — the cause of
+// "same report, different byte counts". The Rust loop still stops the instant FS / socket close
+// arrives, so a normal capture is not slowed; this only widens the safety cap.
+export async function captureRawB64Tcp(mode: string, host: string, port: number, windowMs = 120000): Promise<string> {
   if (!isTauri()) throw new Error("Network reading is only available in the desktop app.");
   return invoke<string>("tcp_capture_b64", { mode, host, port, windowMs });
 }

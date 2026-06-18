@@ -517,13 +517,19 @@ export function ReportPreviewPage() {
     const range = rangeText(o);
     const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
     const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
+    // Auto-bold out-of-range results (low OR high) so they stand out — the test name and the
+    // value both go bold, matching the CBC layout.
+    const flag = patient ? computeFlag(o.test.result_type, value, rangesWithOverride(o.ranges, o.order.range_override), patient.sex, ageDays) : '';
+    const isAbnormal = flag === 'H' || flag === 'L';
     const cells = [o.test.name, value || '—', (unit && unit !== '—' ? unit : ''), range.replace(/ \/ /g, "\n")];
     const tr = (
       <tr key={o.order.id}>
         {cells.map((c, i) => (
           <td
             key={i}
-            className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums", i < 2 ? "text-gray-950" : "text-gray-800", i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
+            className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums",
+              i < 2 ? (isAbnormal ? "font-bold text-black" : "text-gray-950") : "text-gray-800",
+              i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
             style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[i], textAlign: colAlign[i] }}
           >
             {c}
@@ -1173,14 +1179,15 @@ export function ReportPreviewPage() {
 
   const PatientStrip = useCallback(() => patient ? (
     <section data-name-box contentEditable={false} suppressContentEditableWarning className="relative grid grid-cols-[1fr_auto] gap-x-10 gap-y-1 border border-gray-400 mt-3 p-2.5 text-[13.5px] leading-snug">
-      <p><strong>Name :</strong> {patient.title} {patient.name}</p>
-      <p><strong>Test Request ID :</strong> {patient.test_no}</p>
-      <p><strong>Age/Gender :</strong> {patient.age} {patient.age_unit} / {genderLabel}</p>
-      <p><strong>Sample Collected ON :</strong> {formatDate(patient.sample_time)}</p>
-      <p><strong>Collected AT :</strong> {patient.collected_at}</p>
-      <p><strong>Sample Received ON :</strong> {formatDate(patient.sample_time)}</p>
-      <p><strong>Referred By :</strong> {patient.doctor_name ?? 'SELF'}</p>
-      <p><strong>Report DATE :</strong> {formatDate(patient.report_time)}</p>
+      {/* Field labels are normal weight; the filled-in values are bold (matches the lab's paper). */}
+      <p>Name : <strong>{patient.title} {patient.name}</strong></p>
+      <p>Test Request ID : <strong>{patient.test_no}</strong></p>
+      <p>Age/Gender : <strong>{patient.age} {patient.age_unit} / {genderLabel}</strong></p>
+      <p>Sample Collected ON : <strong>{formatDate(patient.sample_time)}</strong></p>
+      <p>Collected AT : <strong>{patient.collected_at}</strong></p>
+      <p>Sample Received ON : <strong>{formatDate(patient.sample_time)}</strong></p>
+      <p>Referred By : <strong>{patient.doctor_name ?? 'SELF'}</strong></p>
+      <p>Report DATE : <strong>{formatDate(patient.report_time)}</strong></p>
     </section>
   ) : null, [patient, genderLabel]);
 
@@ -1278,6 +1285,7 @@ export function ReportPreviewPage() {
               <EditedReportView
                 key="ov"
                 html={reportOverride}
+                logoData={settings.logo_data}
                 className={cn("report-sheet relative", !printLetterhead && "no-letterhead")}
                 styleVars={{ ['--pre-top' as string]: `${preTop}mm`, ['--pre-bottom' as string]: `${preBottom}mm`, ['--sig-bottom' as string]: `${sigBottomMm}mm`, ['--sig-right' as string]: `${sigRightMm}mm`, ['--sig-clear' as string]: `${sigBottomMm + sigHeightMm + 7}mm` }}
                 overrides={pageScaleOverrides}
@@ -2488,8 +2496,9 @@ type PageScale = { sx: number; sy: number };
  *  here we fill the HTML imperatively (React doesn't manage the inner DOM), measure each page's
  *  natural content size, inject 8 resize handles per page, and re-apply the transform when the
  *  user drags. Handles are tagged data-report-control so pdf.ts strips them from the output. */
-function EditedReportView({ html, className, styleVars, overrides, onChange, onReset }: {
+function EditedReportView({ html, logoData, className, styleVars, overrides, onChange, onReset }: {
   html: string;
+  logoData?: string;
   className: string;
   styleVars: React.CSSProperties;
   overrides: Record<number, PageScale>;
@@ -2590,6 +2599,26 @@ function EditedReportView({ html, className, styleVars, overrides, onChange, onR
   useLayoutEffect(() => {
     const root = ref.current; if (!root) return;
     root.innerHTML = html;
+    // Re-sync the letterhead logo from CURRENT settings so a logo set/changed AFTER this report
+    // was manually edited still shows on every page (the saved HTML froze the old letterhead).
+    try {
+      root.querySelectorAll<HTMLElement>('.report-letterhead').forEach(head => {
+        const row = head.querySelector<HTMLElement>(':scope > div') ?? head;
+        let img = head.querySelector<HTMLImageElement>('img');
+        if (logoData) {
+          if (img) { img.src = logoData; }
+          else {
+            img = document.createElement('img');
+            img.src = logoData;
+            img.alt = 'logo';
+            img.className = 'h-[58px] w-auto object-contain shrink-0';
+            row.insertBefore(img, row.firstChild);
+          }
+        } else if (img) {
+          img.remove();
+        }
+      });
+    } catch { /* non-fatal */ }
     const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
     const nat: Record<number, { w: number; h: number; syMax: number }> = {};
     pages.forEach((pg, idx) => {
@@ -2624,7 +2653,7 @@ function EditedReportView({ html, className, styleVars, overrides, onChange, onR
     natRef.current = nat;
     applyTransforms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html]);
+  }, [html, logoData]);
 
   // Re-apply transforms whenever the per-page scale changes.
   useLayoutEffect(() => { applyTransforms(); }, [overrides]);   // eslint-disable-line react-hooks/exhaustive-deps
