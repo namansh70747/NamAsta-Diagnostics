@@ -20,6 +20,11 @@ export interface AnalyzerHistograms {
   wbc?: number[];
   rbc?: number[];
   plt?: number[];
+  // Real bitmap graphs from the analyzer (PNG data URLs). When present these are rendered
+  // instead of the synthetic curve. Extracted from the binary capture by extractHistogramImages.
+  wbcImg?: string;
+  rbcImg?: string;
+  pltImg?: string;
 }
 
 export interface AnalyzerReading {

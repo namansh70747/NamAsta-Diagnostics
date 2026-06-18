@@ -3,7 +3,9 @@ import type { AnalyzerHistograms } from "@/lib/astm";
 
 /** Persist the histogram curves captured from the analyzer for a patient. */
 export async function saveHistograms(patientId: number, histos: AnalyzerHistograms): Promise<void> {
-  if (!histos || (!histos.wbc && !histos.rbc && !histos.plt)) return;
+  if (!histos) return;
+  const hasData = histos.wbc || histos.rbc || histos.plt || histos.wbcImg || histos.rbcImg || histos.pltImg;
+  if (!hasData) return;
   await dbExecute(
     `INSERT INTO analyzer_histograms(patient_id, data_json, at) VALUES(?,?,CURRENT_TIMESTAMP)
        ON CONFLICT(patient_id) DO UPDATE SET data_json=excluded.data_json, at=CURRENT_TIMESTAMP`,

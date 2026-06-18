@@ -185,3 +185,101 @@ export async function bmpToPngDataUrl(bmpDataUrl: string): Promise<string> {
   ctx.drawImage(img, 0, 0);
   return canvas.toDataURL("image/png");
 }
+
+// ── histogram-image extraction (format-agnostic) ──
+// Some analyzers base64-encode the bitmap AND deflate it first; try to inflate a decoded block
+// (raw-deflate and zlib-wrapped) so an embedded image is still found. Returns null if it can't.
+async function inflate(bytes: Uint8Array): Promise<Uint8Array | null> {
+  const DS = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
+  if (!DS) return null;
+  for (const fmt of ["deflate-raw", "deflate"] as const) {
+    try {
+      const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DS(fmt));
+      const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+      if (buf.length) return buf;
+    } catch { /* try the next format */ }
+  }
+  return null;
+}
+
+type ImgKey = "wbcImg" | "rbcImg" | "pltImg";
+
+/** Pull the WBC/RBC/PLT histogram bitmaps out of a raw analyzer capture, whatever the framing:
+ *  raw bytes, base64 text, or deflate+base64. All are normalised to PNG data URLs. Mapping is by
+ *  a channel label sitting near the image in the stream, else by order of appearance (WBC,RBC,PLT).
+ *  The technician confirms/reassigns in the result-entry review before anything is saved. */
+/** Precise decoder for the ERBA H360 format: HL7 OBX "ED" segments carry each histogram as
+ *  `OBX|n|ED|<code>^WBC Histogram…^…||^Image^PNG^Base64^<base64>|…`. We map by the channel name
+ *  in OBX-3, decode the base64 after `Base64^`, and (if BMP) convert to PNG. */
+async function extractHl7EdImages(text: string): Promise<Partial<Record<ImgKey, string>>> {
+  const out: Partial<Record<ImgKey, string>> = {};
+  for (const seg of text.split(/[\r\n\x1c\x0b]+/)) {
+    if (!/^OBX/i.test(seg.trim())) continue;
+    const at = seg.indexOf("Base64^");
+    if (at < 0) continue;
+    const fields = seg.split("|");
+    const obx3 = (fields[3] || "").toUpperCase();
+    let key: ImgKey | null = null;
+    if (obx3.includes("WBC")) key = "wbcImg";
+    else if (obx3.includes("RBC")) key = "rbcImg";
+    else if (obx3.includes("PLT") || obx3.includes("PLATELET")) key = "pltImg";
+    if (!key || out[key]) continue;
+    const b64 = seg.slice(at + "Base64^".length).replace(/[^A-Za-z0-9+/=]/g, "");
+    if (b64.length < 40) continue;
+    try {
+      const imgs = scanForImages(b64ToBytes(b64));
+      if (!imgs.length) continue;
+      const img = imgs[0];
+      out[key] = img.format === "bmp" ? await bmpToPngDataUrl(img.dataUrl).catch(() => img.dataUrl) : img.dataUrl;
+    } catch { /* skip a malformed/truncated block */ }
+  }
+  return out;
+}
+
+export async function extractHistogramImages(bytes: Uint8Array): Promise<Partial<Record<ImgKey, string>>> {
+  const text = latin1(bytes);
+  // Precise HL7 OBX-ED path first (the H360's actual format); fall back to a generic scan.
+  const ed = await extractHl7EdImages(text);
+  if (ed.wbcImg || ed.rbcImg || ed.pltImg) return ed;
+  const found: { url: string; pos: number }[] = [];
+  const add = async (img: FoundImage, pos: number) => {
+    const url = img.format === "bmp" ? await bmpToPngDataUrl(img.dataUrl).catch(() => img.dataUrl) : img.dataUrl;
+    found.push({ url, pos });
+  };
+  // (a) images sitting raw in the byte stream
+  for (const img of scanForImages(bytes)) await add(img, img.start);
+  // (b) images inside long base64 runs — directly, or after inflating a deflate'd block
+  const re = /[A-Za-z0-9+/]{40,}={0,2}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    let decoded: Uint8Array;
+    try { decoded = b64ToBytes(m[0]); } catch { continue; }
+    let imgs = scanForImages(decoded);
+    if (!imgs.length) { const inf = await inflate(decoded); if (inf) imgs = scanForImages(inf); }
+    for (const img of imgs) await add(img, m.index);
+  }
+  // de-dupe identical images, keep stream order
+  const seen = new Set<string>();
+  const uniq = found.filter((f) => (seen.has(f.url) ? false : (seen.add(f.url), true))).sort((a, b) => a.pos - b.pos);
+  if (!uniq.length) return {};
+
+  const out: Partial<Record<ImgKey, string>> = {};
+  const used = new Set<number>();
+  const labelAt = (pos: number): ImgKey | null => {
+    const w = text.slice(Math.max(0, pos - 240), pos + 240).toUpperCase();
+    if (w.includes("WBC") || w.includes("LEUKO")) return "wbcImg";
+    if (w.includes("RBC") || w.includes("ERYTHRO")) return "rbcImg";
+    if (w.includes("PLT") || w.includes("PLATELET") || w.includes("THROMBO")) return "pltImg";
+    return null;
+  };
+  // pass 1: assign by nearby label
+  uniq.forEach((f, i) => { const k = labelAt(f.pos); if (k && !out[k]) { out[k] = f.url; used.add(i); } });
+  // pass 2: fill the rest in canonical order
+  const order: ImgKey[] = ["wbcImg", "rbcImg", "pltImg"];
+  uniq.forEach((f, i) => {
+    if (used.has(i)) return;
+    const k = order.find((key) => !out[key]);
+    if (k) out[k] = f.url;
+  });
+  return out;
+}

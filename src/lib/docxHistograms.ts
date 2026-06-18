@@ -39,17 +39,31 @@ async function svgToPng(svgMarkup: string, w: number, h: number): Promise<Uint8A
 
 /** Render the 3 CBC histograms (or whichever sections the CBC panel has) to PNGs.
  *  Returns {} when there is no CBC panel. */
+/** Decode a PNG data URL (the real analyzer bitmap) into a HistoPng, reading its pixel size. */
+async function pngToHisto(dataUrl: string): Promise<HistoPng> {
+  const img = new Image();
+  await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('img')); img.src = dataUrl; });
+  return { bytes: dataUrlToUint8(dataUrl), width: img.naturalWidth || 160, height: img.naturalHeight || 84 };
+}
+
 export async function rasterizeHistograms(
   sortedPanels: { panel: Panel; orders: OrderWithResult[] }[],
-  histos: { wbc?: number[]; rbc?: number[]; plt?: number[] } | null | undefined,
+  histos: { wbc?: number[]; rbc?: number[]; plt?: number[]; wbcImg?: string; rbcImg?: string; pltImg?: string } | null | undefined,
   scale = 4,
 ): Promise<HistogramPngs> {
   const cbc = sortedPanels.find(p => p.panel.code === 'CBC');
   if (!cbc) return {};
   const W = 160 * scale, H = 84 * scale;
+  const imgField = { LEUKOCYTES: 'wbcImg', ERYTHROCYTES: 'rbcImg', THROMBOCYTES: 'pltImg' } as const;
   const out: HistogramPngs = {};
   for (const section of SECTIONS) {
     try {
+      // Real analyzer bitmap (PNG data URL) → embed it directly, bypassing the SVG curve.
+      const url = histos?.[imgField[section]];
+      if (url && url.startsWith('data:image')) {
+        out[section] = await pngToHisto(url);
+        continue;
+      }
       const markup = renderToStaticMarkup(createElement(CbcSectionHistogram, { section, orders: cbc.orders, histos }));
       if (!markup || !markup.includes('<svg')) continue;
       out[section] = { bytes: await svgToPng(markup, W, H), width: W, height: H };

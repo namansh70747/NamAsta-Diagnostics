@@ -48,6 +48,8 @@ export function ResultEntryPage() {
   const [addingRow, setAddingRow] = useState(false);
   const [reading, setReading] = useState(false);
   const [analyzer, setAnalyzer] = useState<{ matches: AnalyzerMatch[]; reading: AnalyzerReading } | null>(null);
+  // Editable WBC/RBC/PLT → captured-graph mapping (technician confirms before Apply).
+  const [imgAssign, setImgAssign] = useState<{ wbcImg?: string; rbcImg?: string; pltImg?: string }>({});
   const [rawCapture, setRawCapture] = useState<{ text: string; valueCount: number } | null>(null);
   const [rawCopied, setRawCopied] = useState(false);
   const [showAddTest, setShowAddTest] = useState(false);
@@ -383,6 +385,7 @@ export function ResultEntryPage() {
         setRawCapture({ text: r.raw ?? '', valueCount: Object.keys(r.values).length });
         return;
       }
+      setImgAssign({ wbcImg: r.histograms.wbcImg, rbcImg: r.histograms.rbcImg, pltImg: r.histograms.pltImg });
       setAnalyzer({ matches, reading: r });
     } catch (e) {
       toast.error(e);
@@ -435,7 +438,9 @@ export function ResultEntryPage() {
         failed.push(o.test.name);
       }
     }
-    try { await saveHistograms(pid, analyzer.reading.histograms); } catch { /* histograms are non-critical */ }
+    // Save the histograms with the technician-confirmed graph→channel mapping (overrides the
+    // auto-detected one). Numeric curves (if any) are kept; image fields come from imgAssign.
+    try { await saveHistograms(pid, { ...analyzer.reading.histograms, ...imgAssign }); } catch { /* histograms are non-critical */ }
     qc.invalidateQueries({ queryKey: ['orders', pid] });
     setAnalyzer(null);
     if (failed.length) {
@@ -878,9 +883,42 @@ export function ResultEntryPage() {
                 </tbody>
               </table>
             </div>
-            {(analyzer.reading.histograms.wbc || analyzer.reading.histograms.rbc || analyzer.reading.histograms.plt) && (
-              <p className="text-[12px] text-[#14743a] mt-3">✓ Histogram curves captured — they will print on the report.</p>
-            )}
+            {(() => {
+              const h = analyzer.reading.histograms;
+              const captured = [...new Set([h.wbcImg, h.rbcImg, h.pltImg].filter(Boolean) as string[])];
+              const channels: { key: 'wbcImg' | 'rbcImg' | 'pltImg'; label: string }[] = [
+                { key: 'wbcImg', label: 'WBC' }, { key: 'rbcImg', label: 'RBC' }, { key: 'pltImg', label: 'PLT' },
+              ];
+              if (captured.length) {
+                return (
+                  <div className="mt-3">
+                    <p className="text-[12px] text-[#14743a] mb-1.5">✓ {captured.length} histogram graph{captured.length !== 1 ? 's' : ''} captured — confirm which is which, then Apply.</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {channels.map(({ key, label }) => (
+                        <div key={key} className="rounded-lg border border-[#eef0f4] p-2">
+                          <div className="text-[11px] font-semibold text-[#54555f] mb-1">{label}</div>
+                          <div className="h-16 flex items-center justify-center bg-[#fafafe] rounded mb-1 overflow-hidden">
+                            {imgAssign[key] ? <img src={imgAssign[key]} alt={label} className="max-h-16 w-auto" /> : <span className="text-[10px] text-[#a3a5b3]">curve</span>}
+                          </div>
+                          <select
+                            value={imgAssign[key] ?? ''}
+                            onChange={e => setImgAssign(a => ({ ...a, [key]: e.target.value || undefined }))}
+                            className="w-full text-[11px] border border-[#e6e7ee] rounded px-1 py-0.5"
+                          >
+                            <option value="">(curve)</option>
+                            {captured.map((url, i) => <option key={i} value={url}>Graph {i + 1}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              if (h.wbc || h.rbc || h.plt) {
+                return <p className="text-[12px] text-[#14743a] mt-3">✓ Histogram curves captured — they will print on the report.</p>;
+              }
+              return null;
+            })()}
             <div className="flex gap-2.5 justify-end mt-5">
               <button onClick={() => setAnalyzer(null)} className="btn btn-secondary">Cancel</button>
               <button onClick={applyAnalyzer} className="btn btn-primary">Apply {analyzer.matches.length} value{analyzer.matches.length !== 1 ? 's' : ''}</button>

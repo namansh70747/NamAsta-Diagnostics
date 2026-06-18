@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@/lib/tauri";
 import { parseAnalyzer, type AnalyzerReading } from "@/lib/astm";
+import { captureRawB64Tcp, captureRawB64Serial, b64ToBytes, extractHistogramImages } from "@/lib/analyzerBinary";
 
 /** List the serial ports the OS can see (for the Analyzer settings dropdown). */
 export async function listSerialPorts(): Promise<string[]> {
@@ -37,15 +38,25 @@ export async function readTcpRaw(mode: string, host: string, port: number, windo
  * and parse it. Network (TCP/IP) is the ERBA H360's normal mode; serial is the fallback.
  */
 export async function readAnalyzerConfigured(s: Record<string, string>): Promise<AnalyzerReading> {
-  if ((s.analyzer_conn ?? 'network') === 'network') {
-    const raw = await readTcpRaw(
-      s.analyzer_tcp_mode || 'listen',
-      s.analyzer_host || '',
-      Number(s.analyzer_tcp_port || '5000'),
-      // Wide window: the operator clicks "Read", walks to the H360 and presses transmit.
-      60000,
-    );
-    return parseAnalyzer(raw);
-  }
-  return readAnalyzer(s.analyzer_port || '', Number(s.analyzer_baud || '9600'), 20000);
+  // Binary-safe capture so the histogram BITMAPS survive (text capture would corrupt them). The
+  // same bytes give us the numbers (latin1 text → parseAnalyzer) AND the graphs (image scan).
+  const conn = s.analyzer_conn ?? 'network';
+  const b64 = conn === 'network'
+    ? await captureRawB64Tcp(
+        s.analyzer_tcp_mode || 'listen',
+        s.analyzer_host || '',
+        Number(s.analyzer_tcp_port || '5000'),
+        // Wide window: the operator clicks "Read", walks to the H360 and presses transmit.
+        60000,
+      )
+    : await captureRawB64Serial(s.analyzer_port || '', Number(s.analyzer_baud || '9600'), 20000);
+
+  const bytes = b64ToBytes(b64);
+  const text = new TextDecoder('latin1').decode(bytes);
+  const reading = parseAnalyzer(text);   // numeric values + any numeric-array histograms
+  try {
+    const imgs = await extractHistogramImages(bytes);   // real WBC/RBC/PLT bitmaps (PNG data URLs)
+    if (imgs.wbcImg || imgs.rbcImg || imgs.pltImg) reading.histograms = { ...reading.histograms, ...imgs };
+  } catch { /* graphs are best-effort; numbers still import */ }
+  return reading;
 }

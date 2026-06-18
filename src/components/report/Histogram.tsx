@@ -257,7 +257,7 @@ export function CbcSectionHistogram({
 }: {
   section: string;
   orders: OrderWithResult[];
-  histos: { wbc?: number[]; rbc?: number[]; plt?: number[] } | null | undefined;
+  histos: { wbc?: number[]; rbc?: number[]; plt?: number[]; wbcImg?: string; rbcImg?: string; pltImg?: string } | null | undefined;
 }) {
   function num(code: string): number | null {
     const o = orders.find(x => x.test.code === code);
@@ -266,17 +266,24 @@ export function CbcSectionHistogram({
     const n = parseFloat(v);
     return isNaN(n) ? null : n;
   }
+  // The REAL bitmap the H360 transmitted (PNG data URL) always wins over the synthetic curve.
+  const realImg = (url: string) => (
+    <img src={url} alt="histogram" style={{ width: '100%', height: 'auto', display: 'block' }} />
+  );
   if (section === 'LEUKOCYTES') {
+    if (histos?.wbcImg) return realImg(histos.wbcImg);
     const data = histos?.wbc?.length ? histos.wbc
       : wbcCurve(num('LYM_PCT') ?? 33, num('MID_PCT') ?? 8, num('GRAN_PCT') ?? 59);
     return <HistogramChart data={data} title="WBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[50,95]} color="#1e3f8f" />;
   }
   if (section === 'ERYTHROCYTES') {
+    if (histos?.rbcImg) return realImg(histos.rbcImg);
     const data = histos?.rbc?.length ? histos.rbc
       : rbcCurve(num('MCV') ?? 90, num('RDW_CV') ?? 13.5);
     return <HistogramChart data={data} title="RBC Histogram" xTicks={[0,100,200,300]} xMax={300} vlines={[25,300]} color="#7b1b1b" />;
   }
   if (section === 'THROMBOCYTES') {
+    if (histos?.pltImg) return realImg(histos.pltImg);
     const data = histos?.plt?.length ? histos.plt
       : pltCurve(num('MPV') ?? 10, num('PDW_CV') ?? 16);
     return <HistogramChart data={data} title="PLT Histogram" xTicks={[0,10,20,30]} xMax={36} vlines={[2,30]} color="#14743a" />;

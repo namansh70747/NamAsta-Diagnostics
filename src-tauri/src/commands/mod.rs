@@ -820,6 +820,7 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
     // control bytes and just read until the peer closes (or the long idle fallback fires). In
     // real ASTM the image payload is escaped (`&Xhhhh&`), so honouring EOT stays safe there.
     let mut astm: Option<bool> = None;
+    let mut hl7 = false;
     const ACK: [u8; 1] = [0x06];
     while start.elapsed() < window && !got_eot {
         match stream.read(&mut buf) {
@@ -828,9 +829,17 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
                 let chunk = &buf[..n];
                 if astm.is_none() {
                     astm = Some(chunk.iter().any(|&b| b == 0x05 || b == 0x02));
+                    // HL7/MLLP starts with VT (0x0B) or carries "MSH|". The H360 sends the numbers
+                    // AND the WBC/RBC/PLT histogram bitmaps in ONE message that ends with FS (0x1C);
+                    // anchoring on that guarantees the whole thing (incl. images) is captured, and
+                    // stops promptly even when the machine pauses to render each bitmap mid-message.
+                    hl7 = chunk.first() == Some(&0x0b) || chunk.windows(4).any(|w| w == b"MSH|");
                 }
                 acc.extend_from_slice(chunk);
                 idle_after_data = 0;
+                if hl7 && chunk.contains(&0x1c) {
+                    got_eot = true; // MLLP end-of-message reached → full report (incl. histograms)
+                }
                 if astm == Some(true) {
                     let mut acks = 0usize;
                     for &b in chunk {
@@ -857,10 +866,12 @@ fn tcp_capture_blocking(mode: String, host: String, port: u16, window_ms: u64) -
                 // keep the socket open. It must be generous: a cell counter sends the numeric
                 // results, then PAUSES while it renders the histogram bitmap, then sends that.
                 // A short timeout (the old 2 s) ended the capture in that gap and lost the
-                // graphs. 24 × 500 ms = 12 s of continuous silence before we give up.
+                // graphs. Only a fallback now (HL7 ends on FS, ASTM on EOT, most machines close
+                // the socket): 40 × 500 ms = 20 s of continuous silence before we give up, generous
+                // enough for the render pause between the numeric block and each histogram bitmap.
                 if !acc.is_empty() {
                     idle_after_data += 1;
-                    if idle_after_data >= 24 {
+                    if idle_after_data >= 40 {
                         break;
                     }
                 }
