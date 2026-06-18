@@ -275,6 +275,12 @@ pub fn run() {
             sql: include_str!("../migrations/0045_urine_plus_grading.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 46,
+            description: "paid_once_backfill",
+            sql: include_str!("../migrations/0046_paid_once_backfill.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
@@ -311,6 +317,8 @@ pub fn run() {
             commands::tcp_capture_b64,
             commands::local_ips,
             commands::device_id,
+            commands::trial_store_read,
+            commands::trial_store_write,
             commands::whatsapp_send_document,
             commands::copy_file_to_clipboard,
             commands::save_text_file,

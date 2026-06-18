@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { Check, Loader2, ShieldCheck, KeyRound, Sparkles, Building2, Wallet, Eye, EyeOff, CheckCircle2, Monitor, Copy } from "lucide-react";
 import { NamAstaWordmark } from "@/components/common/NamAstaLogo";
-import { activateLicense, getDeviceFingerprint, type LicenseStatus } from "@/lib/license";
+import { activateLicense, startTrial, getDeviceFingerprint, type LicenseStatus } from "@/lib/license";
 import { validatePassword } from "@/lib/password";
 import { completeSetup } from "@/lib/onboarding";
 import { useSession } from "@/lib/session";
@@ -21,12 +21,13 @@ const PRICE_RENEWAL = 1000;   // every subsequent year
 
 const fieldLabel = "block text-[12px] font-medium text-white/60 mb-1.5";
 
-export function OnboardingPage({ licensed, needSetup, status, onDone, preview }: {
+export function OnboardingPage({ licensed, status, onDone, preview }: {
   licensed: boolean; needSetup: boolean; status: LicenseStatus; onDone: () => void; preview?: boolean;
 }) {
-  // A lab that still needs setup = brand new (first year ₹5000). A lab already set up = a
-  // returning lab that's renewing (₹1000). This is the single source of truth for the price.
-  const isRenewal = !needSetup;
+  // Pricing is driven by whether the lab has EVER paid (paid_once), NOT by "setup done" — a
+  // trial lab that set up but never paid is still a NEW lab (first year ₹5000), and only a
+  // genuinely-paid lab renews at ₹1000. (Existing paid labs are backfilled by migration 0046.)
+  const isRenewal = status.paidBefore === true;
   const [step, setStep] = useState<"activate" | "setup">(licensed && !preview ? "setup" : "activate");
   // Always clear the "show onboarding" request once we leave, so the next launch behaves normally.
   const finishOnboarding = () => { localStorage.removeItem("namasta_show_onboard"); onDone(); };
@@ -127,6 +128,19 @@ function ActivateStep({ status, isRenewal, onActivated }: {
     } catch (e) { toast.error(e); } finally { setActivating(false); }
   }
 
+  // Offered only to a brand-new lab that has never paid and hasn't used the trial yet.
+  const canTrial = !isRenewal && !status.trialUsed;
+  const [startingTrial, setStartingTrial] = useState(false);
+  async function beginTrial() {
+    if (startingTrial) return;
+    setStartingTrial(true);
+    try {
+      await startTrial();
+      toast.success("Free trial started — you have 7 days. Set up your lab to begin.");
+      onActivated();
+    } catch (e) { toast.error(e); } finally { setStartingTrial(false); }
+  }
+
   return (
     <div className="mt-7 grid lg:grid-cols-2 gap-6 items-start">
       {/* ── Left: what they're paying for ── */}
@@ -175,6 +189,11 @@ function ActivateStep({ status, isRenewal, onActivated }: {
         {status.expired && (
           <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">
             Your subscription for <b>{status.lab}</b> has expired. Renew below — <b>your data is safe</b>.
+          </div>
+        )}
+        {status.trialExpired && (
+          <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-200">
+            <b>This device has already used its 7-day free trial.</b> Subscribe below to keep using NamAsta — <b>your data is safe</b> and carries over.
           </div>
         )}
         {status.deviceMismatch && (
@@ -236,7 +255,21 @@ function ActivateStep({ status, isRenewal, onActivated }: {
         <button onClick={activate} disabled={activating || !key.trim()} className="login-btn mt-3">
           {activating ? <Loader2 size={18} className="animate-spin" /> : <><ShieldCheck size={17} /> Unlock the app</>}
         </button>
-        <p className="mt-3 text-center text-[11px] text-white/35">🔒 The app stays locked until a valid key is entered · works fully offline</p>
+
+        {canTrial && (
+          <>
+            <div className="my-4 flex items-center gap-3 text-white/30 text-[11px]">
+              <span className="h-px flex-1 bg-white/10" /> OR <span className="h-px flex-1 bg-white/10" />
+            </div>
+            <button onClick={beginTrial} disabled={startingTrial}
+              className="w-full rounded-xl border border-[#6366f1]/40 bg-[#6366f1]/10 px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#6366f1]/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+              {startingTrial ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={16} />}
+              Start 7-day free trial
+            </button>
+            <p className="mt-2 text-center text-[11px] text-white/40">Full app, no payment, for 7 days. Your data carries over when you subscribe.</p>
+          </>
+        )}
+        <p className="mt-3 text-center text-[11px] text-white/35">🔒 Works fully offline · subscription required after the trial</p>
       </div>
     </div>
   );

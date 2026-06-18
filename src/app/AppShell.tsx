@@ -203,7 +203,16 @@ export function AppShell() {
           </button>
 
           <div className="flex items-center gap-3 text-[12.5px] text-[#8a8b97]">
-            {license?.daysLeft != null && license.daysLeft <= 14 && (
+            {license?.trial && license.daysLeft != null && (
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border bg-indigo-50 border-indigo-200 text-indigo-700"
+                title="Free trial — subscribe before it ends to keep using NamAsta. Your data carries over."
+              >
+                <span className="w-[7px] h-[7px] rounded-full bg-indigo-400 animate-pulse" />
+                {`Free trial: ${license.daysLeft}d left`}
+              </span>
+            )}
+            {!license?.trial && license?.daysLeft != null && license.daysLeft <= 14 && (
               <span
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border bg-amber-50 border-amber-200 text-amber-700"
                 title="Renew your NamAsta subscription to avoid interruption."

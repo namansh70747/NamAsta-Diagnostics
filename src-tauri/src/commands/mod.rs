@@ -603,6 +603,123 @@ pub fn device_id() -> String {
         .unwrap_or_else(|_| "unknown-device".to_string())
 }
 
+// ── Free-trial persistence stores ─────────────────────────────────────────────────────────────
+// The trial marker is written to SEVERAL locations OUTSIDE the app's data folder and read from
+// ANY of them, so deleting the app (and its data) does not grant a fresh trial. macOS uses the
+// login Keychain + /Users/Shared; Windows uses the registry + %PROGRAMDATA%; Linux uses ~/.config
+// + /var/tmp. The frontend reconciles the values (earliest trial start wins) and re-writes all
+// stores so a cleared one self-heals. No admin rights are needed for any of these locations.
+const TRIAL_KEY: &str = "NamAstaService"; // keychain service / registry value / file marker name
+
+fn trial_file_paths() -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+    #[cfg(target_os = "macos")]
+    {
+        out.push(PathBuf::from("/Users/Shared/.nmstd"));
+        if let Ok(home) = std::env::var("HOME") {
+            out.push(PathBuf::from(home).join("Library/Application Support/.nmstd"));
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(pd) = std::env::var("ProgramData") {
+            out.push(PathBuf::from(pd).join("NamAstaService").join(".nmstd"));
+        }
+        if let Ok(la) = std::env::var("LOCALAPPDATA") {
+            out.push(PathBuf::from(la).join("NamAstaService").join(".nmstd"));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            out.push(PathBuf::from(&home).join(".config/.nmstd"));
+        }
+        out.push(PathBuf::from("/var/tmp/.nmstd"));
+    }
+    out
+}
+
+/// Read the trial marker from every store; returns all values found (callers reconcile).
+#[tauri::command]
+pub fn trial_store_read() -> Result<Vec<String>, String> {
+    let mut found: Vec<String> = Vec::new();
+    // macOS Keychain
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        if let Ok(out) = Command::new("security")
+            .args(["find-generic-password", "-s", TRIAL_KEY, "-w"])
+            .output()
+        {
+            if out.status.success() {
+                let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !v.is_empty() {
+                    found.push(v);
+                }
+            }
+        }
+    }
+    // Windows registry
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        if let Ok(out) = Command::new("reg")
+            .args(["query", &format!(r"HKCU\Software\{TRIAL_KEY}"), "/v", "data"])
+            .output()
+        {
+            let s = String::from_utf8_lossy(&out.stdout);
+            if let Some(line) = s.lines().find(|l| l.contains("data")) {
+                if let Some(v) = line.split_whitespace().last() {
+                    if !v.is_empty() {
+                        found.push(v.to_string());
+                    }
+                }
+            }
+        }
+    }
+    // File-based stores
+    for p in trial_file_paths() {
+        if let Ok(v) = std::fs::read_to_string(&p) {
+            let v = v.trim().to_string();
+            if !v.is_empty() {
+                found.push(v);
+            }
+        }
+    }
+    Ok(found)
+}
+
+/// Write the trial marker to every store (best-effort: a single failure never aborts the rest).
+#[tauri::command]
+pub fn trial_store_write(value: String) -> Result<(), String> {
+    let v = value.trim().to_string();
+    if v.is_empty() {
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        // -U updates if it already exists; ignore failure.
+        let _ = Command::new("security")
+            .args(["add-generic-password", "-U", "-a", TRIAL_KEY, "-s", TRIAL_KEY, "-w", &v])
+            .output();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let _ = Command::new("reg")
+            .args(["add", &format!(r"HKCU\Software\{TRIAL_KEY}"), "/v", "data", "/t", "REG_SZ", "/d", &v, "/f"])
+            .output();
+    }
+    for p in trial_file_paths() {
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(&p, &v);
+    }
+    Ok(())
+}
+
 /// Read CBC results from the analyzer over the network (TCP/IP).
 ///
 /// `mode = "listen"`: this PC acts as the host server — it binds `port` and waits for the

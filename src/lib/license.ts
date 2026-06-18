@@ -28,11 +28,19 @@ export interface LicenseStatus {
   lab?: string;
   plan?: string;
   exp?: number;       // unix seconds
-  daysLeft?: number;  // whole days remaining on an active licence
+  daysLeft?: number;  // whole days remaining on an active licence OR free trial
   expired?: boolean;
   deviceMismatch?: boolean;  // key is valid + in-tenure, but locked to other devices
   deviceId?: string;         // this PC's fingerprint (so the UI can show/send it)
+  trial?: boolean;           // currently inside the 7-day free trial (no paid key yet)
+  trialExpired?: boolean;    // the free trial was used up and no paid key exists
+  trialUsed?: boolean;       // the trial has been started at least once (hide "Start trial")
+  paidBefore?: boolean;      // a paid key was ever activated → renewal pricing (₹1000), not new (₹5000)
 }
+
+// Free trial length. Offline: the start time is stored in settings and read through the
+// monotonic effectiveNow(), so winding the PC clock back can't extend or revive the trial.
+const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * A short, stable fingerprint of THIS computer. Derived from the OS machine id (hashed, so the
@@ -103,6 +111,42 @@ async function readSetting(k: string): Promise<string | null> {
   return rows[0]?.value ?? null;
 }
 
+async function writeSetting(k: string, v: string): Promise<void> {
+  await dbExecute(
+    `INSERT INTO settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
+    [k, v]
+  );
+}
+
+// ── Free-trial marker: persisted to OS stores OUTSIDE the app data (Keychain/Registry + system
+// files) via the Rust trial_store_* commands, so deleting the app/its data can't grant a new
+// trial. Each record is base64(JSON {d:deviceFp, s:startMs, h:hwmMs}); we keep only records that
+// match THIS device's fingerprint (a record copied to another PC is ignored). ──
+interface TrialRec { d: string; s: number; h: number; }
+
+async function readTrialRecords(fp: string): Promise<TrialRec[]> {
+  if (!isTauri()) return [];
+  try {
+    const raws = await invoke<string[]>("trial_store_read");
+    const out: TrialRec[] = [];
+    for (const raw of raws ?? []) {
+      try {
+        const r = JSON.parse(atob(raw.trim())) as Partial<TrialRec>;
+        if (r && r.d === fp && typeof r.s === "number" && r.s > 0) {
+          out.push({ d: r.d, s: r.s, h: typeof r.h === "number" && r.h > 0 ? r.h : r.s });
+        }
+      } catch { /* skip a corrupt/foreign record */ }
+    }
+    return out;
+  } catch { return []; }
+}
+
+async function writeTrialRecord(rec: TrialRec): Promise<void> {
+  if (!isTauri()) return;
+  try { await invoke("trial_store_write", { value: btoa(JSON.stringify(rec)) }); } catch { /* best-effort */ }
+}
+
 /**
  * A monotonic "now" that can't be pushed backwards. We persist the highest timestamp ever
  * seen; if the PC clock is later wound back (to dodge an expiry) we keep using the high-water
@@ -131,7 +175,9 @@ export async function activateLicense(key: string): Promise<LicenseInfo> {
   const cleaned = key.replace(/\s+/g, "");
   const info = await verifyLicenseKey(cleaned);
   if (!info) throw new Error("This activation key is not valid. Please re-check it (or contact NamAsta).");
-  if (info.exp * 1000 < await effectiveNow()) throw new Error("This activation key has already expired.");
+  // One monotonic "now" for both the expiry check and the downgrade guard below.
+  const now = await effectiveNow();
+  if (info.exp * 1000 < now) throw new Error("This activation key has already expired.");
   // Device lock: a key bound to specific PCs (max 2) only activates on one of them. The list is
   // inside the signature, so it can't be edited — a 3rd computer simply cannot use this key.
   if (info.dev && info.dev.length) {
@@ -147,7 +193,6 @@ export async function activateLicense(key: string): Promise<LicenseInfo> {
   // licence silently shorten their tenure (a mis-sent or older-but-unexpired key). Only blocks
   // when the existing key actually applies to THIS PC — an expired or device-mismatched stored
   // key must never prevent a legitimate replacement (or the lab would be locked out).
-  const now = await effectiveNow();
   const existing = await readSetting('license_key');
   if (existing && existing !== cleaned) {
     const ex = await verifyLicenseKey(existing);
@@ -168,34 +213,85 @@ export async function activateLicense(key: string): Promise<LicenseInfo> {
      ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
     [cleaned]
   );
+  // Mark that a PAID key was applied — drives renewal pricing (₹1000) vs new-lab (₹5000),
+  // and distinguishes a converted trial lab from one that never paid.
+  await writeSetting('paid_once', '1');
   return info;
+}
+
+/** Begin the offline 7-day free trial. Safe/idempotent: does nothing if a paid key was ever
+ *  applied or the trial was already started — so it can never be restarted to dodge payment. */
+export async function startTrial(): Promise<void> {
+  if ((await readSetting('paid_once')) === '1') return;
+  const fp = await getDeviceFingerprint();
+  const now = await effectiveNow();
+  // Reuse any existing same-device start (DB or external stores) so a second "start" — e.g.
+  // after deleting the app and re-downloading — can NEVER reset the clock.
+  const recs = await readTrialRecords(fp);
+  const dbStart = parseInt((await readSetting('trial_started_at')) ?? '0', 10) || 0;
+  const starts = [...recs.map(r => r.s), ...(dbStart > 0 ? [dbStart] : [])];
+  const start = starts.length ? Math.min(...starts) : now;
+  const hwm = Math.max(now, ...recs.map(r => r.h));
+  await writeSetting('trial_started_at', String(start));
+  await writeTrialRecord({ d: fp, s: start, h: hwm });
 }
 
 /** Current licence state. Development is never gated; the developer logs in freely. */
 export async function getLicenseStatus(): Promise<LicenseStatus> {
   if (import.meta.env.DEV) return { active: true, dev: true };
   try {
-    const key = await readSetting("license_key");
-    if (!key) return { active: false };
-    const info = await verifyLicenseKey(key);
-    if (!info) return { active: false };
+    const paidBefore = (await readSetting("paid_once")) === "1";
     const now = await effectiveNow();
-    if (info.exp * 1000 < now) {
-      return { active: false, expired: true, lab: info.lab, plan: info.plan, exp: info.exp };
-    }
-    // Device lock re-checked on every launch: a stored key that's bound to other PCs must NOT
-    // unlock this one (e.g. the scl.db was copied to a third computer). Fail to the activation
-    // screen with this PC's id so it can be registered.
-    if (info.dev && info.dev.length) {
-      const fp = await getDeviceFingerprint();
-      if (!info.dev.includes(fp)) {
-        return { active: false, deviceMismatch: true, deviceId: fp, lab: info.lab, plan: info.plan, exp: info.exp };
+    const key = await readSetting("license_key");
+    const info = key ? await verifyLicenseKey(key) : null;
+
+    // 1) A valid PAID key takes precedence over any trial.
+    if (info) {
+      if (info.exp * 1000 < now) {
+        // Expired paid key → renewal screen (priced as a renewal since they paid before).
+        return { active: false, expired: true, paidBefore, lab: info.lab, plan: info.plan, exp: info.exp };
       }
+      // Device lock re-checked on every launch: a stored key bound to other PCs must NOT
+      // unlock this one (e.g. the scl.db was copied to a third computer).
+      if (info.dev && info.dev.length) {
+        const fp = await getDeviceFingerprint();
+        if (!info.dev.includes(fp)) {
+          return { active: false, deviceMismatch: true, deviceId: fp, paidBefore, lab: info.lab, plan: info.plan, exp: info.exp };
+        }
+      }
+      const daysLeft = Math.ceil((info.exp * 1000 - now) / 86_400_000);
+      return { active: true, paidBefore, lab: info.lab, plan: info.plan, exp: info.exp, daysLeft };
     }
-    const daysLeft = Math.ceil((info.exp * 1000 - now) / 86_400_000);
-    return { active: true, lab: info.lab, plan: info.plan, exp: info.exp, daysLeft };
+
+    // 2) No usable paid key → consider the offline free trial. Reconcile the DB with every
+    // external store (Keychain/Registry/system files) for THIS device: the earliest start wins
+    // and the clock can't be wound back below the highest timestamp ever seen (store hwm).
+    const fp = await getDeviceFingerprint();
+    const recs = await readTrialRecords(fp);
+    const dbStart = parseInt((await readSetting("trial_started_at")) ?? "0", 10) || 0;
+    const starts = [...recs.map(r => r.s), ...(dbStart > 0 ? [dbStart] : [])];
+    if (starts.length) {
+      const start = Math.min(...starts);
+      const maxRecH = recs.length ? Math.max(...recs.map(r => r.h)) : 0;
+      const effNow = Math.max(now, maxRecH);
+      // Self-heal: keep the DB in sync (cheap), and repopulate/advance the external stores when
+      // any are missing or the high-water-mark is stale by ≥1h (throttled to avoid Keychain churn).
+      if (dbStart !== start) await writeSetting("trial_started_at", String(start));
+      if (recs.length === 0 || effNow - maxRecH >= 3_600_000) await writeTrialRecord({ d: fp, s: start, h: effNow });
+      const end = start + TRIAL_MS;
+      if (effNow < end) {
+        const daysLeft = Math.max(1, Math.ceil((end - effNow) / 86_400_000));
+        return { active: true, trial: true, trialUsed: true, paidBefore, daysLeft, exp: Math.floor(end / 1000) };
+      }
+      return { active: false, trialExpired: true, trialUsed: true, paidBefore };
+    }
+
+    // 3) Brand-new: no key, no trial anywhere → onboarding offers "Start free trial" or pay.
+    return { active: false, trialUsed: false, paidBefore };
   } catch {
-    // If the DB can't be read yet, fail closed (show activation) rather than crash.
-    return { active: false };
+    // If the DB can't be read yet, fail closed (show activation) rather than crash — but keep
+    // the renewal-vs-new pricing correct by best-effort reading paid_once even on this path.
+    const paidBefore = (await readSetting("paid_once").catch(() => null)) === "1";
+    return { active: false, paidBefore };
   }
 }

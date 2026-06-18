@@ -15,7 +15,7 @@ export async function needsSetup(): Promise<boolean> {
  * Guarded by import.meta.env.DEV at every call site, so it never ships to customers.
  */
 export async function resetInstallForTesting(): Promise<void> {
-  await dbExecute("DELETE FROM settings WHERE key IN ('setup_done','license_key')");
+  await dbExecute("DELETE FROM settings WHERE key IN ('setup_done','license_key','trial_started_at','paid_once','time_hwm')");
   const admins = await dbQuery<{ id: number }>("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
   if (admins[0]?.id) {
     await dbExecute(
