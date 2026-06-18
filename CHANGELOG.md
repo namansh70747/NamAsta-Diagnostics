@@ -2,6 +2,22 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.75
+
+- Fixed the app icon showing blank/old on the Windows `.exe`, desktop shortcut and taskbar. The
+  icon file was PNG-encoded at every size, which Windows Explorer/taskbar fail to render; it's now
+  rebuilt as a BMP/DIB icon (16–256 px) that displays correctly on Windows 7, 10 and 11.
+  (Windows still caches old icons — re-pin or restart if an in-place update keeps the previous one.)
+
+## v1.3.74
+
+- Report name box: the field labels (Name, Age/Gender, Test Request ID…) are now normal weight
+  and the **filled-in values are bold** — matching the lab's printed paper.
+- Out-of-range results are **auto-bolded** in every panel (both low and high), not just CBC, so
+  abnormal values stand out at a glance.
+- The lab logo (and other branding) now reliably shows in the digital report even on reports that
+  were manually edited — the saved report re-syncs the current logo from Settings → Branding.
+
 ## v1.3.70
 
 - Licence downgrade guard: a key that expires earlier than your current, still-valid licence is
