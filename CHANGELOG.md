@@ -20,6 +20,10 @@ All notable changes to NamAsta Diagnostics. Newest first.
   Indirect" row that adds all three at once; each still keeps its own result row, range and price.
 - Entering a **negative age** now shows a consistent "Age must be greater than 0" message regardless
   of the unit (days previously showed a different wording).
+- **Movable, resizable CBC histograms.** Each WBC / RBC / PLT histogram on a CBC report can be
+  clicked to select, dragged to reposition, and resized from its handles (Excel-style). The chosen
+  size and position is saved **lab-wide** and re-applied to every CBC report; a "Reset histogram
+  positions" button clears them. The adjustments carry through to the PDF/print output.
 
 ## v1.3.80
 

@@ -111,6 +111,192 @@ const COL_DEFAULT = [24, 18, 12, 46];
 const colWidthsValid = (v: unknown): v is number[] =>
   Array.isArray(v) && v.length === 4 && v.every((w, i) => typeof w === 'number' && w >= COL_MIN[i]);
 
+// ── Movable / resizable CBC histograms ──────────────────────────────────────────────────────
+// Each WBC/RBC/PLT histogram behaves like an Excel object: click to select, drag the body to move
+// it freely, drag the 8 handles to resize. The chosen size+position is saved LAB-WIDE per
+// histogram (scl_histo_layout) and applied as a CSS transform so it survives html2canvas/PDF
+// capture; the selection chrome is data-report-control + print:hidden so pdf.ts strips it.
+type HistoKey = 'WBC' | 'RBC' | 'PLT';
+type HistoEntry = { dx?: number; dy?: number; sx?: number; sy?: number };
+type HistoLayout = Record<string, HistoEntry>;
+const SECTION_TO_HISTO: Record<string, HistoKey> = { LEUKOCYTES: 'WBC', ERYTHROCYTES: 'RBC', THROMBOCYTES: 'PLT' };
+
+// Total multiplicative screen-vs-layout factor from every ancestor zoom/scale(): getBoundingClientRect
+// is post-transform, offset{Width,Height} are untransformed CSS px, so the ratio folds in the viewer
+// zoom, the per-panel section scale() and the contentScale zoom at once — no transform-string parsing.
+// Used to convert a screen-pixel drag delta into the histogram's local (layout) pixels.
+function ancestorFactorXY(el: HTMLElement): { fx: number; fy: number } {
+  const r = el.getBoundingClientRect();
+  return { fx: (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1, fy: (el.offsetHeight ? r.height / el.offsetHeight : 1) || 1 };
+}
+
+// Keep the histogram's rendered box inside the page's content body and above the footer line.
+// Computed in screen space from live element rects, then the correction is converted back to the
+// anchor's local px via fx/fy — correct under any zoom/section-scale/contentScale combination.
+function clampHistoTranslate(anchor: HTMLElement | null, dx: number, dy: number, sx: number, sy: number): { dx: number; dy: number } {
+  if (!anchor) return { dx, dy };
+  const page = anchor.closest('[data-report-page]') as HTMLElement | null;
+  if (!page) return { dx, dy };
+  const a = anchor.getBoundingClientRect();
+  const fx = anchor.offsetWidth ? a.width / anchor.offsetWidth : 1;
+  const fy = anchor.offsetHeight ? a.height / anchor.offsetHeight : 1;
+  const body = ((page.querySelector('.report-body') as HTMLElement | null) ?? page).getBoundingClientRect();
+  const foot = page.querySelector('.report-letterfoot') as HTMLElement | null;
+  const minLeft = body.left, maxRight = body.right, minTop = body.top;
+  const maxBottom = foot ? foot.getBoundingClientRect().top : body.bottom;
+  const boxW = a.width * sx, boxH = a.height * sy;
+  let cdx = dx, cdy = dy;
+  // Clamp bottom/right first, then top/left wins — keeps the top-left corner on the sheet when the
+  // box is larger than the available area (better than pinning the bottom-right off-screen).
+  if (a.left + cdx * fx + boxW > maxRight) cdx -= (a.left + cdx * fx + boxW - maxRight) / (fx || 1);
+  if (a.left + cdx * fx < minLeft) cdx += (minLeft - (a.left + cdx * fx)) / (fx || 1);
+  if (a.top + cdy * fy + boxH > maxBottom) cdy -= (a.top + cdy * fy + boxH - maxBottom) / (fy || 1);
+  if (a.top + cdy * fy < minTop) cdy += (minTop - (a.top + cdy * fy)) / (fy || 1);
+  return { dx: +cdx.toFixed(1), dy: +cdy.toFixed(1) };
+}
+
+const HISTO_HANDLES: { dir: string; pos: React.CSSProperties }[] = [
+  { dir: 'nw', pos: { top: -5, left: -5, cursor: 'nwse-resize' } },
+  { dir: 'n',  pos: { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' } },
+  { dir: 'ne', pos: { top: -5, right: -5, cursor: 'nesw-resize' } },
+  { dir: 'e',  pos: { top: '50%', right: -5, marginTop: -5, cursor: 'ew-resize' } },
+  { dir: 'se', pos: { bottom: -5, right: -5, cursor: 'nwse-resize' } },
+  { dir: 's',  pos: { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' } },
+  { dir: 'sw', pos: { bottom: -5, left: -5, cursor: 'nesw-resize' } },
+  { dir: 'w',  pos: { top: '50%', left: -5, marginTop: -5, cursor: 'ew-resize' } },
+];
+
+/** Wraps one CBC histogram so it can be selected, moved and resized like an Excel object. The
+ *  ANCHOR (un-transformed) preserves the table slot; the MOVABLE child carries the translate+scale;
+ *  the CHROME overlay (handles + reset) sits on the scaled box and is stripped from PDF/print. */
+function MovableHistogram({ histoKey, entry, selected, editing, onSelect, onChange, onReset, children }: {
+  histoKey: HistoKey;
+  entry: HistoEntry | undefined;
+  selected: boolean;
+  editing: boolean;
+  onSelect: () => void;
+  onChange: (dx: number, dy: number, sx: number, sy: number) => void;
+  onReset: () => void;
+  children: React.ReactNode;
+}) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [nat, setNat] = useState({ w: 0, h: 0 });
+  const dx = entry?.dx ?? 0, dy = entry?.dy ?? 0, sx = entry?.sx ?? 1, sy = entry?.sy ?? 1;
+  const moved = !!entry && (entry.dx != null || entry.dy != null || entry.sx != null || entry.sy != null);
+
+  // Measure the natural (un-transformed) box so the chrome overlay tracks the scaled histogram.
+  useLayoutEffect(() => {
+    const a = anchorRef.current; if (!a) return;
+    const measure = () => setNat({ w: a.offsetWidth, h: a.offsetHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(a);
+    return () => ro.disconnect();
+  }, []);
+
+  // Latest values for the keyboard-nudge listener (so it never re-attaches mid-session).
+  const latest = useRef({ dx, dy, sx, sy });
+  latest.current = { dx, dy, sx, sy };
+
+  useEffect(() => {
+    if (!selected || editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+      const step = e.shiftKey ? 10 : 1;
+      const { dx: cx, dy: cy, sx: csx, sy: csy } = latest.current;
+      let nx = cx, ny = cy;
+      if (e.key === 'ArrowLeft') nx -= step;
+      else if (e.key === 'ArrowRight') nx += step;
+      else if (e.key === 'ArrowUp') ny -= step;
+      else if (e.key === 'ArrowDown') ny += step;
+      else return;
+      e.preventDefault();
+      const c = clampHistoTranslate(anchorRef.current, nx, ny, csx, csy);
+      onChange(c.dx, c.dy, csx, csy);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, editing, onChange]);
+
+  const startMove = (e: React.MouseEvent) => {
+    if (editing) return;
+    e.stopPropagation();
+    onSelect();
+    const start = { x: e.clientX, y: e.clientY, dx, dy, sx, sy };
+    const fxy = ancestorFactorXY(anchorRef.current!);
+    const onMove = (ev: MouseEvent) => {
+      const ndx = start.dx + (ev.clientX - start.x) / fxy.fx;
+      const ndy = start.dy + (ev.clientY - start.y) / fxy.fy;
+      const c = clampHistoTranslate(anchorRef.current, ndx, ndy, start.sx, start.sy);
+      onChange(c.dx, c.dy, start.sx, start.sy);
+    };
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const startResize = (e: React.MouseEvent, dir: string) => {
+    if (editing) return;
+    e.preventDefault(); e.stopPropagation();
+    onSelect();
+    const a = anchorRef.current!;
+    const start = { x: e.clientX, y: e.clientY, dx, dy, sx, sy };
+    const fxy = ancestorFactorXY(a);
+    const natW = a.offsetWidth || 1, natH = a.offsetHeight || 1;
+    const onMove = (ev: MouseEvent) => {
+      const ldx = (ev.clientX - start.x) / fxy.fx;
+      const ldy = (ev.clientY - start.y) / fxy.fy;
+      let nsx = start.sx, nsy = start.sy, ndx = start.dx, ndy = start.dy;
+      if (dir.includes('e')) nsx = start.sx + ldx / natW;
+      if (dir.includes('w')) { nsx = start.sx - ldx / natW; ndx = start.dx + ldx; }  // pin the right edge
+      if (dir.includes('s')) nsy = start.sy + ldy / natH;
+      if (dir.includes('n')) { nsy = start.sy - ldy / natH; ndy = start.dy + ldy; }  // pin the bottom edge
+      nsx = Math.min(3, Math.max(0.3, nsx));
+      nsy = Math.min(3, Math.max(0.3, nsy));
+      const c = clampHistoTranslate(anchorRef.current, ndx, ndy, nsx, nsy);
+      onChange(c.dx, c.dy, +nsx.toFixed(3), +nsy.toFixed(3));
+    };
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  return (
+    <div ref={anchorRef} data-histo-anchor={histoKey} style={{ position: 'relative' }}>
+      <div
+        onMouseDown={editing ? undefined : startMove}
+        className={cn(!editing && !selected && "hover:outline hover:outline-1 hover:outline-dashed hover:outline-[#a5b4fc]")}
+        style={{
+          transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
+          transformOrigin: 'top left',
+          cursor: editing ? undefined : (selected ? 'move' : 'pointer'),
+        }}
+      >
+        {children}
+      </div>
+
+      {!editing && selected && nat.w > 0 && (
+        <div data-report-control contentEditable={false} className="absolute print:hidden"
+          style={{ left: dx, top: dy, width: nat.w * sx, height: nat.h * sy, zIndex: 14, pointerEvents: 'none' }}>
+          <div className="absolute inset-0 border border-[#6366f1] rounded-[2px]" />
+          {HISTO_HANDLES.map(h => (
+            <div key={h.dir} onMouseDown={e => startResize(e, h.dir)} className="absolute"
+              style={{ width: 10, height: 10, background: '#6366f1', border: '1.5px solid #fff', borderRadius: 2, boxShadow: '0 0 0 1px #6366f1', pointerEvents: 'auto', ...h.pos }} />
+          ))}
+          <div className="absolute -top-5 left-0 flex items-center gap-1" style={{ pointerEvents: 'auto' }}>
+            <span className="text-[9px] tabular-nums px-1 rounded bg-[#6366f1] text-white leading-tight">{histoKey} · {Math.round(sx * 100)}×{Math.round(sy * 100)}%</span>
+            {moved && (
+              <button type="button" onMouseDown={e => e.stopPropagation()} onClick={onReset} title="Reset this histogram to default position & size"
+                className="text-[9px] px-1 rounded bg-white border border-[#c7c9ff] text-[#6366f1] leading-tight hover:bg-[#eef0fe]">reset</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReportPreviewPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const pid = parseInt(patientId ?? '0');
@@ -212,6 +398,30 @@ export function ReportPreviewPage() {
   });
   const setPanelScale = (code: string, sx: number, sy: number) => writePanelEntry(code, e => { e.sx = sx; e.sy = sy; });
   const resetPanelScale = (code: string) => writePanelEntry(code, e => { delete e.sx; delete e.sy; });
+  // Per-histogram move/resize (WBC/RBC/PLT), saved LAB-WIDE in scl_histo_layout — set the size &
+  // position once and it applies to every future patient's CBC report (mirrors panelLayout).
+  const [histoLayout, setHistoLayout] = useState<HistoLayout>(() => {
+    try { const v = JSON.parse(localStorage.getItem('scl_histo_layout') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+  });
+  const [selectedHisto, setSelectedHisto] = useState<HistoKey | null>(null);
+  const writeHistoEntry = (key: string, mut: (e: HistoEntry) => void) => {
+    setHistoLayout(prev => {
+      const e = { ...prev[key] };
+      mut(e);
+      const next = { ...prev };
+      if (e.dx == null && e.dy == null && e.sx == null && e.sy == null) delete next[key];
+      else next[key] = e;
+      if (Object.keys(next).length) localStorage.setItem('scl_histo_layout', JSON.stringify(next));
+      else localStorage.removeItem('scl_histo_layout');
+      return next;
+    });
+  };
+  // Only non-default values are stored, so an untouched histogram leaves no entry (clean reset state).
+  const setHistoTransform = (key: string, dx: number, dy: number, sx: number, sy: number) => writeHistoEntry(key, e => {
+    e.dx = dx || undefined; e.dy = dy || undefined; e.sx = sx === 1 ? undefined : sx; e.sy = sy === 1 ? undefined : sy;
+  });
+  const resetHisto = (key: string) => writeHistoEntry(key, e => { e.dx = undefined; e.dy = undefined; e.sx = undefined; e.sy = undefined; });
+  const resetAllHistos = () => { setHistoLayout({}); localStorage.removeItem('scl_histo_layout'); setSelectedHisto(null); };
   // Excel-style column widths for the standard 4-column tables (Test Name / Results / Units /
   // Normal Ranges), as percentages summing to 100. Drag a column border to resize; saved as a
   // lab-wide template so every report uses the chosen layout.
@@ -305,6 +515,18 @@ export function ReportPreviewPage() {
   const resetPageScale = (idx: number) => setPageScaleOverrides(prev => { const n = { ...prev }; delete n[idx]; persistPageScales(n); return n; });
   // Load THIS patient's saved page resizing when the patient changes.
   useEffect(() => { setPageScaleOverrides(readPageScales(pid)); }, [pid]);
+  // Excel-style deselect: a click anywhere outside a histogram (and not on its handles) clears the
+  // selection. Plain listener — never preventDefault/stopPropagation — so caret/text is untouched.
+  useEffect(() => {
+    if (editing) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('[data-histo-anchor]') || t.closest('[data-report-control]'))) return;
+      setSelectedHisto(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [editing]);
   // Per-column horizontal alignment for the 4 standard columns.
   const [colAlign, setColAlign] = useState<('left' | 'center' | 'right')[]>(() => {
     try { if (layoutFresh()) { const v = JSON.parse(localStorage.getItem('scl_colalign') || ''); if (Array.isArray(v) && v.length === 4) return v; } } catch { /* ignore */ }
@@ -604,8 +826,18 @@ export function ReportPreviewPage() {
             {section}
           </td>
           {hasChart && (
-            <td rowSpan={spanCount} style={{ verticalAlign: 'middle', paddingLeft: '4mm' }}>
-              <CbcSectionHistogram section={section} orders={allRows} histos={histograms} />
+            <td rowSpan={spanCount} style={{ verticalAlign: 'middle', paddingLeft: '4mm', position: 'relative', overflow: 'visible' }}>
+              <MovableHistogram
+                histoKey={SECTION_TO_HISTO[section]}
+                entry={histoLayout[SECTION_TO_HISTO[section]]}
+                selected={selectedHisto === SECTION_TO_HISTO[section]}
+                editing={editing}
+                onSelect={() => setSelectedHisto(SECTION_TO_HISTO[section])}
+                onChange={(dx, dy, sx, sy) => setHistoTransform(SECTION_TO_HISTO[section], dx, dy, sx, sy)}
+                onReset={() => resetHisto(SECTION_TO_HISTO[section])}
+              >
+                <CbcSectionHistogram section={section} orders={allRows} histos={histograms} />
+              </MovableHistogram>
             </td>
           )}
         </tr>
@@ -1048,6 +1280,9 @@ export function ReportPreviewPage() {
     });
     // Collapse the per-page resize frame back to natural flow (drop its fixed scaled W/H).
     src.querySelectorAll<HTMLElement>('[data-scale-frame]').forEach(f => { f.style.width = ''; f.style.height = ''; });
+    // Neutralise per-histogram move/resize transforms so they don't overlap text while editing
+    // (the handles are already gone — they were data-report-control, stripped above).
+    src.querySelectorAll<HTMLElement>('[data-histo-anchor] > div').forEach(d => { d.style.transform = ''; d.style.cursor = ''; });
     setEditHtml(src.innerHTML);
     setEditing(true);
   }
@@ -1512,6 +1747,15 @@ export function ReportPreviewPage() {
                 </button>
               )}
             </div>
+          )}
+          {Object.keys(histoLayout).length > 0 && (
+            <button
+              type="button"
+              onClick={resetAllHistos}
+              className="w-full text-[11px] font-medium text-[#b91c1c] border border-[#f0d3d3] rounded-md py-1.5 hover:bg-[#fdf6f6]"
+            >
+              Reset histogram positions ({Object.keys(histoLayout).length})
+            </button>
           )}
           <Toggle label="Repeat name box on every page" checked={repeatNameBox} onChange={(v) => { setRepeatNameBox(v); localStorage.setItem('scl_repeat_namebox', v ? '1' : '0'); }} />
           <label className="flex items-center justify-between text-[11.5px] text-[#54555f]">
