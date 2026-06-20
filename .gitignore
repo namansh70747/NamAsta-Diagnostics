@@ -30,6 +30,9 @@ this-is-a-plan-logical-blum.md
 .DS_Store
 **/.DS_Store
 
+# Stray SQLite databases — the app's real DB lives in the OS app-data dir, not the repo
+*.db
+
 # license signing private key — NEVER commit
 tools/license-key.secret
 

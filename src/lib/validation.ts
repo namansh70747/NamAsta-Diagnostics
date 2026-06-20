@@ -11,7 +11,9 @@ export type AgeUnit = 'YRS' | 'MTH' | 'DAYS';
 export function validateAge(age: number, unit: AgeUnit): string | null {
   if (age == null || Number.isNaN(age)) return 'Age is required';
   if (unit === 'DAYS') {
-    if (age < 0) return 'Age cannot be negative';
+    // Newborns: 0 days is valid; only a negative value is rejected. Use the same message as the
+    // YRS/MTH path so the age error reads consistently however the unit is set.
+    if (age < 0) return 'Age must be greater than 0';
   } else {
     // YRS or MTH: 0 (or negative) not allowed
     if (age <= 0) return 'Age must be greater than 0';

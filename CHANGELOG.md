@@ -18,6 +18,8 @@ All notable changes to NamAsta Diagnostics. Newest first.
   "…1" duplicate tests that group together under one **BIOCHEMISTRY** heading.
 - **One-tap Bilirubin in search.** Typing "BIL" now surfaces a single "Bilirubin — Total + Direct +
   Indirect" row that adds all three at once; each still keeps its own result row, range and price.
+- Entering a **negative age** now shows a consistent "Age must be greater than 0" message regardless
+  of the unit (days previously showed a different wording).
 
 ## v1.3.80
 
