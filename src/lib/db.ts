@@ -1,5 +1,11 @@
 import Database from '@tauri-apps/plugin-sql';
 
+// Dev builds (`tauri dev`, Vite DEV) connect to a SEPARATE database file so development never
+// migrates/mutates the production `scl.db` the packaged app uses — otherwise a newer dev build
+// silently upgrades the shared DB and an older installed build can no longer open it. This MUST
+// stay in sync with commands::db_file_name() and the `sqlite:` URL in src-tauri/src/lib.rs.
+const DB_URL = import.meta.env.DEV ? 'sqlite:scl-dev.db' : 'sqlite:scl.db';
+
 let _db: Database | null = null;
 let _loading: Promise<Database> | null = null;
 
@@ -9,7 +15,7 @@ export async function getDb(): Promise<Database> {
   if (_loading) return _loading;
 
   _loading = (async () => {
-    const db = await Database.load('sqlite:scl.db');
+    const db = await Database.load(DB_URL);
     // Performance/safety pragmas (§4A.1). Wrapped so a single pragma failure
     // doesn't leave a half-initialised cached connection.
     try {

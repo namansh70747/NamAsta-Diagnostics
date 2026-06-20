@@ -313,10 +313,14 @@ pub fn run() {
             .plugin(tauri_plugin_process::init());
     }
 
+    // Debug builds talk to a SEPARATE database file (see commands::db_file_name) so that
+    // running `tauri dev` never migrates the production `scl.db` the packaged app uses —
+    // which would leave an older installed build unable to open the now-newer DB.
+    let db_url = format!("sqlite:{}", commands::db_file_name());
     builder
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:scl.db", migrations)
+                .add_migrations(&db_url, migrations)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![

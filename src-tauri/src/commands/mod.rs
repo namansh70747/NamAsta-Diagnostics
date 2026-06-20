@@ -6,12 +6,26 @@ use std::sync::atomic::{AtomicBool, Ordering};
 // but the Rust thread keeps running — this guard ensures only one listener exists at a time.
 static TCP_CAPTURE_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// The live SQLite database filename. Debug builds use a SEPARATE file so that running
+/// `tauri dev` never migrates or mutates the production database the packaged app uses —
+/// otherwise a newer dev build silently upgrades the shared DB and the older installed app
+/// can no longer open it ("migration N … missing in the resolved migrations"). Release
+/// builds (the packaged app) always use the real `scl.db`. Keep this in sync with the
+/// `sqlite:` URL in `lib.rs` and `Database.load(...)` in `src/lib/db.ts`.
+pub const fn db_file_name() -> &'static str {
+    if cfg!(debug_assertions) {
+        "scl-dev.db"
+    } else {
+        "scl.db"
+    }
+}
+
 /// Locate the live SQLite database that tauri-plugin-sql created (app config/data dir).
 fn resolve_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     use tauri::Manager;
     for dir in [app.path().app_config_dir(), app.path().app_data_dir()] {
         if let Ok(d) = dir {
-            let p = d.join("scl.db");
+            let p = d.join(db_file_name());
             if p.exists() {
                 return Ok(p);
             }
