@@ -70,7 +70,7 @@ export function LicenseTab() {
               </PrimaryButton>
             </div>
             <p className="mt-2 text-[12px] text-[#8a8b97]">
-              Pay ₹1,000 annual renewal to Naman Sharma (namsh70747@oksbi), send the screenshot to NamAsta, then paste the key received. Your lab data is never affected by renewal.
+              Pay ₹1,800 annual renewal to Naman Sharma (namsh70747@oksbi), send the screenshot to NamAsta, then paste the key received. Your lab data is never affected by renewal.
             </p>
           </div>
 

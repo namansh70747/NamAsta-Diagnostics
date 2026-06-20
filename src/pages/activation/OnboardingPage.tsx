@@ -15,9 +15,9 @@ const UPI_ID = "namsh70747@oksbi";
 const PAYEE = "Naman Sharma";
 const VENDOR_CONTACT = "the NamAsta team";
 
-// Pricing: ₹5000 for the first year (new lab), ₹1000 for each renewal.
-const PRICE_NEW     = 5000;   // first-time registration
-const PRICE_RENEWAL = 1000;   // every subsequent year
+// Pricing: ₹4500 for the first year (new lab), ₹1800 for each renewal.
+const PRICE_NEW     = 4500;   // first-time registration
+const PRICE_RENEWAL = 1800;   // every subsequent year
 
 const fieldLabel = "block text-[12px] font-medium text-white/60 mb-1.5";
 

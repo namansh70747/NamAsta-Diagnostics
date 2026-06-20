@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.83
+
+- **Updated subscription pricing.** First-year registration is now **₹4,500** (was ₹5,000) and the
+  annual renewal is **₹1,800** (was ₹1,000). The activation, renewal and Settings → Subscription
+  screens all reflect the new amounts.
+
 ## v1.3.82
 
 - **CBC report header now reads "CBC".** The complete-blood-count report previously printed under
