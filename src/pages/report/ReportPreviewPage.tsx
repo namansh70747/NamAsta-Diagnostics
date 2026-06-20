@@ -2564,8 +2564,11 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
       if (!p || !nat) return;
       const ov = ovRef.current[idx];
       // No manual override → use the auto-fit base scale so tall content shrinks to the A4 page
-      // (instead of letting the page stretch). With an override, honour the user's exact size.
-      const sx = ov ? ov.sx : nat.base, sy = ov ? ov.sy : nat.base;
+      // (instead of letting the page stretch). With an override, honour the user's size but still
+      // clamp height to the footer line (nat.syMax) so the box can't sit below the page — this also
+      // repairs reports saved with an over-large height before this clamp existed.
+      const sx = ov ? ov.sx : nat.base;
+      const sy = Math.min(ov ? ov.sy : nat.base, nat.syMax);
       p.sec.style.position = 'absolute'; p.sec.style.top = '0'; p.sec.style.left = '0';
       p.sec.style.width = `${nat.w}px`;
       p.sec.style.transform = `scale(${sx}, ${sy})`; p.sec.style.transformOrigin = 'top left';
@@ -2999,16 +3002,16 @@ function CompactPaginatedReport({
         // adjustment for e.g. CBC re-applies to every report's CBC page automatically.
         const ownerCode = pageOwnerCode(page);
         const ov = ownerCode ? panelLayout[ownerCode] : undefined;
+        // `fitH` = the exact scale at which the box's bottom lands on the footer/signature line
+        // (fullH is the live-measured frame→footer distance). The resize box's bottom is
+        // frameTop + naturalH*sy, so sy must NEVER exceed fitH or the box drops below the page.
+        const fitH = naturalH > 0 ? fullH / naturalH : 1;
         const sx = ov?.sx != null ? ov.sx : base;
-        const sy = ov?.sy != null ? ov.sy : base;
-        // Width can't exceed the body margin (→ right-edge clip). Height can fill all the way
-        // down to the signature line. At syMax the scaled frame is exactly `fullH` tall, so the
-        // page can always be stretched to the signature regardless of the natural-height guess.
+        // Hard-clamp the displayed height to the footer line — even a saved over-large override or
+        // an over-generous auto-fit can't push the box (and its handles) off the sheet.
+        const sy = Math.min(ov?.sy != null ? ov.sy : base, fitH);
         const sxMax = 1;
-        // Ceiling = "fills down to just above the signature line" (fullH). No 300% clamp, so a
-        // short panel can be stretched to use all the space down to the signature; tall content
-        // still caps below 100% (fullH/naturalH < 1) so it can't bleed off the page.
-        const syMax = Math.max(fullH / naturalH, base);
+        const syMax = fitH;   // can fill down to the signature, never past it
         const overridden = ov?.sx != null;
         // 8 bounding-box handles (Google-Slides style), positioned on the SCALED frame.
         const HANDLES: { dir: string; pos: React.CSSProperties }[] = [

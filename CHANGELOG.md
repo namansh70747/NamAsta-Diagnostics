@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.79
+
+- The page-resize box now stays **inside the page on the normal report too** (not just edited
+  reports). Its bottom is hard-clamped to the footer/signature line, so the resizable square and
+  its handles can never be dragged or auto-sized below the A4 sheet — on any report.
+
 ## v1.3.78
 
 - The page-resize box on an edited report can no longer be dragged **below the page**. Its bottom
