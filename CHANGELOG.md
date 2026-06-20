@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.80
+
+- **LDL Cholesterol now calculates even on a raised lipid profile.** It was being left blank
+  whenever triglycerides were above 400 (the Friedewald cut-off), which also blanked the LDL/HDL
+  ratio. LDL (= Total − HDL − TG/5) now computes at every triglyceride level — consistent with
+  VLDL and Non-HDL, which already did.
+
 ## v1.3.79
 
 - The page-resize box now stays **inside the page on the normal report too** (not just edited

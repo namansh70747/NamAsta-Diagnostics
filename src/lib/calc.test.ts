@@ -73,11 +73,16 @@ describe('computeCalculated', () => {
     it('computes when TG <= 400', () => {
       expect(calc('BLDL', { CHOL: 200, BHDL: 50, TG: 150 })).toBeCloseTo(120);
     });
-    it('is suppressed (null) when TG > 400', () => {
-      expect(calc('BLDL', { CHOL: 200, BHDL: 50, TG: 401 })).toBeNull();
+    it('still computes when TG > 400 (no longer suppressed — lab wants the number shown)', () => {
+      // 200 − 50 − 401/5 = 69.8
+      expect(calc('BLDL', { CHOL: 200, BHDL: 50, TG: 401 })).toBeCloseTo(69.8);
     });
-    it('still computes at exactly TG = 400', () => {
+    it('computes at exactly TG = 400', () => {
       expect(calc('BLDL', { CHOL: 200, BHDL: 50, TG: 400 })).toBeCloseTo(70);
+    });
+    it('computes on a raised lipid profile (high TG)', () => {
+      // CHOL 247.9 − HDL 69.83 − TG 441.6/5 = 89.75 (the case that was blanking before)
+      expect(calc('BLDL', { CHOL: 247.9, BHDL: 69.83, TG: 441.6 })).toBeCloseTo(89.75);
     });
     it('returns null when any input missing', () => {
       expect(calc('BLDL', { CHOL: 200, BHDL: 50 })).toBeNull();

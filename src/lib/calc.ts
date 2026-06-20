@@ -47,7 +47,10 @@ export function computeCalculated(code: string, formula: string, values: ResultM
     case 'BLDL': {
       const chol = g('CHOL'), hdl = g('BHDL'), tg = g('TG');
       if (chol == null || hdl == null || tg == null) return null;
-      if (tg > 400) return null; // Friedewald invalid
+      // LDL = Total − HDL − VLDL(=TG/5). Computed for ALL triglyceride levels so it never blanks
+      // out on a raised lipid profile — consistent with VLDL and Non-HDL, which already compute
+      // regardless. (At very high TG the calculated value is less reliable than a direct LDL; the
+      // interpretation note covers that, but the lab wants the number shown.)
       return chol - hdl - tg / 5;
     }
     case 'BRAT': return safeDiv(g('CHOL'), g('BHDL'));
