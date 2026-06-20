@@ -181,18 +181,33 @@ export function ReportPreviewPage() {
   const [nameBoxSkipPage, setNameBoxSkipPage] = useState(() => Number(localStorage.getItem('scl_namebox_skip') ?? 0));
   // Manual page placement: per-panel overrides on the auto-pagination. 'pull' = drag this
   // panel UP onto the previous page; 'before' = push it DOWN to start a fresh page.
-  const [pageBreaks, setPageBreaks] = useState<Record<string, 'pull' | 'before'>>(() => {
-    try { return JSON.parse(localStorage.getItem(`scl_breaks_${pid}`) || '{}'); } catch { return {}; }
+  // Page-layout adjustments PERSIST PER TEST/PANEL, lab-wide. When the lab moves a panel between
+  // pages (↑/↓) or resizes its page, the adjustment is saved against the panel CODE (e.g. 'CBC')
+  // and re-applied to EVERY future report that contains that panel — until changed again. So the
+  // father adjusts a test's page once and never has to redo it. (Old per-patient `scl_breaks_*` /
+  // `scl_pagescale_*` keys are simply ignored now.)
+  const [panelLayout, setPanelLayout] = useState<PanelLayout>(() => {
+    try { const v = JSON.parse(localStorage.getItem('scl_panel_layout') || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
   });
-  function moveBlock(key: string, dir: 'up' | 'down') {
-    setPageBreaks(prev => {
-      const out = { ...prev };
-      if (dir === 'up') { if (out[key] === 'pull') delete out[key]; else out[key] = 'pull'; }
-      else { if (out[key] === 'before') delete out[key]; else out[key] = 'before'; }
-      localStorage.setItem(`scl_breaks_${pid}`, JSON.stringify(out));
-      return out;
+  // Mutate one panel's entry via a functional update (robust against the rapid-fire writes a
+  // resize drag produces — never reads a stale closure), persisting and dropping empty entries.
+  const writePanelEntry = (code: string, mut: (e: { brk?: 'pull' | 'before'; sx?: number; sy?: number }) => void) => {
+    setPanelLayout(prev => {
+      const e = { ...prev[code] };
+      mut(e);
+      const next = { ...prev };
+      if (e.brk == null && e.sx == null && e.sy == null) delete next[code];
+      else next[code] = e;
+      if (Object.keys(next).length) localStorage.setItem('scl_panel_layout', JSON.stringify(next));
+      else localStorage.removeItem('scl_panel_layout');
+      return next;
     });
-  }
+  };
+  const movePanel = (code: string, dir: 'up' | 'down') => writePanelEntry(code, e => {
+    e.brk = dir === 'up' ? (e.brk === 'pull' ? undefined : 'pull') : (e.brk === 'before' ? undefined : 'before');
+  });
+  const setPanelScale = (code: string, sx: number, sy: number) => writePanelEntry(code, e => { e.sx = sx; e.sy = sy; });
+  const resetPanelScale = (code: string) => writePanelEntry(code, e => { delete e.sx; delete e.sy; });
   // Excel-style column widths for the standard 4-column tables (Test Name / Results / Units /
   // Normal Ranges), as percentages summing to 100. Drag a column border to resize; saved as a
   // lab-wide template so every report uses the chosen layout.
@@ -1307,11 +1322,10 @@ export function ReportPreviewPage() {
                   bottomGapMm={bottomGapMm}
                   contentScale={contentScale}
                   measureKey={JSON.stringify([rowPad, colWidths, colOffset, colAlign])}
-                  breaks={pageBreaks}
-                  onMove={moveBlock}
-                  pageScaleOverrides={pageScaleOverrides}
-                  onPageScaleChange={handlePageScaleChange}
-                  onPageScaleReset={resetPageScale}
+                  panelLayout={panelLayout}
+                  onPanelMove={movePanel}
+                  onPanelScale={setPanelScale}
+                  onPanelScaleReset={resetPanelScale}
                   editing={editing}
                   repeatNameBox={repeatNameBox}
                   nameBoxSkipPage={nameBoxSkipPage}
@@ -1471,10 +1485,20 @@ export function ReportPreviewPage() {
           {compactReport && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
               <p className="text-[10.5px] text-[#54555f] leading-snug">
-                Panels are packed onto pages without splitting any test; a test that doesn't fit moves
-                whole to the next page. Use the ↑/↓ arrows on a panel to move it between pages.
+                Panels pack onto pages without splitting a test. Use the ↑/↓ arrows or the page
+                resize handles on a panel — your adjustment is <strong>saved for that test</strong>
+                and re-applied to every future report until you change it.
               </p>
               <GapInput label="Bottom gap" value={bottomGapMm} onChange={(v) => { setBottomGapMm(v); localStorage.setItem('scl_bottom_gap', String(v)); }} />
+              {Object.keys(panelLayout).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setPanelLayout({}); localStorage.removeItem('scl_panel_layout'); }}
+                  className="w-full text-[11px] font-medium text-[#b91c1c] border border-[#f0d3d3] rounded-md py-1.5 hover:bg-[#fdf6f6]"
+                >
+                  Reset saved page layouts ({Object.keys(panelLayout).length})
+                </button>
+              )}
             </div>
           )}
           <Toggle label="Repeat name box on every page" checked={repeatNameBox} onChange={(v) => { setRepeatNameBox(v); localStorage.setItem('scl_repeat_namebox', v ? '1' : '0'); }} />
@@ -2487,6 +2511,9 @@ const PX_PER_MM = 96 / 25.4;
 
 type PanelGroup = { panel: Panel; orders: OrderWithResult[] };
 type CompactBlock = { key: string; dept: string; showDept: boolean; showSub: boolean; kind: 'panel' | 'comment'; pg?: PanelGroup; comment?: string };
+/** Lab-wide, per-panel page-layout template: keyed by panel code (e.g. 'CBC'). `brk` = manual
+ *  page placement (pull up / push to new page); `sx`/`sy` = the page's saved width/height scale. */
+type PanelLayout = Record<string, { brk?: 'pull' | 'before'; sx?: number; sy?: number }>;
 
 type PageScale = { sx: number; sy: number };
 
@@ -2662,8 +2689,8 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
 }
 
 function CompactPaginatedReport({
-  sortedPanels, deptOf, renderPanelBody, comment, bottomGapMm, contentScale, measureKey, breaks, onMove,
-  pageScaleOverrides, onPageScaleChange, onPageScaleReset, editing, repeatNameBox, nameBoxSkipPage,
+  sortedPanels, deptOf, renderPanelBody, comment, bottomGapMm, contentScale, measureKey,
+  panelLayout, onPanelMove, onPanelScale, onPanelScaleReset, editing, repeatNameBox, nameBoxSkipPage,
   Watermark, Letterhead, PatientStrip, PageFooter,
 }: {
   sortedPanels: PanelGroup[];
@@ -2672,15 +2699,15 @@ function CompactPaginatedReport({
   comment: string;
   bottomGapMm: number;
   contentScale: number;
-  pageScaleOverrides?: Record<number, { sx: number; sy: number }>;
-  onPageScaleChange?: (idx: number, sx: number, sy: number) => void;
-  onPageScaleReset?: (idx: number) => void;
   editing?: boolean;
   repeatNameBox?: boolean;
   nameBoxSkipPage?: number;
   measureKey: string;
-  breaks: Record<string, 'pull' | 'before'>;
-  onMove: (key: string, dir: 'up' | 'down') => void;
+  // Lab-wide, per-panel layout template (keyed by panel code) + writers.
+  panelLayout: PanelLayout;
+  onPanelMove: (code: string, dir: 'up' | 'down') => void;
+  onPanelScale: (code: string, sx: number, sy: number) => void;
+  onPanelScaleReset: (code: string) => void;
   Watermark: React.ComponentType;
   Letterhead: React.ComponentType;
   PatientStrip: React.ComponentType;
@@ -2774,7 +2801,7 @@ function CompactPaginatedReport({
     let curH = 0;
     for (const b of blocks) {
       const h = blockH(b) * contentScale;   // scaled content takes scaled space
-      const br = breaks[b.key];
+      const br = b.pg ? panelLayout[b.pg.panel.code]?.brk : undefined;
       const overflow = curH + h > cap;
       if (cur.length && (br === 'before' || (br !== 'pull' && overflow))) {
         groups.push(cur); cur = []; curH = 0;
@@ -2793,7 +2820,12 @@ function CompactPaginatedReport({
       const scale = wanted > cap && rawH > 0 ? (cap / rawH) * 0.96 : contentScale;
       return { blocks: g, scale };
     });
-  }, [blocks, heights, capacity, breaks, contentScale]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [blocks, heights, capacity, panelLayout, contentScale]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** The panel code that "owns" a page = the first panel block on it (the one whose heading
+   *  leads the page). Page-scale adjustments are saved against this code so they persist. */
+  const pageOwnerCode = (page: { blocks: CompactBlock[] }): string =>
+    page.blocks.find(b => b.kind === 'panel' && b.pg)?.pg!.panel.code ?? '';
 
   // Live per-page stretch ceiling: the REAL distance from each page's content frame to its
   // footer (signature) line, measured from the rendered DOM. This is what lets a short panel be
@@ -2822,7 +2854,7 @@ function CompactPaginatedReport({
     measure();
     const t = setTimeout(measure, 250);
     return () => clearTimeout(t);
-  }, [pages, capacityFull, pageScaleOverrides, sig]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pages, capacityFull, panelLayout, sig]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const BlockView = ({ b, first, controls }: { b: CompactBlock; first: boolean; controls?: boolean }) => {
     // paddingTop (not margin) so measurement never disagrees with layout via margin-collapse.
@@ -2836,16 +2868,16 @@ function CompactPaginatedReport({
         className="report-control absolute -top-1 right-0 z-10 flex gap-1 opacity-0 group-hover/blk:opacity-100 transition-opacity print:hidden"
       >
         <button
-          type="button" title="Move this test UP to the previous page"
-          onClick={() => onMove(b.key, 'up')}
+          type="button" title="Move this test UP to the previous page (saved for this test)"
+          onClick={() => b.pg && onPanelMove(b.pg.panel.code, 'up')}
           className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
-            breaks[b.key] === 'pull' ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'pull') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
         ><ArrowUp size={13} /></button>
         <button
-          type="button" title="Move this test DOWN to a new page"
-          onClick={() => onMove(b.key, 'down')}
+          type="button" title="Move this test DOWN to a new page (saved for this test)"
+          onClick={() => b.pg && onPanelMove(b.pg.panel.code, 'down')}
           className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
-            breaks[b.key] === 'before' ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'before') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
         ><ArrowDown size={13} /></button>
       </div>
     ) : null;
@@ -2878,7 +2910,7 @@ function CompactPaginatedReport({
   // conditional return violates the Rules of Hooks and crashes when `blocks` is briefly empty.
   const pageResizeDrag = useRef<{
     startX: number; startY: number; startSx: number; startSy: number;
-    idx: number; naturalW: number; naturalH: number; sxMax: number; syMax: number; dir: string;
+    idx: number; code: string; naturalW: number; naturalH: number; sxMax: number; syMax: number; dir: string;
   } | null>(null);
 
   if (!blocks.length) {
@@ -2895,11 +2927,11 @@ function CompactPaginatedReport({
   }
 
   const startPageResize = (
-    e: React.MouseEvent, idx: number,
+    e: React.MouseEvent, idx: number, code: string,
     o: { startSx: number; startSy: number; naturalW: number; naturalH: number; sxMax: number; syMax: number; dir: string },
   ) => {
     e.preventDefault(); e.stopPropagation();
-    pageResizeDrag.current = { startX: e.clientX, startY: e.clientY, idx, ...o };
+    pageResizeDrag.current = { startX: e.clientX, startY: e.clientY, idx, code, ...o };
     const onMove2 = (ev: MouseEvent) => {
       const d = pageResizeDrag.current;
       if (!d) return;
@@ -2915,7 +2947,7 @@ function CompactPaginatedReport({
       if (d.dir.includes('n')) nsy = d.startSy - dy / d.naturalH;   // top out (↑) → taller
       nsx = Math.min(d.sxMax, Math.max(0.5, nsx));
       nsy = Math.min(d.syMax, Math.max(0.5, nsy));
-      onPageScaleChange?.(d.idx, +nsx.toFixed(3), +nsy.toFixed(3));
+      if (d.code) onPanelScale(d.code, +nsx.toFixed(3), +nsy.toFixed(3));
     };
     const onUp = () => { pageResizeDrag.current = null; document.removeEventListener('mousemove', onMove2); document.removeEventListener('mouseup', onUp); };
     document.addEventListener('mousemove', onMove2);
@@ -2938,9 +2970,12 @@ function CompactPaginatedReport({
           ? ceilings[idx]
           : (capacityFull > 0 ? capacityFull : (capacity > 0 ? capacity : 230 * PX_PER_MM));
         const base = page.scale;                          // auto-fit scale (uniform)
-        const ov = pageScaleOverrides?.[idx];
-        const sx = ov ? ov.sx : base;
-        const sy = ov ? ov.sy : base;
+        // Scale comes from the per-panel template (keyed by the page's owning panel), so a saved
+        // adjustment for e.g. CBC re-applies to every report's CBC page automatically.
+        const ownerCode = pageOwnerCode(page);
+        const ov = ownerCode ? panelLayout[ownerCode] : undefined;
+        const sx = ov?.sx != null ? ov.sx : base;
+        const sy = ov?.sy != null ? ov.sy : base;
         // Width can't exceed the body margin (→ right-edge clip). Height can fill all the way
         // down to the signature line. At syMax the scaled frame is exactly `fullH` tall, so the
         // page can always be stretched to the signature regardless of the natural-height guess.
@@ -2949,7 +2984,7 @@ function CompactPaginatedReport({
         // short panel can be stretched to use all the space down to the signature; tall content
         // still caps below 100% (fullH/naturalH < 1) so it can't bleed off the page.
         const syMax = Math.max(fullH / naturalH, base);
-        const overridden = ov != null;
+        const overridden = ov?.sx != null;
         // 8 bounding-box handles (Google-Slides style), positioned on the SCALED frame.
         const HANDLES: { dir: string; pos: React.CSSProperties }[] = [
           { dir: 'nw', pos: { top: -5, left: -5, cursor: 'nwse-resize' } },
@@ -2989,7 +3024,7 @@ function CompactPaginatedReport({
                   {/* 8 drag handles */}
                   {HANDLES.map(h => (
                     <div key={h.dir}
-                      onMouseDown={e => startPageResize(e, idx, { startSx: sx, startSy: sy, naturalW, naturalH, sxMax, syMax, dir: h.dir })}
+                      onMouseDown={e => startPageResize(e, idx, ownerCode, { startSx: sx, startSy: sy, naturalW, naturalH, sxMax, syMax, dir: h.dir })}
                       className="absolute opacity-0 group-hover/page:opacity-100 transition-opacity pointer-events-auto"
                       style={{ width: 10, height: 10, background: '#6366f1', border: '1.5px solid #fff', borderRadius: 2, boxShadow: '0 0 0 1px #6366f1', ...h.pos }} />
                   ))}
@@ -2997,9 +3032,9 @@ function CompactPaginatedReport({
                   <div className="absolute -top-5 right-0 flex items-center gap-1 opacity-0 group-hover/page:opacity-100 transition-opacity pointer-events-auto">
                     <span className="text-[9px] tabular-nums px-1 rounded bg-[#6366f1] text-white leading-tight">W {Math.round(sx * 100)}% · H {Math.round(sy * 100)}%</span>
                     {overridden && (
-                      <button type="button" onClick={() => onPageScaleReset?.(idx)}
+                      <button type="button" onClick={() => ownerCode && onPanelScaleReset(ownerCode)}
                         className="text-[9px] px-1 rounded bg-white border border-[#c7c9ff] text-[#6366f1] leading-tight hover:bg-[#eef0fe]"
-                        title="Reset this page to auto">reset</button>
+                        title="Reset this test's page to auto">reset</button>
                     )}
                   </div>
                 </div>

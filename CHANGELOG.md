@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.76
+
+- **Page adjustments now persist per test.** When you move a panel between pages (↑/↓) or resize
+  its page, that layout is saved against the test (e.g. CBC) and automatically re-applied to every
+  future report containing it — set it once, never redo it. Previously these were per-patient and
+  reset on the next report. A "Reset saved page layouts" button (Layout panel) clears them.
+
 ## v1.3.75
 
 - Fixed the app icon showing blank/old on the Windows `.exe`, desktop shortcut and taskbar. The
