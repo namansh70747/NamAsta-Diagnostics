@@ -2,6 +2,12 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.82
+
+- **CBC report header now reads "CBC".** The complete-blood-count report previously printed under
+  the shared **HAEMATOLOGY** department heading; it now prints under its own **CBC** heading. (Other
+  haematology panels — DLC, coagulation — are unchanged.)
+
 ## v1.3.81
 
 - **HbA1c is now its own profile.** Searching **HBA1C** surfaces a single "HbA1c (Glycosylated Hb)"

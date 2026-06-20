@@ -47,7 +47,7 @@ function esc(s: string): string {
  * duplicate tests the lab orders when it wants a single combined BIOCHEMISTRY section.
  */
 const DEPARTMENT: Record<string, string> = {
-  HEM: 'HAEMATOLOGY', CBC: 'HAEMATOLOGY', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
+  HEM: 'HAEMATOLOGY', CBC: 'CBC', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
   BIO: 'BIOCHEMISTRY',
   SERO: 'SEROLOGY',
   URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
