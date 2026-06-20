@@ -1102,6 +1102,14 @@ export function ReportPreviewPage() {
     clone.querySelectorAll('.report-cell-selected, .report-cell-editing').forEach(c => {
       c.classList.remove('report-cell-selected', 'report-cell-editing');
     });
+    // Restore each page to a fixed A4 sheet — editing set them to height:auto/overflow:visible so
+    // content was fully visible; saving that would let the page stretch past A4 and shove the
+    // signature/footer down. Pin back to 297mm + overflow hidden in the stored report.
+    clone.querySelectorAll<HTMLElement>('.report-page').forEach(p => {
+      p.style.height = '297mm';
+      p.style.minHeight = '297mm';
+      p.style.overflow = 'hidden';
+    });
     saveEditedBody(clone.innerHTML);
   }
   // Ctrl/Cmd + and − zoom the preview (and Ctrl/Cmd 0 resets) — like a browser/Word, so the
@@ -2533,11 +2541,11 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
   onReset: (idx: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const natRef = useRef<Record<number, { w: number; h: number; syMax: number }>>({});
+  const natRef = useRef<Record<number, { w: number; h: number; syMax: number; base: number }>>({});
   const ovRef = useRef(overrides); ovRef.current = overrides;
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   const onResetRef = useRef(onReset); onResetRef.current = onReset;
-  const dragRef = useRef<{ startX: number; startY: number; sx: number; sy: number; idx: number; nat: { w: number; h: number; syMax: number }; dir: string } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; sx: number; sy: number; idx: number; nat: { w: number; h: number; syMax: number; base: number }; dir: string } | null>(null);
 
   const partsFor = (root: HTMLElement, idx: number) => {
     const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
@@ -2555,7 +2563,9 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
       const p = partsFor(root, idx); const nat = natRef.current[idx];
       if (!p || !nat) return;
       const ov = ovRef.current[idx];
-      const sx = ov ? ov.sx : 1, sy = ov ? ov.sy : 1;
+      // No manual override → use the auto-fit base scale so tall content shrinks to the A4 page
+      // (instead of letting the page stretch). With an override, honour the user's exact size.
+      const sx = ov ? ov.sx : nat.base, sy = ov ? ov.sy : nat.base;
       p.sec.style.position = 'absolute'; p.sec.style.top = '0'; p.sec.style.left = '0';
       p.sec.style.width = `${nat.w}px`;
       p.sec.style.transform = `scale(${sx}, ${sy})`; p.sec.style.transformOrigin = 'top left';
@@ -2571,7 +2581,7 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
     e.preventDefault(); e.stopPropagation();
     const nat = natRef.current[idx]; if (!nat) return;
     const ov = ovRef.current[idx];
-    dragRef.current = { startX: e.clientX, startY: e.clientY, sx: ov ? ov.sx : 1, sy: ov ? ov.sy : 1, idx, nat, dir };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, sx: ov ? ov.sx : nat.base, sy: ov ? ov.sy : nat.base, idx, nat, dir };
     const move = (ev: MouseEvent) => {
       const d = dragRef.current; if (!d) return;
       const dx = ev.clientX - d.startX, dy = ev.clientY - d.startY;
@@ -2646,8 +2656,17 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
         }
       });
     } catch { /* non-fatal */ }
+    // Force every page back to a FIXED A4 sheet. Editing made pages `height:auto; overflow:visible`
+    // so all content was visible while editing; if that leaks into the saved report the page
+    // stretches taller than A4 and pushes the signature/footer down (or onto a new page). Pinning
+    // to 297mm + overflow:hidden here fixes both freshly-saved and previously-saved edited reports.
+    root.querySelectorAll<HTMLElement>('.report-page').forEach(p => {
+      p.style.height = '297mm';
+      p.style.minHeight = '297mm';
+      p.style.overflow = 'hidden';
+    });
     const pages = Array.from(root.querySelectorAll<HTMLElement>('[data-report-page]'));
-    const nat: Record<number, { w: number; h: number; syMax: number }> = {};
+    const nat: Record<number, { w: number; h: number; syMax: number; base: number }> = {};
     pages.forEach((pg, idx) => {
       const p = partsFor(root, idx); if (!p) return;
       // Older overrides (saved before the resize feature) have no [data-scale-frame] wrapper.
@@ -2672,7 +2691,10 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
       // Ceiling = fill all the way down to just above the signature line (no 300% cap), so the
       // wasted space under a short panel can be used.
       const syMax = Math.max(avail / h, 1);
-      nat[idx] = { w, h, syMax };
+      // Auto-fit: if the content is taller than the A4 body area, shrink it to fit (never enlarge).
+      // This is the default size when the user hasn't manually resized — it keeps the page at A4.
+      const base = avail > 0 && h > avail ? +(avail / h).toFixed(3) : 1;
+      nat[idx] = { w, h, syMax, base };
       const host = frame ?? (p.sec.parentElement as HTMLElement);
       if (host && getComputedStyle(host).position === 'static') host.style.position = 'relative';
       if (host) injectControls(host, pg, idx);

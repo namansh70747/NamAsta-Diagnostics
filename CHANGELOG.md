@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.77
+
+- Fixed a bug where editing a report and saving it could **stretch the page longer than A4**,
+  pushing the signature/footer down or onto a new page. Saved edited reports are now pinned to a
+  fixed A4 sheet and the content auto-fits to the page (shrinks to fit, like the normal report) —
+  this also repairs reports that were already saved with the stretched layout.
+
 ## v1.3.76
 
 - **Page adjustments now persist per test.** When you move a panel between pages (↑/↓) or resize
