@@ -2688,9 +2688,12 @@ function EditedReportView({ html, logoData, className, styleVars, overrides, onC
       const body = p.sec.closest<HTMLElement>('.report-body');
       const frameTop = frame ? frame.offsetTop : p.sec.offsetTop;
       const avail = body ? body.clientHeight - frameTop : h * 2;
-      // Ceiling = fill all the way down to just above the signature line (no 300% cap), so the
-      // wasted space under a short panel can be used.
-      const syMax = Math.max(avail / h, 1);
+      // Ceiling = fill EXACTLY down to the footer/signature line and NEVER past it. The resize
+      // box's bottom is the frame bottom = frameTop + h*sy; capping sy at avail/h means that
+      // bottom can reach at most the page's body bottom (just above the signature) — so the
+      // person can't drag the resizable square outside the page. (No `,1` floor: that previously
+      // let a tall panel stretch to its full natural height, dropping the box below the sheet.)
+      const syMax = avail > 0 ? avail / h : 1;
       // Auto-fit: if the content is taller than the A4 body area, shrink it to fit (never enlarge).
       // This is the default size when the user hasn't manually resized — it keeps the page at A4.
       const base = avail > 0 && h > avail ? +(avail / h).toFixed(3) : 1;
