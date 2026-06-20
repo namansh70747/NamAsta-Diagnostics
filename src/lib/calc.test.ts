@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeCalculated,
+  resolveCalculated,
   computeGFR,
   roundToDecimals,
   formatResult,
@@ -47,6 +48,37 @@ describe('computeCalculated', () => {
     it('returns null when missing', () => {
       expect(calc('BAG', { ALB: 4.0 })).toBeNull();
       expect(calc('BAG', { GLO: 2.0 })).toBeNull();
+    });
+  });
+
+  // The "…1" twins live in the BIOCHEMISTRY panel (migration 0049) and must behave identically
+  // to their LFT natives, computing from their own "…1" inputs.
+  describe('biochemistry "…1" duplicate calcs', () => {
+    it('BBI1 = max(0, BBT1 - BBD1) and clamps to 0', () => {
+      expect(calc('BBI1', { BBT1: 1.2, BBD1: 0.3 })).toBeCloseTo(0.9);
+      expect(calc('BBI1', { BBT1: 0.3, BBD1: 1.0 })).toBe(0);
+      expect(calc('BBI1', { BBT1: 1.2 })).toBeNull();
+    });
+    it('GLO1 = TPN1 - ALB1', () => {
+      expect(calc('GLO1', { TPN1: 7.5, ALB1: 4.0 })).toBeCloseTo(3.5);
+      expect(calc('GLO1', { ALB1: 4.0 })).toBeNull();
+    });
+    it('BAG1 = ALB1 / GLO1, null (not NaN) on division by zero', () => {
+      expect(calc('BAG1', { ALB1: 4.0, GLO1: 2.0 })).toBeCloseTo(2.0);
+      const v = calc('BAG1', { ALB1: 4.0, GLO1: 0 });
+      expect(v).toBeNull();
+      expect(Number.isNaN(v as number)).toBe(false);
+    });
+    it('resolves the GLO1 → BAG1 chain from entered TPN1 / ALB1', () => {
+      const out = resolveCalculated(
+        { TPN1: 7.0, ALB1: 4.0 },
+        [
+          { code: 'GLO1', formula: 'TPN1 - ALB1' },
+          { code: 'BAG1', formula: 'ALB1 / GLO1' },
+        ],
+      );
+      expect(out.GLO1).toBeCloseTo(3.0);
+      expect(out.BAG1).toBeCloseTo(4.0 / 3.0);
     });
   });
 

@@ -36,15 +36,19 @@ function esc(s: string): string {
 
 /**
  * Which discipline each panel prints under. On the printed report the discipline
- * (e.g. BIOCHEMISTRY) is a single centred heading, and the individual profiles within
- * it (e.g. LIVER FUNCTION TEST (LFT)) appear as left-aligned underlined sub-headings —
- * exactly as on the lab's existing letterhead reports. Unmapped panels stand alone.
+ * (e.g. HAEMATOLOGY) is a single centred heading, and the individual profiles within
+ * it appear as left-aligned underlined sub-headings. Unmapped panels stand alone — their
+ * own report_heading IS the centred heading (deptOf falls back to it).
+ *
+ * The biochemistry profiles (Diabetic / Renal / Lipid / Electrolytes / Liver / Thyroid /
+ * Hormones) are intentionally NOT mapped here, so each prints under its own profile name
+ * (e.g. DIABETIC PROFILE) rather than a shared BIOCHEMISTRY umbrella. The BIOCHEMISTRY
+ * heading is reserved for the BIO panel — the misc biochemistry tests plus the "…1"
+ * duplicate tests the lab orders when it wants a single combined BIOCHEMISTRY section.
  */
 const DEPARTMENT: Record<string, string> = {
   HEM: 'HAEMATOLOGY', CBC: 'HAEMATOLOGY', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
-  BIO: 'BIOCHEMISTRY', LFT: 'BIOCHEMISTRY', KFT: 'BIOCHEMISTRY',
-  LIPID: 'BIOCHEMISTRY', ELEC: 'BIOCHEMISTRY', DIAB: 'BIOCHEMISTRY',
-  THY: 'BIOCHEMISTRY', HORM: 'BIOCHEMISTRY',
+  BIO: 'BIOCHEMISTRY',
   SERO: 'SEROLOGY',
   URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
   MICRO: 'MICROBIOLOGY',

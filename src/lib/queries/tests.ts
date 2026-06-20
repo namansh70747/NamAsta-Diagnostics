@@ -20,16 +20,35 @@ export async function listTests(panelCode?: string, enabledOnly = true): Promise
 }
 
 export async function searchTests(query: string): Promise<Test[]> {
-  // Frequently-ordered tests float to the top, and an exact code-prefix match wins —
-  // so typing "CB" instantly surfaces the most-used CBC at #1 (counter speed).
+  // An exact code-prefix match wins first, then the sellable PROFILE (is_panel=1) outranks its own
+  // member tests, then frequently-ordered tests float up — so typing "CB" surfaces CBC and "HBA1C"
+  // surfaces the HbA1c profile at #1 (not the bare HbA1c row, whose code "HBA1C" is a prefix of the
+  // bundle "HBA1CP" and would otherwise sort above it). Counter speed: the profile is the obvious pick.
   const sql = `SELECT t.*, p.code as panel_code, p.report_heading as panel_heading
                FROM tests t LEFT JOIN panels p ON t.panel_id=p.id
                WHERE t.enabled=1 AND (t.code LIKE ? OR t.name LIKE ?)
                ORDER BY (CASE WHEN t.code LIKE ? THEN 0 ELSE 1 END),
+                        t.is_panel DESC,
                         (SELECT COUNT(*) FROM orders o WHERE o.test_id=t.id) DESC,
                         t.code
                LIMIT 30`;
   return dbQuery<Test>(sql, [`${query}%`, `%${query}%`, `${query}%`]);
+}
+
+/** Resolve a fixed set of test codes to their (enabled) Test rows — used to expand a
+ *  search group into its members. Returned in the same order as `codes`. */
+export async function getTestsByCodes(codes: string[]): Promise<Test[]> {
+  if (!codes.length) return [];
+  const placeholders = codes.map(() => '?').join(',');
+  const rows = await dbQuery<Test>(
+    `SELECT t.*, p.code as panel_code, p.report_heading as panel_heading
+     FROM tests t LEFT JOIN panels p ON t.panel_id=p.id
+     WHERE t.enabled=1 AND t.code IN (${placeholders})`,
+    codes
+  );
+  // SQL IN(...) doesn't preserve argument order — re-sort to the caller's code order.
+  const order = new Map(codes.map((c, i) => [c, i]));
+  return rows.sort((a, b) => (order.get(a.code) ?? 0) - (order.get(b.code) ?? 0));
 }
 
 /** Most-ordered tests/panels — one-tap chips so the common cases need zero typing. */

@@ -35,6 +35,20 @@ export function computeCalculated(code: string, formula: string, values: ResultM
       return tpn - alb;
     }
     case 'BAG': return safeDiv(g('ALB'), g('GLO'));
+    // "…1" twins of the LFT bilirubin/protein calcs — these tests live in the BIOCHEMISTRY panel
+    // (see migration 0049) and compute from their own "…1" inputs so they behave identically to
+    // the natives (e.g. indirect bilirubin clamped at 0).
+    case 'BBI1': {
+      const bbt = g('BBT1'), bbd = g('BBD1');
+      if (bbt == null || bbd == null) return null;
+      return Math.max(0, bbt - bbd);
+    }
+    case 'GLO1': {
+      const tpn = g('TPN1'), alb = g('ALB1');
+      if (tpn == null || alb == null) return null;
+      return tpn - alb;
+    }
+    case 'BAG1': return safeDiv(g('ALB1'), g('GLO1'));
     case 'BVLDL': {
       const tg = g('TG');
       return tg != null ? tg / 5 : null;

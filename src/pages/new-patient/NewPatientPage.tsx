@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { promptDialog } from "@/lib/dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listDoctors, upsertDoctor } from "@/lib/queries/doctors";
-import { searchTests, listPanels, listTests, getFrequentTests } from "@/lib/queries/tests";
+import { searchTests, listPanels, listTests, getFrequentTests, getTestsByCodes } from "@/lib/queries/tests";
 import { createPatient, getNextTestNo } from "@/lib/queries/patients";
 import { getAllSettings } from "@/lib/queries/settings";
+import { matchTestGroups, TestGroup } from "@/lib/testGroups";
 import { useSession } from "@/lib/session";
 import { Test, AgeUnit, Sex, PaymentMode } from "@/types";
 import { nowISO } from "@/lib/format";
@@ -142,15 +143,43 @@ export function NewPatientPage() {
     setTestDropdown(false);
   }
 
+  // A search group adds all its member tests at once (each as its own line) — so "BIL"
+  // pulls in Bilirubin Total/Direct/Indirect in one tap instead of three.
+  async function addGroup(group: TestGroup) {
+    const tests = await getTestsByCodes(group.codes);
+    if (!tests.length) return;
+    setSelectedTests(prev => {
+      const have = new Set(prev.map(t => t.test.id));
+      const additions = tests.filter(t => !have.has(t.id)).map(t => ({ test: t, price: t.price }));
+      return [...prev, ...additions];
+    });
+    setTestQuery("");
+    setTestDropdown(false);
+  }
+
   function removeTest(testId: number) {
     setSelectedTests(prev => prev.filter(t => t.test.id !== testId));
   }
 
+  // Matching groups sit above the individual test results as a single combined, keyboard-
+  // navigable list (group rows first, then tests).
+  const groupResults = testQuery.length >= 1 ? matchTestGroups(testQuery) : [];
+  type SearchRow = { kind: 'group'; group: TestGroup } | { kind: 'test'; test: Test };
+  const searchRows: SearchRow[] = [
+    ...groupResults.map((group): SearchRow => ({ kind: 'group', group })),
+    ...testResults.map((test): SearchRow => ({ kind: 'test', test })),
+  ];
+
+  function addRow(row: SearchRow) {
+    if (row.kind === 'group') addGroup(row.group);
+    else addTest(row.test);
+  }
+
   function onSearchKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!testResults.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHl(h => Math.min(h + 1, testResults.length - 1)); }
+    if (!searchRows.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHl(h => Math.min(h + 1, searchRows.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHl(h => Math.max(h - 1, 0)); }
-    else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const t = testResults[hl]; if (t) addTest(t); }
+    else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const r = searchRows[hl]; if (r) addRow(r); }
     else if (e.key === 'Escape') { setTestDropdown(false); }
   }
 
@@ -420,24 +449,41 @@ export function NewPatientPage() {
                 placeholder="Search & press Enter to add…"
                 className="field !pl-9"
               />
-              {testDropdown && testResults.length > 0 && (
+              {testDropdown && searchRows.length > 0 && (
                 <div className="card absolute z-10 top-full left-0 right-0 mt-1.5 max-h-60 overflow-y-auto shadow-[var(--shadow-pop)] animate-scale-in py-1">
-                  {testResults.map((t, i) => (
+                  {searchRows.map((row, i) => row.kind === 'group' ? (
                     <button
-                      key={t.id}
+                      key={row.group.id}
                       type="button"
                       onMouseEnter={() => setHl(i)}
-                      onClick={() => addTest(t)}
+                      onClick={() => addGroup(row.group)}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-3 px-4 py-2 text-left text-[13.5px] transition-colors",
+                        i === hl ? "bg-[#eef0fe]" : "hover:bg-[#fafafe]"
+                      )}
+                    >
+                      <span className="min-w-0 truncate flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-md bg-[#eef0fe] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5] shrink-0">Group</span>
+                        <span className="text-[#14151c] truncate">{row.group.label}</span>
+                      </span>
+                      <span className="text-[12px] text-[#8a8b97] tabular-nums shrink-0">+{row.group.codes.length} tests</span>
+                    </button>
+                  ) : (
+                    <button
+                      key={row.test.id}
+                      type="button"
+                      onMouseEnter={() => setHl(i)}
+                      onClick={() => addTest(row.test)}
                       className={cn(
                         "w-full flex items-center justify-between gap-3 px-4 py-2 text-left text-[13.5px] transition-colors",
                         i === hl ? "bg-[#eef0fe]" : "hover:bg-[#fafafe]"
                       )}
                     >
                       <span className="min-w-0 truncate">
-                        <span className="font-mono text-[11.5px] text-[#9a9cab] mr-2">{t.code}</span>
-                        <span className="text-[#14151c]">{t.name}</span>
+                        <span className="font-mono text-[11.5px] text-[#9a9cab] mr-2">{row.test.code}</span>
+                        <span className="text-[#14151c]">{row.test.name}</span>
                       </span>
-                      <span className="text-[12.5px] text-[#8a8b97] tabular-nums shrink-0">₹{t.price}</span>
+                      <span className="text-[12.5px] text-[#8a8b97] tabular-nums shrink-0">₹{row.test.price}</span>
                     </button>
                   ))}
                 </div>

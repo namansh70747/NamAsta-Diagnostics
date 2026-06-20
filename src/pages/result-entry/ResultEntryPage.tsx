@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPatientById, addTestsToPatient } from "@/lib/queries/patients";
 import { getOrdersWithResults, saveResult, approvePatient, markNotDone, unlockResult, getReportComment, saveReportComment, setUnitOverride, setRangeOverride } from "@/lib/queries/results";
-import { listPanels, searchTests, reorderPanelTests, createPanelTest } from "@/lib/queries/tests";
+import { listPanels, searchTests, reorderPanelTests, createPanelTest, getTestsByCodes } from "@/lib/queries/tests";
+import { matchTestGroups, TestGroup } from "@/lib/testGroups";
 import { useSession } from "@/lib/session";
 import { OrderWithResult, Panel, Test } from "@/types";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
@@ -401,9 +402,9 @@ export function ResultEntryPage() {
     catch { setAddResults([]); }
   }
 
-  async function addTest(t: Test) {
+  async function addTestsByIds(ids: number[], prices: Record<number, number>, doneMsg: string) {
     try {
-      await addTestsToPatient(pid, [t.id], { [t.id]: t.price });
+      await addTestsToPatient(pid, ids, prices);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['orders', pid] }),
         qc.invalidateQueries({ queryKey: ['bill', pid] }),
@@ -413,11 +414,26 @@ export function ResultEntryPage() {
         qc.invalidateQueries({ queryKey: ['pending-deliveries'] }),
       ]);
       setShowAddTest(false); setAddQuery(''); setAddResults([]);
-      toast.success('Test added.');
+      toast.success(doneMsg);
     } catch (e) {
       toast.error(e);
     }
   }
+
+  function addTest(t: Test) {
+    return addTestsByIds([t.id], { [t.id]: t.price }, 'Test added.');
+  }
+
+  // Add every member of a search group at once (e.g. "BIL" → Bilirubin Total/Direct/Indirect).
+  async function addGroup(group: TestGroup) {
+    const tests = await getTestsByCodes(group.codes);
+    if (!tests.length) return;
+    const prices = Object.fromEntries(tests.map(t => [t.id, t.price]));
+    return addTestsByIds(tests.map(t => t.id), prices, 'Tests added.');
+  }
+
+  // Search groups that match what's typed — shown above individual results in the dialog.
+  const addGroupResults = matchTestGroups(addQuery);
 
   async function applyAnalyzer() {
     if (!analyzer) return;
@@ -827,18 +843,33 @@ export function ResultEntryPage() {
               className="field w-full mb-3"
             />
             <div className="max-h-72 overflow-auto">
-              {addResults.length === 0 ? (
+              {addResults.length === 0 && addGroupResults.length === 0 ? (
                 <p className="text-[13px] text-[#a3a5b3] py-4 text-center">{addQuery ? 'No matching tests.' : 'Type to search…'}</p>
-              ) : addResults.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => addTest(t)}
-                  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[#fafafe] text-left"
-                >
-                  <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#a3a5b3]">({t.code})</span></span>
-                  <span className="text-[13px] tabular-nums text-[#54555f]">₹{t.price}</span>
-                </button>
-              ))}
+              ) : (<>
+                {addGroupResults.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => addGroup(g)}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[#fafafe] text-left"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center rounded-md bg-[#eef0fe] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5] shrink-0">Group</span>
+                      <span className="text-[14px] text-[#14151c] truncate">{g.label}</span>
+                    </span>
+                    <span className="text-[12px] tabular-nums text-[#8a8b97] shrink-0">+{g.codes.length} tests</span>
+                  </button>
+                ))}
+                {addResults.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => addTest(t)}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[#fafafe] text-left"
+                  >
+                    <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#a3a5b3]">({t.code})</span></span>
+                    <span className="text-[13px] tabular-nums text-[#54555f]">₹{t.price}</span>
+                  </button>
+                ))}
+              </>)}
             </div>
             <div className="flex justify-end mt-4">
               <button onClick={() => { setShowAddTest(false); setAddQuery(''); setAddResults([]); }} className="btn btn-secondary">Close</button>

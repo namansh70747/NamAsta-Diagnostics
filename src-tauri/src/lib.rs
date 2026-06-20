@@ -281,6 +281,24 @@ pub fn run() {
             sql: include_str!("../migrations/0046_paid_once_backfill.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 47,
+            description: "hba1c_profile",
+            sql: include_str!("../migrations/0047_hba1c_profile.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 48,
+            description: "haematology_spelling_fix",
+            sql: include_str!("../migrations/0048_haematology_spelling_fix.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 49,
+            description: "biochemistry_dup_tests",
+            sql: include_str!("../migrations/0049_biochemistry_dup_tests.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

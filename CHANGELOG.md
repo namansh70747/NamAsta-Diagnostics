@@ -2,6 +2,23 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.81
+
+- **HbA1c is now its own profile.** Searching **HBA1C** surfaces a single "HbA1c (Glycosylated Hb)"
+  profile at the top of the list; adding it bills as one line and expands into its two rows on save —
+  **HbA1c** and the auto-calculated **eAG** (Estimated Average Glucose = 28.7 × HbA1c − 46.7, filled
+  automatically as you enter HbA1c and locked on approval). On the report it prints under its own
+  heading **HBA1C/GLYCOSYLATED HB** (and nothing else above it), instead of beneath DIABETIC PROFILE.
+- **"Haematology" spelling fixed everywhere.** Any panel or test still showing the American
+  *Hematology* or the *Hemotology* typo (in any letter case) is corrected to **Haematology**, so the
+  department heading reads consistently. (Also fixed the "e.g. Haemoglobin" hint in the test editor.)
+- **Optional combined BIOCHEMISTRY section.** Each biochemistry profile (Diabetic, Renal, Lipid,
+  Electrolytes, Liver…) now prints under its **own** heading rather than a shared BIOCHEMISTRY
+  umbrella. For labs that prefer a single combined section, the common analytes are also available as
+  "…1" duplicate tests that group together under one **BIOCHEMISTRY** heading.
+- **One-tap Bilirubin in search.** Typing "BIL" now surfaces a single "Bilirubin — Total + Direct +
+  Indirect" row that adds all three at once; each still keeps its own result row, range and price.
+
 ## v1.3.80
 
 - **LDL Cholesterol now calculates even on a raised lipid profile.** It was being left blank

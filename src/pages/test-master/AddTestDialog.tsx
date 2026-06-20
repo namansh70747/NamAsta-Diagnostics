@@ -87,7 +87,7 @@ export function AddTestDialog({
           <TextInput value={code} onChange={setCode} placeholder="e.g. HB" error={!!errors.code} />
         </Field>
         <Field label="Name *" error={errors.name}>
-          <TextInput value={name} onChange={setName} placeholder="e.g. Hemoglobin" error={!!errors.name} />
+          <TextInput value={name} onChange={setName} placeholder="e.g. Haemoglobin" error={!!errors.name} />
         </Field>
         <Field label="Panel">
           <Select value={String(panelId)} onChange={(v) => setPanelId(v === "" ? "" : Number(v))}>
