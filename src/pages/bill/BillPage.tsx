@@ -5,9 +5,9 @@ import { ChevronLeft, Printer, FileDown, MessageCircle, Mail } from "lucide-reac
 import { getPatientById, getBill } from "@/lib/queries/patients";
 import { getOrdersWithResults } from "@/lib/queries/results";
 import { getAllSettings } from "@/lib/queries/settings";
-import { saveBillPdf, printBillPdf } from "@/lib/pdf";
+import { saveBillPdf, printBillPdf, saveElementPng } from "@/lib/pdf";
 import { revealInFolder } from "@/lib/printing";
-import { buildBillWhatsAppMessage, sendWhatsAppDocument, sendWhatsAppSemi, copyPdfToClipboard } from "@/lib/whatsapp";
+import { buildBillWhatsAppMessage, sendWhatsAppDocument, sendWhatsAppSemi, copyImageToClipboard } from "@/lib/whatsapp";
 import { sendEmail } from "@/lib/email";
 import { formatCurrency, formatDateTime, genderLabel } from "@/lib/format";
 import { amountInWords } from "@/lib/numberToWords";
@@ -71,6 +71,13 @@ export function BillPage() {
     return saveBillPdf({ element: el, testNo: patient!.test_no, name: patient!.name, date: patient!.registered_at });
   }
 
+  async function makeBillPng(): Promise<string> {
+    const el = billEl();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    await Promise.all(Array.from(el.querySelectorAll("img")).map(img => img.decode().catch(() => undefined)));
+    return saveElementPng({ element: el, testNo: patient!.test_no, name: patient!.name, kind: "bill" });
+  }
+
   function handlePrint() {
     if (/win/i.test(navigator.userAgent)) {
       window.print();
@@ -110,15 +117,16 @@ export function BillPage() {
       return;
     }
     run("whatsapp", async () => {
-      const pdfPath = (await makeBillPdf()) || undefined;
-      if (pdfPath) await copyPdfToClipboard(pdfPath);
-      await sendWhatsAppSemi(patient.phone, msg, pdfPath);
-      if (pdfPath) {
+      const imgPath = (await makeBillPng()) || undefined;
+      if (imgPath) await copyImageToClipboard(imgPath);
+      await sendWhatsAppSemi(patient.phone, msg, imgPath);
+      if (imgPath) {
         alert(
-          "WhatsApp chat opened and the bill PDF is on the clipboard.\n\n" +
+          "WhatsApp chat opened and the bill image is on the clipboard.\n\n" +
           "1. Click into the chat\n" +
-          "2. Press Ctrl + V  (⌘ + V on Mac) to paste the PDF\n" +
-          "3. Press Enter to send."
+          "2. Press Ctrl + V  (⌘ + V on Mac) to paste the bill\n" +
+          "3. Press Enter to send.\n\n" +
+          "(If paste doesn't work, use the \"+\" / attach button → Photos & videos → pick the highlighted file.)"
         );
       }
     });

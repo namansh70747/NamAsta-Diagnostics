@@ -207,3 +207,62 @@ export async function saveReportPdf(opts: {
   const base64 = dataUri.substring(dataUri.indexOf(",") + 1);
   return invoke<string>("save_pdf_bytes", { base64Data: base64, outPath });
 }
+
+/**
+ * Rasterise a bill/report element to a single PNG and save it under SCL Bills|Reports/_img/.
+ * Used by the WhatsApp "paste & send" flow: an IMAGE can be pasted (Ctrl/⌘+V) into WhatsApp Web,
+ * whereas a file reference cannot. Same control-hiding + zoom-neutralising as the PDF pipeline so
+ * the image matches the print/PDF exactly. Returns the saved path ("" in a plain browser).
+ */
+export async function saveElementPng(opts: {
+  element: HTMLElement;
+  testNo: number;
+  name: string;
+  kind: "bill" | "report";
+}): Promise<string> {
+  const el = opts.element;
+  const A4_PX = Math.round((297 / 25.4) * 96);
+
+  const zoomedSections = Array.from(el.querySelectorAll<HTMLElement>("[data-editable-body]"));
+  const savedZoom = zoomedSections.map((s) => s.style.zoom);
+  zoomedSections.forEach((s) => { s.style.zoom = "1"; });
+  const previewZoom = el.closest<HTMLElement>("[data-preview-zoom]");
+  const savedPreviewZoom = previewZoom?.style.zoom ?? null;
+  if (previewZoom) previewZoom.style.zoom = "1";
+  const controls = Array.from(el.querySelectorAll<HTMLElement>("[data-report-control]"));
+  const savedControlDisplay = controls.map((c) => c.style.display);
+  controls.forEach((c) => { c.style.display = "none"; });
+
+  let dataUrl: string;
+  try {
+    const prev = { h: el.style.height, mh: el.style.minHeight, ov: el.style.overflow };
+    el.style.height = "auto";
+    el.style.minHeight = `${A4_PX}px`;
+    el.style.overflow = "visible";
+    const naturalH = Math.max(el.scrollHeight, A4_PX);
+    const canvas = await html2canvas(el, {
+      scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+      width: el.offsetWidth, height: naturalH,
+    });
+    el.style.height = prev.h;
+    el.style.minHeight = prev.mh;
+    el.style.overflow = prev.ov;
+    dataUrl = canvas.toDataURL("image/png");
+  } finally {
+    zoomedSections.forEach((s, i) => { s.style.zoom = savedZoom[i]; });
+    if (previewZoom) previewZoom.style.zoom = savedPreviewZoom ?? "";
+    controls.forEach((c, i) => { c.style.display = savedControlDisplay[i]; });
+  }
+
+  const fileName = `${opts.testNo}-${safeName(opts.name)}-${opts.kind}.png`;
+  if (!isTauri()) {
+    const a = document.createElement("a");
+    a.href = dataUrl; a.download = fileName; a.click();
+    return "";
+  }
+  const folder = opts.kind === "bill" ? "SCL Bills" : "SCL Reports";
+  const docDir = await documentDir();
+  const outPath = await join(docDir, folder, "_img", fileName);
+  const base64 = dataUrl.substring(dataUrl.indexOf(",") + 1);
+  return invoke<string>("save_pdf_bytes", { base64Data: base64, outPath });
+}

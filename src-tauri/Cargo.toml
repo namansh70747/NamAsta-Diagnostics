@@ -1,6 +1,6 @@
 [package]
 name = "scl-lab-app"
-version = "1.3.91"
+version = "1.3.92"
 description = "NamAsta Diagnostics — offline lab management & reporting"
 authors = ["NamAsta Diagnostics"]
 edition = "2021"

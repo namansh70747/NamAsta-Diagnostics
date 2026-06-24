@@ -81,6 +81,14 @@ export async function copyPdfToClipboard(path: string): Promise<void> {
   await invoke<void>('copy_file_to_clipboard', { path });
 }
 
+/** Put a PNG image's pixels on the clipboard so it pastes (Ctrl/⌘+V) into WhatsApp Web as a photo.
+ *  (A file reference can't be pasted by browsers — only image data — so this replaces the PDF
+ *  file-copy in the manual "paste & send" flow.) */
+export async function copyImageToClipboard(path: string): Promise<void> {
+  if (!isTauri() || !path) return;
+  await invoke<void>('copy_image_to_clipboard', { path });
+}
+
 export interface WaApiConfig {
   apiKey: string;
   templateName: string;

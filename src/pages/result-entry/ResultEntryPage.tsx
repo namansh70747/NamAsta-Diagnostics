@@ -937,7 +937,17 @@ export function ResultEntryPage() {
               <div className="grid grid-cols-[5.5rem_1fr] gap-3">
                 <div>
                   <label className="block text-[13px] font-medium text-[#3a3b45] mb-1">Title</label>
-                  <select value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} className="field w-full">
+                  <select
+                    value={editDraft.title}
+                    onChange={e => {
+                      const title = e.target.value;
+                      // Auto-match the sex to a gendered title (Mr./Master → Male, Mrs./Miss/Ms. → Female).
+                      const sex: Sex | null = ['Mr.', 'Master'].includes(title) ? 'MALE'
+                        : ['Mrs.', 'Miss', 'Ms.'].includes(title) ? 'FEMALE' : null;
+                      setEditDraft(d => d && { ...d, title, ...(sex ? { sex } : {}) });
+                    }}
+                    className="field w-full"
+                  >
                     {['Mr.', 'Mrs.', 'Miss', 'Ms.', 'Master', 'Baby', 'Dr.', ''].map(t => <option key={t} value={t}>{t || '—'}</option>)}
                   </select>
                 </div>
