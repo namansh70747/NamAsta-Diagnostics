@@ -80,13 +80,13 @@ export function TodayPatientsTable({
                 return (
                   <tr
                     key={p.id}
-                    className="group cursor-pointer border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]"
+                    className="group cursor-pointer border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#eef1f8]"
                     onClick={() => navigate(`/result-entry/${p.id}`)}
                   >
-                    <td className="px-5 py-3 text-[13.5px] font-medium text-[#44454e] tabular-nums">
+                    <td className="px-5 py-3 text-[14px] font-medium text-[#44454e] tabular-nums">
                       {p.test_no}
                     </td>
-                    <td className="px-5 py-3 text-[13.5px] font-medium text-[#14151c]">
+                    <td className="px-5 py-3 text-[14px] font-medium text-[#14151c]">
                       {p.title} {p.name}
                       {p.doctor_name && (
                         <span className="block text-[12px] font-normal text-[#565869]">
@@ -95,7 +95,7 @@ export function TodayPatientsTable({
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <span className="text-[13.5px] tabular-nums text-[#14151c]">
+                      <span className="text-[14px] tabular-nums text-[#14151c]">
                         {formatCurrency(p.bill?.total ?? 0)}
                       </span>
                       <span className="block text-[12px] text-[#565869] tabular-nums">

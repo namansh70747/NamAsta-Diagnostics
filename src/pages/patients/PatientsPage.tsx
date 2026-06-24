@@ -283,7 +283,7 @@ function ResultsTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
+    estimateSize: () => 60,
     overscan: 12,
   });
 
@@ -305,16 +305,16 @@ function ResultsTable({
                 data-index={vi.index}
                 className={cn(
                   COLS,
-                  "group absolute top-0 left-0 w-full border-b border-[#f1f1f5] last:border-0 hover:bg-[#fafafe] text-[13.5px] transition-colors"
+                  "group absolute top-0 left-0 w-full border-b border-[#f1f1f5] last:border-0 hover:bg-[#eef1f8] text-[14px] transition-colors"
                 )}
                 style={{
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="text-[12px] font-mono tabular-nums text-[#565869]">
+                <div className="text-[12.5px] font-mono tabular-nums text-[#565869]">
                   {formatDate(p.registered_at)}
                 </div>
-                <div className="text-[12px] font-mono tabular-nums text-[#565869]">
+                <div className="text-[12.5px] font-mono tabular-nums text-[#565869]">
                   {p.test_no}
                 </div>
                 <div className="min-w-0">
@@ -361,9 +361,10 @@ function ResultsTable({
                 </div>
                 {/* empty spacer cell keeps the "Actions" header aligned */}
                 <div />
-                {/* action cluster: absolutely pinned to the right edge so it never
-                    overflows into the Status column regardless of button count */}
-                <div className="absolute right-0 top-0 h-full flex items-center gap-0.5 pr-3 pl-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 bg-gradient-to-l from-[#fafafe] from-60% to-transparent">
+                {/* Action cluster: absolutely pinned to the row's right edge on a SOLID
+                    panel (matching the row hover colour) so the buttons never overlap the
+                    Status chip. A feathered ::before strip softens the left edge. */}
+                <div className="absolute right-0 top-0 h-full flex items-center gap-0.5 pl-6 pr-3 bg-[#eef1f8] opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto before:content-[''] before:absolute before:right-full before:top-0 before:h-full before:w-8 before:bg-gradient-to-l before:from-[#eef1f8] before:to-transparent">
                   <RowAction label="Open" onClick={() => onOpen(p)} />
                   <RowAction label="Bill" onClick={() => onBill(p)} />
                   <RowAction label="Re-print" onClick={() => onReprint(p)} />

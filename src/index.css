@@ -116,7 +116,7 @@
     background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 16px;
     /* Let the WINDOW scroll vertically whenever a page is taller than the screen (e.g. the
        onboarding/login screens on a small or display-scaled laptop like 1366x768). The app
        shell stays exactly 100vh and scrolls inside itself, so it never triggers window scroll.
@@ -190,8 +190,8 @@
 
   .field {
     width: 100%;
-    padding: 0.6rem 0.85rem;
-    font-size: 0.9rem;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.95rem;
     color: #14151c;
     background: #ffffff;
     border: 1px solid #d3d4df;
@@ -213,7 +213,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.58rem 1.05rem;
-    font-size: 0.875rem;
+    font-size: 0.92rem;
     font-weight: 600;
     border-radius: 11px;
     white-space: nowrap;
@@ -271,8 +271,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.2rem 0.66rem;
-    font-size: 0.72rem;
+    padding: 0.25rem 0.72rem;
+    font-size: 0.78rem;
     font-weight: 600;
     border-radius: 999px;
     letter-spacing: 0.01em;
