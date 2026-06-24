@@ -198,7 +198,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       {inspect && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
               Binary capture — {inspect.byteCount.toLocaleString()} bytes
             </div>
             <button
@@ -236,7 +236,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
                 return (
                   <div key={label} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
                     <img src={url} alt={label} className="max-h-32 w-auto" />
-                    <div className="mt-1 text-[10.5px] text-[#8a8b97]">{label} · {bytes.toLocaleString()} B</div>
+                    <div className="mt-1 text-[10.5px] text-[#6b6c7e]">{label} · {bytes.toLocaleString()} B</div>
                   </div>
                 );
               })}
@@ -244,7 +244,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
           )}
 
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1.5">Hex dump (first 4 KB)</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1.5">Hex dump (first 4 KB)</div>
             <pre className="max-h-72 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[10.5px] leading-tight p-3 select-all">{inspect.hex}</pre>
           </div>
         </div>
@@ -253,7 +253,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       {raw && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Raw output</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Raw output</div>
             <button
               type="button"
               onClick={() => {

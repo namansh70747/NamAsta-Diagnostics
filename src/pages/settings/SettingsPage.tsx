@@ -56,11 +56,11 @@ export function SettingsPage() {
     return (
       <div className="pt-4">
         <div className="card p-6 max-w-[640px] py-14 text-center animate-fade-up">
-          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center mx-auto mb-3">
+          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center mx-auto mb-3">
             <Lock size={17} strokeWidth={1.8} />
           </div>
           <div className="text-[13.5px] font-semibold text-[#14151c]">Admin only</div>
-          <p className="text-[13.5px] text-[#8a8b97] mt-1">
+          <p className="text-[13.5px] text-[#6b6c7e] mt-1">
             You need administrator access to view or change settings.
           </p>
         </div>
@@ -92,7 +92,7 @@ export function SettingsPage() {
                   <Icon
                     size={16}
                     strokeWidth={active ? 2.2 : 1.8}
-                    className={active ? "text-maroon-600" : "text-[#a3a5b3]"}
+                    className={active ? "text-maroon-600" : "text-[#82849a]"}
                   />
                   {t.label}
                 </button>

@@ -216,7 +216,7 @@ export function TestMasterPage() {
     <div className="pt-4 space-y-4 animate-fade-up">
       {/* Header row */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <p className="text-[13px] text-[#8a8b97] tabular-nums">
+        <p className="text-[13px] text-[#6b6c7e] tabular-nums">
           {allTests.length} tests · {panels.length} panels
         </p>
         <div className="flex items-center gap-2">
@@ -245,7 +245,7 @@ export function TestMasterPage() {
       <div className="flex items-start gap-6">
         {/* Left rail */}
         <aside className="w-44 shrink-0">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
             Panels
           </p>
           <nav className="space-y-px">
@@ -273,7 +273,7 @@ export function TestMasterPage() {
               "mt-4 mx-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
               reviewOnly
                 ? "bg-[#fdf0d7] text-[#92600a]"
-                : "text-[#8a8b97] hover:bg-[#eef0f4] hover:text-[#54555f]"
+                : "text-[#6b6c7e] hover:bg-[#eef0f4] hover:text-[#54555f]"
             )}
           >
             <span
@@ -301,7 +301,7 @@ export function TestMasterPage() {
               <Search
                 size={15}
                 strokeWidth={1.8}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a5b3] pointer-events-none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82849a] pointer-events-none"
               />
               <input
                 value={searchQ}
@@ -310,7 +310,7 @@ export function TestMasterPage() {
                 className="field pl-9"
               />
             </div>
-            <span className="text-[12px] text-[#a3a5b3] tabular-nums">{filtered.length} shown</span>
+            <span className="text-[12px] text-[#82849a] tabular-nums">{filtered.length} shown</span>
           </div>
 
           {/* Table */}
@@ -359,7 +359,7 @@ export function TestMasterPage() {
                       >
                         <td
                           className={cn(
-                            "px-5 py-3 font-mono text-[12px] text-[#8a8b97]",
+                            "px-5 py-3 font-mono text-[12px] text-[#6b6c7e]",
                             !!t.needs_review && "shadow-[inset_2px_0_0_#f59e0b]"
                           )}
                         >
@@ -398,7 +398,7 @@ export function TestMasterPage() {
                             beginEdit(t, "unit");
                           }}
                           display={
-                            <span className="text-[12.5px] text-[#8a8b97]">{t.unit || "—"}</span>
+                            <span className="text-[12.5px] text-[#6b6c7e]">{t.unit || "—"}</span>
                           }
                         >
                           <input
@@ -465,7 +465,7 @@ export function TestMasterPage() {
                             {t.result_type}
                           </span>
                         </td>
-                        <td className="px-5 py-3 font-mono text-[11.5px] text-[#a3a5b3]">
+                        <td className="px-5 py-3 font-mono text-[11.5px] text-[#82849a]">
                           {t.panel_code ?? "—"}
                         </td>
 
@@ -610,7 +610,7 @@ function RailButton({
     >
       <span className="truncate">{label}</span>
       {count !== undefined && (
-        <span className="text-[10.5px] text-[#a3a5b3] tabular-nums ml-auto pl-2">{count}</span>
+        <span className="text-[10.5px] text-[#82849a] tabular-nums ml-auto pl-2">{count}</span>
       )}
     </button>
   );
@@ -674,17 +674,17 @@ function CellEdit({
 function EmptyState({ reviewOnly, searchQ }: { reviewOnly: boolean; searchQ: string }) {
   return (
     <div className="py-14 text-center">
-      <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center mx-auto mb-3">
+      <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center mx-auto mb-3">
         <FlaskConical size={17} strokeWidth={1.8} />
       </div>
-      <p className="text-[13.5px] text-[#8a8b97]">
+      <p className="text-[13.5px] text-[#6b6c7e]">
         {searchQ
           ? "No tests match your search."
           : reviewOnly
           ? "No tests flagged for review."
           : "No tests in this panel."}
       </p>
-      <p className="text-[12px] text-[#a3a5b3] mt-1">
+      <p className="text-[12px] text-[#82849a] mt-1">
         {searchQ ? "Try a different code or name." : "Use “Add Test” to create one."}
       </p>
     </div>

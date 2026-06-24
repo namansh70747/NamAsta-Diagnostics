@@ -4,6 +4,7 @@ import { upsertTest } from "@/lib/queries/tests";
 import { Panel, ResultType, Test } from "@/types";
 import { Modal } from "./Overlays";
 import { Field, TextInput, Select, TextArea } from "./Fields";
+import { FormulaBuilder } from "./FormulaBuilder";
 
 const RESULT_TYPES: ResultType[] = ["numeric", "text", "choice", "calculated"];
 
@@ -128,10 +129,14 @@ export function AddTestDialog({
           </div>
         )}
         {resultType === "calculated" && (
-          <div className="col-span-2">
-            <Field label="Formula" hint="Use other tests' Codes with + − * /, e.g. 2 * CHOL + TG  or  TPN - ALB. It auto-fills on the report — staff can't type it.">
-              <TextInput value={formula} onChange={setFormula} placeholder="e.g. 2 * CHOL + TG" />
-            </Field>
+          <div className="col-span-2 space-y-1.5">
+            <label className="block text-[12.5px] font-medium text-[#54555f]">Formula</label>
+            <FormulaBuilder
+              value={formula}
+              onChange={setFormula}
+              currentCode={code.trim().toUpperCase()}
+              disabled={false}
+            />
           </div>
         )}
       </div>

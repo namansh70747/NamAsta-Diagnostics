@@ -10,7 +10,7 @@ export function TabHeader({ title, subtitle }: { title: string; subtitle?: strin
   return (
     <div className="mb-1">
       <h2 className="text-[15px] font-semibold text-[#14151c]">{title}</h2>
-      {subtitle && <p className="text-[12.5px] text-[#8a8b97] mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-[12.5px] text-[#6b6c7e] mt-0.5">{subtitle}</p>}
     </div>
   );
 }
@@ -18,7 +18,7 @@ export function TabHeader({ title, subtitle }: { title: string; subtitle?: strin
 /** Section label per design system, for grouping inside cards. */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-3">
+    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-3">
       {children}
     </div>
   );
@@ -29,7 +29,7 @@ function FieldLabel({ children }: { children: ReactNode }) {
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <span className="block text-[12px] text-[#a3a5b3] mt-1">{children}</span>;
+  return <span className="block text-[12px] text-[#82849a] mt-1">{children}</span>;
 }
 
 export function TextField({

@@ -1698,7 +1698,7 @@ export function ReportPreviewPage() {
       {/* ── Action panel ── */}
       <aside className="w-[252px] shrink-0 space-y-4 pt-4 pb-8 pr-1 print:hidden h-full overflow-y-auto">
         <div className="card p-4 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1">Deliver</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1">Deliver</p>
           {!isApproved && (
             <>
               <p className="text-[14px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
@@ -1718,13 +1718,13 @@ export function ReportPreviewPage() {
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
           <OutputBtn icon={FileType2} label="Export to Word (full editing)" onClick={handleDocx} done={sent.docx} disabled={!isApproved || editing} busy={busy === 'docx'} />
-          <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+          <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
             {printLetterhead
               ? 'Word file includes the full lab letterhead.'
               : `Word file has no header/footer — just ${preTop}mm top & ${preBottom}mm bottom gaps for your pre-printed paper. (Set this via “Print lab letterhead”.)`}
           </p>
           {reportOverride && (
-            <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+            <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
               Word export uses the original report data — it won't include the in-app manual edits.
             </p>
           )}
@@ -1737,7 +1737,7 @@ export function ReportPreviewPage() {
 
         {isApproved && (
           <div className="card p-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Edit report</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Edit report</p>
             {editing ? (
               <>
                 <p className="text-[14px] text-[#54555f] leading-snug">
@@ -1762,7 +1762,7 @@ export function ReportPreviewPage() {
                 <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
                   <Pencil size={15} strokeWidth={1.8} /> Edit here (quick)
                 </button>
-                <p className="text-[11px] text-[#8a8b97] leading-snug px-1">
+                <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
                   For full Word-style editing, use <strong>Export to Word</strong> above and edit in Microsoft Word.
                 </p>
                 {reportOverride && (
@@ -1776,7 +1776,7 @@ export function ReportPreviewPage() {
         )}
 
         <div className="card p-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">Layout</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Layout</p>
           <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           {compactReport && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
@@ -1852,7 +1852,7 @@ export function ReportPreviewPage() {
 
         {bill && (
           <div className="card p-4 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1">Billing</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1">Billing</p>
             <Row k="Total" v={`₹${bill.total}`} />
             {bill.concession > 0 && <Row k="Concession" v={`− ₹${bill.concession}`} />}
             {bill.concession > 0 && <Row k="Amount" v={`₹${bill.net}`} />}
@@ -3434,7 +3434,7 @@ function GapInput({ label, value, onChange, max = 120, unit = 'mm' }: { label: s
           onChange={(e) => { const v = e.target.value; if (v === '') return; const n = Number(v); if (Number.isFinite(n)) onChange(Math.max(0, Math.min(max, n))); }}
           className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
         />
-        <span className="text-[#a3a5b3]">{unit}</span>
+        <span className="text-[#82849a]">{unit}</span>
       </span>
     </label>
   );

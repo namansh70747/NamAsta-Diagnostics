@@ -58,13 +58,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4.5 px-5 border-b border-[#eef0f4]">
-          <Search size={17} className="text-[#a3a5b3] shrink-0" />
+          <Search size={17} className="text-[#82849a] shrink-0" />
           <input
             ref={inputRef}
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder="Search patients by name, receipt no. or phone — or jump to a screen…"
-            className="flex-1 py-4 text-[14px] outline-none placeholder:text-[#a3a5b3] bg-transparent"
+            className="flex-1 py-4 text-[14px] outline-none placeholder:text-[#82849a] bg-transparent"
             onKeyDown={e => {
               if (e.key === "Escape") onClose();
               if (e.key === "Enter") {
@@ -76,7 +76,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               }
             }}
           />
-          <kbd className="text-[10px] font-semibold text-[#8a8b97] bg-[#eef0f4] rounded-md px-1.5 py-1">esc</kbd>
+          <kbd className="text-[10px] font-semibold text-[#6b6c7e] bg-[#eef0f4] rounded-md px-1.5 py-1">esc</kbd>
         </div>
 
         <div className="max-h-[340px] overflow-y-auto py-2">
@@ -91,9 +91,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     i === 0 && "bg-[#fafafe]"
                   )}
                 >
-                  <span className="font-mono text-[11px] text-[#a3a5b3] w-12 shrink-0">#{p.test_no}</span>
+                  <span className="font-mono text-[11px] text-[#82849a] w-12 shrink-0">#{p.test_no}</span>
                   <span className="text-[13.5px] font-medium text-[#14151c] truncate">{p.title} {p.name}</span>
-                  <span className="text-[12px] text-[#a3a5b3]">{p.age} {p.age_unit}</span>
+                  <span className="text-[12px] text-[#82849a]">{p.age} {p.age_unit}</span>
                   <span className={cn("chip ml-auto", STATUS_CHIP[p.status ?? "registered"])}>
                     {(p.status ?? "registered").replace("_", " ")}
                   </span>
@@ -111,7 +111,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                   onClick={() => go(p.to)}
                   className="w-full flex items-center gap-3 px-5 py-2.5 text-left text-[13.5px] text-[#34353f] transition-colors hover:bg-[#fafafe]"
                 >
-                  <span className="w-7 h-7 rounded-lg bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-lg bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center">
                     <p.icon size={14.5} />
                   </span>
                   {p.label}
@@ -121,7 +121,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           )}
 
           {q && patients.length === 0 && pages.length === 0 && (
-            <p className="px-5 py-10 text-center text-[13px] text-[#a3a5b3]">
+            <p className="px-5 py-10 text-center text-[13px] text-[#82849a]">
               Nothing matches “{q}”
             </p>
           )}
@@ -134,7 +134,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-1">
-      <p className="px-5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[#a3a5b3]">{title}</p>
+      <p className="px-5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[#82849a]">{title}</p>
       {children}
     </div>
   );

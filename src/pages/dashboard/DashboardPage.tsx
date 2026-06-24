@@ -32,7 +32,7 @@ export function DashboardPage() {
     <div className="pt-4 space-y-4 animate-fade-up">
       {/* Header row: contextual greeting + primary action */}
       <div className="flex items-center justify-between gap-4">
-        <p className="text-[13px] text-[#8a8b97]">
+        <p className="text-[13px] text-[#6b6c7e]">
           <Greeting loading={patientsLoading} count={patients.length} />
         </p>
         <button onClick={() => navigate("/new-patient")} className="btn btn-primary">
@@ -93,7 +93,7 @@ function Greeting({ loading, count }: { loading: boolean; count: number }) {
   return (
     <>
       {dateLine}
-      {patientLine && <span className="text-[#a3a5b3]"> · </span>}
+      {patientLine && <span className="text-[#82849a]"> · </span>}
       {patientLine}
     </>
   );
@@ -112,10 +112,10 @@ function QuickAction({
 }) {
   return (
     <button onClick={onClick} className="btn btn-secondary px-3 py-1.5 text-[12.5px]">
-      <span className="text-[#8a8b97]">{icon}</span>
+      <span className="text-[#6b6c7e]">{icon}</span>
       {label}
       {hint && (
-        <kbd className="text-[10px] font-semibold text-[#8a8b97] bg-[#eef0f4] rounded px-1.5 py-0.5">
+        <kbd className="text-[10px] font-semibold text-[#6b6c7e] bg-[#eef0f4] rounded px-1.5 py-0.5">
           {hint}
         </kbd>
       )}

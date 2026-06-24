@@ -71,7 +71,7 @@ function ExportButton({
 }
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-[12.5px] font-medium text-[#8a8b97]">{children}</span>;
+  return <span className="text-[12.5px] font-medium text-[#6b6c7e]">{children}</span>;
 }
 
 function DateRangeBar({
@@ -134,10 +134,10 @@ function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
   return (
     <tr>
       <td colSpan={colSpan} className="py-14 text-center">
-        <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center mx-auto mb-3">
+        <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center mx-auto mb-3">
           <FileBarChart2 size={17} strokeWidth={1.8} />
         </div>
-        <div className="text-[13.5px] text-[#8a8b97]">{message}</div>
+        <div className="text-[13.5px] text-[#6b6c7e]">{message}</div>
       </td>
     </tr>
   );
@@ -204,9 +204,9 @@ function DayBookTab() {
                   <tr key={r.test_no} className={ROW}>
                     <td className={cn(TD, "font-mono text-[13px]")}>{r.test_no}</td>
                     <td className={TD}>{r.name}</td>
-                    <td className="px-5 py-3 text-[12.5px] text-[#8a8b97]">{formatDate(r.registered_at)}</td>
+                    <td className="px-5 py-3 text-[12.5px] text-[#6b6c7e]">{formatDate(r.registered_at)}</td>
                     <td className={TD}>{r.doctor_name || "—"}</td>
-                    <td className="px-5 py-3 text-[12.5px] text-[#8a8b97]">{r.mode || "—"}</td>
+                    <td className="px-5 py-3 text-[12.5px] text-[#6b6c7e]">{r.mode || "—"}</td>
                     <td className={TDR}>{formatCurrency(r.total)}</td>
                     <td className={cn(TDR, "text-[#14743a]")}>{formatCurrency(r.received)}</td>
                   </tr>
@@ -296,7 +296,7 @@ function MonthlyChart({ data }: { data: MonthlyRow[] }) {
                 y={topPad + chartH + 16}
                 textAnchor="middle"
                 fontSize={10.5}
-                fill="#8a8b97"
+                fill="#6b6c7e"
               >
                 {monthLabel(d.month)}
               </text>
@@ -362,7 +362,7 @@ function MonthlyTab() {
 
       {data.length > 0 && (
         <div className="card p-5 animate-fade-up">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-3">
             Monthly Collection (Received)
           </div>
           <MonthlyChart data={data} />

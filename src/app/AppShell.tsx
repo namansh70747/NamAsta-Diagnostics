@@ -199,10 +199,10 @@ export function AppShell() {
           >
             <Search size={14.5} className="group-hover:text-[#6366f1] transition-colors" />
             <span className="flex-1 text-left">Search patients, tests…</span>
-            <kbd className="text-[10px] font-semibold text-[#8a8b97] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
+            <kbd className="text-[10px] font-semibold text-[#6b6c7e] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
           </button>
 
-          <div className="flex items-center gap-3 text-[12.5px] text-[#8a8b97]">
+          <div className="flex items-center gap-3 text-[12.5px] text-[#6b6c7e]">
             {license?.trial && license.daysLeft != null && (
               <span
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border bg-indigo-50 border-indigo-200 text-indigo-700"

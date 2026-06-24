@@ -21,7 +21,7 @@ export function Field({
         {required && <span className="text-maroon-600"> *</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-[11.5px] text-[#a3a5b3] mt-1">{hint}</p>}
+      {hint && !error && <p className="text-[11.5px] text-[#82849a] mt-1">{hint}</p>}
       {error && <p className="text-[11.5px] text-[#b91c1c] mt-1">{error}</p>}
     </div>
   );

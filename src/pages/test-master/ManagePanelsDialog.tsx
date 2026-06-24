@@ -106,7 +106,7 @@ export function ManagePanelsDialog({
 
   return (
     <Modal title="Manage Panels" onClose={onClose} width="max-w-xl">
-      <p className="text-[13px] text-[#8a8b97] leading-relaxed mb-4">
+      <p className="text-[13px] text-[#6b6c7e] leading-relaxed mb-4">
         Panels group tests on the report and can be ordered as a single billed profile. Create a panel,
         then open it to add tests and turn on profile ordering.
       </p>
@@ -147,10 +147,10 @@ export function ManagePanelsDialog({
 
       {panels.length === 0 ? (
         <div className="py-14 text-center">
-          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center mx-auto mb-3">
+          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center mx-auto mb-3">
             <Layers size={17} strokeWidth={1.8} />
           </div>
-          <p className="text-[13.5px] text-[#8a8b97]">No panels configured.</p>
+          <p className="text-[13.5px] text-[#6b6c7e]">No panels configured.</p>
         </div>
       ) : (
         <div className="rounded-xl border border-[#eef0f4] overflow-hidden">
@@ -166,7 +166,7 @@ export function ManagePanelsDialog({
             <tbody>
               {panels.map((p, i) => (
                 <tr key={p.id} className="group border-b border-[#f1f1f5] last:border-0 hover:bg-[#fafafe]">
-                  <td className="px-4 py-2.5 font-mono text-[12px] text-[#8a8b97]">{p.code}</td>
+                  <td className="px-4 py-2.5 font-mono text-[12px] text-[#6b6c7e]">{p.code}</td>
                   <td className="px-4 py-2.5 text-[13.5px] text-[#14151c]">
                     {canManage ? (
                       <button onClick={() => onEdit(p)} className="text-left hover:text-maroon-700 transition-colors">
@@ -180,7 +180,7 @@ export function ManagePanelsDialog({
                     {p.page_break_after ? (
                       <span className="chip chip-gray text-[10.5px]">Yes</span>
                     ) : (
-                      <span className="text-[12px] text-[#a3a5b3]">—</span>
+                      <span className="text-[12px] text-[#82849a]">—</span>
                     )}
                   </td>
                   {canManage && (
@@ -247,8 +247,8 @@ function RowBtn({
       className={cn(
         "w-7 h-7 inline-flex items-center justify-center rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
         danger
-          ? "text-[#a3a5b3] hover:bg-[#fbe5e5] hover:text-[#a31e1e]"
-          : "text-[#8a8b97] hover:bg-[#eef0f4] hover:text-[#14151c]"
+          ? "text-[#82849a] hover:bg-[#fbe5e5] hover:text-[#a31e1e]"
+          : "text-[#6b6c7e] hover:bg-[#eef0f4] hover:text-[#14151c]"
       )}
     >
       {children}

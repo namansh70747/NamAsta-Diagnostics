@@ -109,7 +109,7 @@ function ImagePicker({
   return (
     <div>
       <SectionLabel>{title}</SectionLabel>
-      <div className="text-[12px] text-[#a3a5b3] -mt-2 mb-3">{description}</div>
+      <div className="text-[12px] text-[#82849a] -mt-2 mb-3">{description}</div>
 
       <input
         ref={inputRef}
@@ -174,14 +174,14 @@ function ImagePicker({
               : "border-[#dcdde6] hover:border-maroon-400 hover:bg-maroon-50/30")
           }
         >
-          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#8a8b97] flex items-center justify-center mx-auto mb-3">
+          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#6b6c7e] flex items-center justify-center mx-auto mb-3">
             <ImageIcon size={17} strokeWidth={1.8} />
           </div>
           <div className="text-[13.5px] text-[#54555f] font-medium inline-flex items-center gap-1.5">
             <Upload size={14} strokeWidth={1.8} />
             Click to upload, or drag an image here
           </div>
-          <div className="text-[12px] text-[#a3a5b3] mt-1">PNG or JPG, transparent background works best</div>
+          <div className="text-[12px] text-[#82849a] mt-1">PNG or JPG, transparent background works best</div>
         </div>
       )}
     </div>

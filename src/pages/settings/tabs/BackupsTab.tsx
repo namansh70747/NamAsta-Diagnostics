@@ -57,7 +57,7 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
         <div className="flex items-start justify-between gap-4 rounded-xl border border-[#e6e7ee] bg-[#f7f8fb] px-4 py-3">
           <div>
             <div className="text-[13.5px] font-semibold text-[#14151c]">Automatic daily backup</div>
-            <p className="text-[12px] text-[#8a8b97] mt-0.5 max-w-md">
+            <p className="text-[12px] text-[#6b6c7e] mt-0.5 max-w-md">
               {enabled
                 ? "On — a copy of your data is saved once a day to the folder below. Turn off if this PC is low on space."
                 : "Off — this PC is NOT being backed up. A disk failure or reinstall would lose all data. Turn on to stay protected."}
@@ -100,7 +100,7 @@ export function BackupsTab({ settings }: { settings: Record<string, string> }) {
             <DatabaseBackup size={15} strokeWidth={1.8} />
             {running ? "Backing up…" : "Backup now"}
           </PrimaryButton>
-          <span className="text-[12px] text-[#a3a5b3]">
+          <span className="text-[12px] text-[#82849a]">
             Last backup: <b className="font-semibold text-[#54555f]">{lastBackupDate}</b>
           </span>
         </div>

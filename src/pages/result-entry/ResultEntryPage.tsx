@@ -522,19 +522,19 @@ export function ResultEntryPage() {
             {patient && (
               <div className="min-w-0">
                 <div className="flex items-baseline gap-2.5 min-w-0">
-                  <span className="font-mono text-[12.5px] text-[#8a8b97] shrink-0">#{patient.test_no}</span>
+                  <span className="font-mono text-[12.5px] text-[#6b6c7e] shrink-0">#{patient.test_no}</span>
                   <span className="font-semibold text-[15px] text-[#14151c] truncate">{patient.title} {patient.name}</span>
                   <span className="text-[12.5px] text-[#54555f] shrink-0">
                     {patient.age} {patient.age_unit} / {genderLabel(patient.sex, patient.baby)}
                   </span>
                   {patient.doctor_name && (
-                    <span className="text-[12.5px] text-[#8a8b97] truncate">Ref: {patient.doctor_name}</span>
+                    <span className="text-[12.5px] text-[#6b6c7e] truncate">Ref: {patient.doctor_name}</span>
                   )}
                   {can('enter_results') && (
                     <button
                       onClick={openEdit}
                       title="Edit patient details (fix a wrong name, age, sex, doctor…)"
-                      className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#8a8b97] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
+                      className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#6b6c7e] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
                     >
                       <Pencil size={13} strokeWidth={1.8} />
                     </button>
@@ -547,9 +547,9 @@ export function ResultEntryPage() {
                       style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
                     />
                   </div>
-                  <span className="text-[11px] text-[#8a8b97] tabular-nums">{progress}/{total} entered</span>
+                  <span className="text-[11px] text-[#6b6c7e] tabular-nums">{progress}/{total} entered</span>
                   {saveMut.isPending
-                    ? <span className="text-[11px] text-[#8a8b97]">Saving…</span>
+                    ? <span className="text-[11px] text-[#6b6c7e]">Saving…</span>
                     : savedTick > 0 && <span className="flex items-center gap-1 text-[11px] text-[#16a34a]"><Check size={11} strokeWidth={2.4} /> All saved</span>}
                 </div>
               </div>
@@ -601,7 +601,7 @@ export function ResultEntryPage() {
       {/* Panel sections */}
       {sortedPanels.map(({ panel, orders: panelOrders }) => (
         <div key={panel.code} className="card overflow-hidden animate-fade-up">
-          <div className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] bg-[#fafafe] border-b border-[#eef0f4]">
+          <div className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] bg-[#fafafe] border-b border-[#eef0f4]">
             {panel.report_heading}
           </div>
           <table className="w-full">
@@ -645,13 +645,13 @@ export function ResultEntryPage() {
                         className="cursor-grab active:cursor-grabbing touch-none select-none opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Drag to reorder"
                       >
-                        <GripVertical size={14} className="text-[#8a8b97]" />
+                        <GripVertical size={14} className="text-[#6b6c7e]" />
                       </div>
                     </td>
                     <td className="px-5 py-2.5 text-[15px] text-[#14151c]">{o.test.name}</td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[12px] text-[#a3a5b3] italic">Not done</span>
+                        <span className="text-[11px] text-[#82849a]">Not done</span>
                       ) : isCalc ? (
                         <span className="inline-flex w-32 items-center justify-end gap-1.5">
                           <span className={cn(
@@ -705,7 +705,7 @@ export function ResultEntryPage() {
                     </td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[12.5px] text-[#8a8b97]">{unitOf(o)}</span>
+                        <span className="text-[12.5px] text-[#6b6c7e]">{unitOf(o)}</span>
                       ) : (
                         <input
                           type="text"
@@ -715,7 +715,7 @@ export function ResultEntryPage() {
                           disabled={approved}
                           title="Edit unit for this patient only (does not change the test default)"
                           className={cn(
-                            "w-20 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#8a8b97]",
+                            "w-20 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#6b6c7e]",
                             "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
                             o.order.unit_override && "text-[#4f46e5] font-medium",
                             approved && "cursor-not-allowed"
@@ -725,7 +725,7 @@ export function ResultEntryPage() {
                     </td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[12.5px] text-[#8a8b97] tabular-nums">{rangeOf(o)}</span>
+                        <span className="text-[12.5px] text-[#6b6c7e] tabular-nums">{rangeOf(o)}</span>
                       ) : (
                         <input
                           type="text"
@@ -735,7 +735,7 @@ export function ResultEntryPage() {
                           disabled={approved}
                           title="Edit normal range for this patient only (does not change the test default)"
                           className={cn(
-                            "w-28 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#8a8b97] tabular-nums",
+                            "w-28 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#6b6c7e] tabular-nums",
                             "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
                             o.order.range_override && "text-[#4f46e5] font-medium",
                             approved && "cursor-not-allowed"
@@ -768,7 +768,7 @@ export function ResultEntryPage() {
                       ) : (
                         <button
                           onClick={() => markNotDone(o.order.id).then(() => qc.invalidateQueries({ queryKey: ['orders', pid] }))}
-                          className="text-[#a3a5b3] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
+                          className="text-[#82849a] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
                           title="Mark not done"
                         >
                           <X size={14} strokeWidth={1.8} />
@@ -884,7 +884,7 @@ export function ResultEntryPage() {
             />
             <div className="max-h-72 overflow-auto">
               {addResults.length === 0 && addGroupResults.length === 0 ? (
-                <p className="text-[13px] text-[#a3a5b3] py-4 text-center">{addQuery ? 'No matching tests.' : 'Type to search…'}</p>
+                <p className="text-[13px] text-[#82849a] py-4 text-center">{addQuery ? 'No matching tests.' : 'Type to search…'}</p>
               ) : (<>
                 {addGroupResults.map(g => (
                   <button
@@ -896,7 +896,7 @@ export function ResultEntryPage() {
                       <span className="inline-flex items-center rounded-md bg-[#eef0fe] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5] shrink-0">Group</span>
                       <span className="text-[14px] text-[#14151c] truncate">{g.label}</span>
                     </span>
-                    <span className="text-[12px] tabular-nums text-[#8a8b97] shrink-0">+{g.codes.length} tests</span>
+                    <span className="text-[12px] tabular-nums text-[#6b6c7e] shrink-0">+{g.codes.length} tests</span>
                   </button>
                 ))}
                 {addResults.map(t => (
@@ -905,7 +905,7 @@ export function ResultEntryPage() {
                     onClick={() => addTest(t)}
                     className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[#fafafe] text-left"
                   >
-                    <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#a3a5b3]">({t.code})</span></span>
+                    <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#82849a]">({t.code})</span></span>
                     <span className="text-[13px] tabular-nums text-[#54555f]">₹{t.price}</span>
                   </button>
                 ))}
@@ -1045,7 +1045,7 @@ export function ResultEntryPage() {
                   {analyzer.matches.map(m => (
                     <tr key={m.orderId} className="border-b border-[#f1f1f5] last:border-0">
                       <td className="px-3 py-1.5 text-[#14151c]">{m.testName}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-[#a3a5b3]">{m.current || '—'}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-[#82849a]">{m.current || '—'}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-[#14151c]">{m.incoming}</td>
                     </tr>
                   ))}
@@ -1067,7 +1067,7 @@ export function ResultEntryPage() {
                         <div key={key} className="rounded-lg border border-[#eef0f4] p-2">
                           <div className="text-[11px] font-semibold text-[#54555f] mb-1">{label}</div>
                           <div className="h-16 flex items-center justify-center bg-[#fafafe] rounded mb-1 overflow-hidden">
-                            {imgAssign[key] ? <img src={imgAssign[key]} alt={label} className="max-h-16 w-auto" /> : <span className="text-[10px] text-[#a3a5b3]">curve</span>}
+                            {imgAssign[key] ? <img src={imgAssign[key]} alt={label} className="max-h-16 w-auto" /> : <span className="text-[11px] text-[#82849a]">curve</span>}
                           </div>
                           <select
                             value={imgAssign[key] ?? ''}
@@ -1155,7 +1155,7 @@ export function ResultEntryPage() {
             </p>
             {notDoneOrders.length > 0 && (
               <div className="rounded-xl bg-[#fafafe] border border-[#eef0f4] px-3.5 py-2.5 mb-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-1.5">Excluded — not done</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1.5">Excluded — not done</p>
                 <ul className="space-y-0.5">
                   {notDoneOrders.map(o => (
                     <li key={o.order.id} className="text-[12.5px] text-[#54555f]">{o.test.name}</li>

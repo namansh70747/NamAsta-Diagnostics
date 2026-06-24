@@ -39,6 +39,10 @@
   --color-border: #e6e7ee;
   --color-ring: #6366f1;
 
+  /* doc-only text tone helpers — prefer these in new code */
+  --color-text-muted: #6b6c7e;
+  --color-text-soft: #82849a;
+
   --radius: 0.85rem;
 
   --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
@@ -135,7 +139,7 @@
 
   /* visible-but-tasteful keyboard focus */
   :focus-visible {
-    outline: 2px solid rgba(99, 102, 241, 0.6);
+    outline: 2px solid rgba(99, 102, 241, 0.85);
     outline-offset: 2px;
     border-radius: 8px;
   }
@@ -189,18 +193,18 @@
     font-size: 0.9rem;
     color: #14151c;
     background: #ffffff;
-    border: 1px solid #dcdde6;
+    border: 1px solid #d3d4df;
     border-radius: 11px;
     transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
   }
-  .field::placeholder { color: #a3a5b3; }
-  .field:hover { border-color: #c4c6d2; }
+  .field::placeholder { color: #82849a; }
+  .field:hover { border-color: #b9bbc9; }
   .field:focus {
     outline: none;
     border-color: #6366f1;
     box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.14);
   }
-  .field:disabled { background: #f4f4f7; color: #8a8b97; cursor: not-allowed; }
+  .field:disabled { background: #f4f4f7; color: #6b6c7e; cursor: not-allowed; }
 
   .btn {
     display: inline-flex;
@@ -283,7 +287,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #8a8b97;
+    color: #6b6c7e;
   }
 
   /* skeleton shimmer */

@@ -78,7 +78,7 @@ export function PanelEditorSheet({
           <div className="shrink-0 border-b border-[#eef0f4]">
             <button
               onClick={() => setEditingTestId(null)}
-              className="flex items-center gap-1 px-5 pt-2.5 text-[12px] font-medium text-[#8a8b97] hover:text-maroon-700 transition-colors"
+              className="flex items-center gap-1 px-5 pt-2.5 text-[12px] font-medium text-[#6b6c7e] hover:text-maroon-700 transition-colors"
             >
               <ArrowLeft size={14} strokeWidth={2} /> Back to {panel.name}
             </button>
@@ -91,7 +91,7 @@ export function PanelEditorSheet({
                     "px-3 py-2.5 text-[13px] font-medium capitalize border-b-2 -mb-px transition-colors",
                     subTab === t
                       ? "border-maroon-600 text-[#14151c]"
-                      : "border-transparent text-[#8a8b97] hover:text-[#54555f]"
+                      : "border-transparent text-[#6b6c7e] hover:text-[#54555f]"
                   )}
                 >
                   {t}
@@ -109,7 +109,7 @@ export function PanelEditorSheet({
                   "px-3 py-2.5 text-[13px] font-medium capitalize border-b-2 -mb-px transition-colors",
                   tab === t
                     ? "border-maroon-600 text-[#14151c]"
-                    : "border-transparent text-[#8a8b97] hover:text-[#54555f]"
+                    : "border-transparent text-[#6b6c7e] hover:text-[#54555f]"
                 )}
               >
                 {t === "tests" ? `Tests (${members.length})` : t}
@@ -257,7 +257,7 @@ function DetailsTab({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[#14151c]">Orderable as one profile</p>
-            <p className="text-[11.5px] text-[#8a8b97] mt-0.5 leading-relaxed">
+            <p className="text-[11.5px] text-[#6b6c7e] mt-0.5 leading-relaxed">
               Lets the front desk order the whole panel as a single billed line (like CBC / HbA1c Profile)
               that auto-includes its tests.
             </p>
@@ -391,11 +391,11 @@ function TestsTab({
     <div className="space-y-5">
       {/* Member list */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97] mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-3">
           Tests in this panel
         </p>
         {members.length === 0 ? (
-          <p className="text-[13.5px] text-[#8a8b97] py-2">No tests yet. Add one below.</p>
+          <p className="text-[13.5px] text-[#6b6c7e] py-2">No tests yet. Add one below.</p>
         ) : (
           <div className="space-y-2">
             {members.map((t, i) => (
@@ -411,7 +411,7 @@ function TestsTab({
                   <div className="text-[13.5px] font-medium text-[#14151c] truncate group-hover:text-maroon-700 transition-colors">
                     {t.name}
                   </div>
-                  <div className="text-[11.5px] font-mono text-[#a3a5b3] mt-0.5">
+                  <div className="text-[11.5px] font-mono text-[#82849a] mt-0.5">
                     {t.code}
                     {t.unit ? ` · ${t.unit}` : ""}
                   </div>
@@ -444,11 +444,11 @@ function TestsTab({
         <>
           {/* Add existing test */}
           <div className="rounded-xl border border-[#eef0f4] p-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
               Add an existing test
             </p>
             <div className="relative">
-              <Search size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a5b3] pointer-events-none" />
+              <Search size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82849a] pointer-events-none" />
               <input
                 value={existingQ}
                 onChange={(e) => setExistingQ(e.target.value)}
@@ -467,8 +467,8 @@ function TestsTab({
                   >
                     <span className="min-w-0">
                       <span className="text-[13px] text-[#14151c]">{t.name}</span>
-                      <span className="text-[11px] font-mono text-[#a3a5b3] ml-2">{t.code}</span>
-                      {t.panel_code && <span className="text-[11px] text-[#a3a5b3] ml-1">({t.panel_code})</span>}
+                      <span className="text-[11px] font-mono text-[#82849a] ml-2">{t.code}</span>
+                      {t.panel_code && <span className="text-[11px] text-[#82849a] ml-1">({t.panel_code})</span>}
                     </span>
                     <Plus size={15} strokeWidth={2} className="text-maroon-600 shrink-0" />
                   </button>
@@ -476,13 +476,13 @@ function TestsTab({
               </div>
             )}
             {existingQ.trim() && candidates.length === 0 && (
-              <p className="text-[12px] text-[#a3a5b3]">No matching tests outside this panel.</p>
+              <p className="text-[12px] text-[#82849a]">No matching tests outside this panel.</p>
             )}
           </div>
 
           {/* Add new test */}
           <div className="rounded-xl border border-[#eef0f4] p-4 space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8b97]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
               Create a new test
             </p>
             <Field label="Name *">
@@ -499,7 +499,7 @@ function TestsTab({
                 <TextInput value={newHigh} onChange={setNewHigh} type="number" numeric placeholder="—" />
               </Field>
             </div>
-            <p className="text-[11.5px] text-[#a3a5b3]">
+            <p className="text-[11.5px] text-[#82849a]">
               Just the basics — after adding, the test opens so you can set decimals, type, more ranges and an interpretation.
             </p>
             <div className="flex justify-end">
@@ -546,8 +546,8 @@ function IconBtn({
       className={cn(
         "w-7 h-7 inline-flex items-center justify-center rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
         danger
-          ? "text-[#a3a5b3] hover:bg-[#fbe5e5] hover:text-[#a31e1e]"
-          : "text-[#8a8b97] hover:bg-[#eef0f4] hover:text-[#14151c]"
+          ? "text-[#82849a] hover:bg-[#fbe5e5] hover:text-[#a31e1e]"
+          : "text-[#6b6c7e] hover:bg-[#eef0f4] hover:text-[#14151c]"
       )}
     >
       {children}

@@ -122,7 +122,7 @@ export function PatientsPage() {
     <div className="pt-4 space-y-4 animate-fade-up">
       {/* Header row: muted count left, primary action right */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8a8b97]">
+        <p className="text-[13px] text-[#6b6c7e]">
           {isLoading
             ? "Searching…"
             : `${filtered.length} patient${filtered.length === 1 ? "" : "s"}`}
@@ -142,7 +142,7 @@ export function PatientsPage() {
             <Search
               size={15}
               strokeWidth={1.8}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a8b97] pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6c7e] pointer-events-none"
             />
             <input
               type="text"
@@ -311,10 +311,10 @@ function ResultsTable({
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="text-[12px] font-mono tabular-nums text-[#8a8b97]">
+                <div className="text-[12px] font-mono tabular-nums text-[#6b6c7e]">
                   {formatDate(p.registered_at)}
                 </div>
-                <div className="text-[12px] font-mono tabular-nums text-[#8a8b97]">
+                <div className="text-[12px] font-mono tabular-nums text-[#6b6c7e]">
                   {p.test_no}
                 </div>
                 <div className="min-w-0">
@@ -327,7 +327,7 @@ function ResultsTable({
                     {p.name}
                   </button>
                   {p.phone && (
-                    <div className="truncate text-[12px] text-[#8a8b97]">
+                    <div className="truncate text-[12px] text-[#6b6c7e]">
                       {p.phone}
                     </div>
                   )}
@@ -336,13 +336,13 @@ function ResultsTable({
                   {p.age} {p.age_unit} /{" "}
                   {p.baby ? (p.sex === "FEMALE" ? "BG" : "BB") : p.sex === "MALE" ? "M" : p.sex === "FEMALE" ? "F" : "O"}
                 </div>
-                <div className="truncate text-[12.5px] text-[#8a8b97]">
+                <div className="truncate text-[12.5px] text-[#6b6c7e]">
                   {p.doctor_name ?? "—"}
                 </div>
                 <div className="text-[#54555f]">
                   <span className="tabular-nums">{p.test_count ?? 0}</span>{" "}
-                  <span className="text-[#8a8b97]">tests</span>
-                  <div className="text-[12px] tabular-nums text-[#8a8b97]">
+                  <span className="text-[#6b6c7e]">tests</span>
+                  <div className="text-[12px] tabular-nums text-[#6b6c7e]">
                     {formatCurrency(p.bill?.total ?? 0)}
                   </div>
                 </div>
@@ -351,7 +351,7 @@ function ResultsTable({
                     "text-right tabular-nums",
                     (p.bill?.balance ?? 0) > 0
                       ? "font-semibold text-[#b91c1c]"
-                      : "text-[#8a8b97]"
+                      : "text-[#6b6c7e]"
                   )}
                 >
                   {formatCurrency(p.bill?.balance ?? 0)}
@@ -441,7 +441,7 @@ function HistorySheet({
               {patient.title ? `${patient.title} ` : ""}
               {patient.name}
             </div>
-            <div className="text-[12.5px] text-[#8a8b97]">
+            <div className="text-[12.5px] text-[#6b6c7e]">
               {patient.phone || "No phone"} · Visit history
             </div>
           </div>
@@ -466,10 +466,10 @@ function HistorySheet({
             </div>
           ) : visits.length === 0 ? (
             <div className="py-14 text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#8a8b97]">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#6b6c7e]">
                 <Search size={17} strokeWidth={1.8} />
               </div>
-              <p className="text-[13.5px] text-[#8a8b97]">
+              <p className="text-[13.5px] text-[#6b6c7e]">
                 No previous visits found.
               </p>
             </div>
@@ -489,7 +489,7 @@ function HistorySheet({
                   </span>
                   <StatusChip status={v.status} />
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[12px] text-[#8a8b97]">
+                <div className="mt-1.5 flex items-center justify-between text-[12px] text-[#6b6c7e]">
                   <span className="font-mono tabular-nums">
                     Test #{v.test_no}
                   </span>
@@ -514,10 +514,10 @@ function HistorySheet({
 function EmptyState({ query, onNew }: { query: string; onNew: () => void }) {
   return (
     <div className="py-14 text-center">
-      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#8a8b97]">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#6b6c7e]">
         <Search size={17} strokeWidth={1.8} />
       </div>
-      <p className="text-[13.5px] text-[#8a8b97]">
+      <p className="text-[13.5px] text-[#6b6c7e]">
         {query ? "No patients match your filters." : "No patients yet."}
       </p>
       <button onClick={onNew} className="btn btn-secondary mt-4">

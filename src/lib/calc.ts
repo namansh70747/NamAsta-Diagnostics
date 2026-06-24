@@ -3,6 +3,65 @@
 
 export type ResultMap = Record<string, number | string | null>;
 
+/** Codes hardwired in the switch — editing their `formula` column has no effect on computation. */
+export const BUILTIN_CALC_CODES = new Set([
+  'BBI', 'GLO', 'BAG', 'BBI1', 'GLO1', 'BAG1',
+  'BVLDL', 'NHDL', 'BLDL', 'BRAT', 'BLHR',
+  'EAG', 'BUN', 'INR', 'GFR', 'GFR_CAT',
+]);
+
+/** Extract all identifier tokens from a formula (same regex the evaluator uses). */
+export function extractCodes(formula: string): string[] {
+  return Array.from(formula.matchAll(/[A-Za-z][A-Za-z0-9_]*/g), m => m[0]);
+}
+
+/** Validate a formula string against a set of known test codes. Returns human-readable errors. */
+export function validateFormula(
+  formula: string,
+  knownCodes: Set<string>
+): { ok: boolean; error?: string; codes: string[] } {
+  const trimmed = formula.trim();
+  if (!trimmed) return { ok: false, error: 'Formula is empty', codes: [] };
+
+  const illegalMatch = trimmed.match(/[^A-Za-z0-9_.() +\-*/%\t]/);
+  if (illegalMatch) {
+    return { ok: false, error: `Invalid character: "${illegalMatch[0]}"`, codes: [] };
+  }
+
+  let depth = 0;
+  for (const ch of trimmed) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (depth < 0) return { ok: false, error: "A closing bracket has no matching open bracket", codes: [] };
+  }
+  if (depth > 0) return { ok: false, error: "A bracket isn't closed", codes: [] };
+
+  if (/[+\-*/(]\s*$/.test(trimmed)) {
+    return { ok: false, error: 'Formula ends with an operator', codes: [] };
+  }
+
+  const codes = extractCodes(trimmed);
+  for (const code of codes) {
+    if (!knownCodes.has(code)) {
+      return { ok: false, error: `Unknown test code: ${code}`, codes };
+    }
+  }
+
+  return { ok: true, codes };
+}
+
+/** Run the real formula engine with sample values and return a formatted string for preview. */
+export function previewFormula(
+  formula: string,
+  sample: Record<string, number>,
+  decimals: number
+): string {
+  const result = computeCalculated('__preview__', formula, sample);
+  if (result == null) return '—';
+  if (typeof result === 'number') return formatResult(result, decimals);
+  return String(result);
+}
+
 function safeDiv(a: number | null, b: number | null): number | null {
   if (a == null || b == null || b === 0) return null;
   return a / b;

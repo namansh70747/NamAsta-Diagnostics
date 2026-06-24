@@ -17,7 +17,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
     <button
       onClick={onClose}
       aria-label="Close"
-      className="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#8a8b97] hover:bg-[#eef0f4] hover:text-[#14151c] transition-colors"
+      className="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#6b6c7e] hover:bg-[#eef0f4] hover:text-[#14151c] transition-colors"
     >
       <X size={16} strokeWidth={1.8} />
     </button>
@@ -103,7 +103,7 @@ export function Sheet({
                 <span className="chip chip-gray font-mono text-[10.5px] shrink-0">{chip}</span>
               )}
             </div>
-            {subtitle && <p className="text-[12px] text-[#8a8b97] mt-0.5 truncate">{subtitle}</p>}
+            {subtitle && <p className="text-[12px] text-[#6b6c7e] mt-0.5 truncate">{subtitle}</p>}
           </div>
           <CloseButton onClose={onClose} />
         </div>
