@@ -123,16 +123,18 @@ export function TodayPatientsTable({
                         <button
                           onClick={() => navigate(`/result-entry/${p.id}`)}
                           title="Enter results"
-                          className="btn btn-ghost px-2 py-1 text-[12px] font-medium"
+                          aria-label="Enter results"
+                          className="btn btn-ghost !p-2"
                         >
-                          <ClipboardEdit size={15} strokeWidth={1.8} /> Enter results
+                          <ClipboardEdit size={16} strokeWidth={1.8} />
                         </button>
                         <button
                           onClick={() => navigate(`/report/${p.id}`)}
                           title="Open report"
-                          className="btn btn-ghost px-2 py-1 text-[12px] font-medium"
+                          aria-label="Open report"
+                          className="btn btn-ghost !p-2"
                         >
-                          <FileText size={15} strokeWidth={1.8} /> Report
+                          <FileText size={16} strokeWidth={1.8} />
                         </button>
                       </div>
                     </td>

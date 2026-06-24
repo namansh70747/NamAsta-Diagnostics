@@ -1034,6 +1034,58 @@ pub fn copy_file_to_clipboard(path: String) -> Result<(), String> {
     }
 }
 
+/// Put a PNG image's PIXELS on the system clipboard (not a file reference) so it pastes
+/// straight into WhatsApp Web / Desktop (and any browser) as a photo. A file reference
+/// (see copy_file_to_clipboard) can't be pasted by browsers — only image/text data can —
+/// which is why the WhatsApp "paste & send" flow uses this for the bill/report image.
+#[tauri::command]
+pub fn copy_image_to_clipboard(path: String) -> Result<(), String> {
+    use std::process::Command;
+
+    #[cfg(target_os = "macos")]
+    {
+        // Read the PNG file's bytes onto the clipboard as real image data («class PNGf»).
+        let escaped = path.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!("set the clipboard to (read (POSIX file \"{escaped}\") as «class PNGf»)");
+        let out = Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("Clipboard image copy failed: {e}"))?;
+        if !out.status.success() {
+            return Err(format!("Clipboard image copy failed: {}", String::from_utf8_lossy(&out.stderr)));
+        }
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Load the PNG and put a real bitmap (CF_BITMAP/CF_DIB) on the clipboard so Ctrl+V
+        // pastes the image into WhatsApp Web. Clipboard APIs need an STA thread (-STA).
+        let safe = path.replace('\'', "''");
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; \
+             $img = [System.Drawing.Image]::FromFile('{safe}'); \
+             [System.Windows.Forms.Clipboard]::SetImage($img); \
+             $img.Dispose()"
+        );
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-STA", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Clipboard image copy failed: {e}"))?;
+        if !out.status.success() {
+            return Err(format!("Clipboard image copy failed: {}", String::from_utf8_lossy(&out.stderr)));
+        }
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = path;
+        Err("Copying an image to the clipboard is not supported on this OS.".into())
+    }
+}
+
 /// Write a UTF-8 text file (e.g. a CSV export), creating parent directories. Returns the
 /// absolute path. Used because the webview blocks the browser's anchor-download trick.
 #[tauri::command]

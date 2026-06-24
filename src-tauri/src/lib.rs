@@ -361,6 +361,7 @@ pub fn run() {
             commands::trial_store_write,
             commands::whatsapp_send_document,
             commands::copy_file_to_clipboard,
+            commands::copy_image_to_clipboard,
             commands::save_text_file,
             commands::app_version,
         ])
