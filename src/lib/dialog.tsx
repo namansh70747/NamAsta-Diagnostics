@@ -99,7 +99,7 @@ export function DialogHost() {
         aria-modal="true"
       >
         <h3 className="text-[16px] font-semibold text-[#14151c]">{cfg.title}</h3>
-        {cfg.message && <p className="text-[13px] text-[#54555f] mt-1.5 leading-relaxed">{cfg.message}</p>}
+        {cfg.message && <p className="text-[13px] text-[#44454e] mt-1.5 leading-relaxed">{cfg.message}</p>}
         {cfg.kind === "prompt" && (
           <input
             ref={inputRef}

@@ -30,11 +30,11 @@ export function TodayPatientsTable({
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#eef0f4]">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
           Today's Patients
         </h2>
         {!loading && patients.length > 0 && (
-          <span className="text-[12px] text-[#6b6c7e] tabular-nums">{patients.length} total</span>
+          <span className="text-[12px] text-[#565869] tabular-nums">{patients.length} total</span>
         )}
       </div>
 
@@ -54,10 +54,10 @@ export function TodayPatientsTable({
         </div>
       ) : patients.length === 0 ? (
         <div className="py-14 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#6b6c7e]">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
             <UserPlus size={17} strokeWidth={1.8} />
           </div>
-          <p className="text-[13.5px] text-[#6b6c7e]">No patients registered today.</p>
+          <p className="text-[13.5px] text-[#565869]">No patients registered today.</p>
           <button onClick={() => navigate("/new-patient")} className="btn btn-secondary mt-4">
             Register first patient
           </button>
@@ -83,13 +83,13 @@ export function TodayPatientsTable({
                     className="group cursor-pointer border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]"
                     onClick={() => navigate(`/result-entry/${p.id}`)}
                   >
-                    <td className="px-5 py-3 text-[13.5px] font-medium text-[#54555f] tabular-nums">
+                    <td className="px-5 py-3 text-[13.5px] font-medium text-[#44454e] tabular-nums">
                       {p.test_no}
                     </td>
                     <td className="px-5 py-3 text-[13.5px] font-medium text-[#14151c]">
                       {p.title} {p.name}
                       {p.doctor_name && (
-                        <span className="block text-[12px] font-normal text-[#6b6c7e]">
+                        <span className="block text-[12px] font-normal text-[#565869]">
                           Dr. {p.doctor_name}
                         </span>
                       )}
@@ -98,7 +98,7 @@ export function TodayPatientsTable({
                       <span className="text-[13.5px] tabular-nums text-[#14151c]">
                         {formatCurrency(p.bill?.total ?? 0)}
                       </span>
-                      <span className="block text-[12px] text-[#6b6c7e] tabular-nums">
+                      <span className="block text-[12px] text-[#565869] tabular-nums">
                         {p.test_count ?? 0} test{(p.test_count ?? 0) === 1 ? "" : "s"}
                       </span>
                     </td>

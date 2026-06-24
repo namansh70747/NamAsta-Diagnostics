@@ -82,7 +82,7 @@ export function NamAstaWordmark({
             fontWeight: 600,
             letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: light ? "rgba(255,255,255,0.5)" : "#6b6c7e",
+            color: light ? "rgba(255,255,255,0.5)" : "#565869",
           }}
         >
           Diagnostics

@@ -21,12 +21,12 @@ export function WaitingToSendTray({
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#eef0f4]">
-        <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
+        <h2 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
           <Send size={15} strokeWidth={1.8} className="text-[#4f46e5]" />
           Waiting to Send
         </h2>
         {!loading && rows.length > 0 && (
-          <span className="text-[12px] text-[#6b6c7e] tabular-nums">{rows.length}</span>
+          <span className="text-[12px] text-[#565869] tabular-nums">{rows.length}</span>
         )}
       </div>
 
@@ -50,10 +50,10 @@ export function WaitingToSendTray({
         </div>
       ) : rows.length === 0 ? (
         <div className="py-14 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#6b6c7e]">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
             <CheckCircle2 size={17} strokeWidth={1.8} />
           </div>
-          <p className="text-[13.5px] text-[#6b6c7e]">
+          <p className="text-[13.5px] text-[#565869]">
             All caught up — no approved reports waiting to be sent.
           </p>
         </div>
@@ -68,7 +68,7 @@ export function WaitingToSendTray({
                 <p className="truncate text-[13.5px] font-medium text-[#14151c]">
                   {r.patient_name}
                 </p>
-                <p className="mt-0.5 text-[12px] text-[#6b6c7e] tabular-nums">
+                <p className="mt-0.5 text-[12px] text-[#565869] tabular-nums">
                   #{r.test_no} · {r.phone}
                 </p>
               </div>

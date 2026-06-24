@@ -757,9 +757,9 @@ export function ReportPreviewPage() {
           <span data-report-control contentEditable={false}
             className="report-control absolute -top-2 right-1 z-30 flex gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity print:hidden">
             <button type="button" title="Shift boundary left (narrower)" onClick={() => nudgeCol(i, 'left')}
-              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#54555f] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">‹</button>
+              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#44454e] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">‹</button>
             <button type="button" title="Shift boundary right (wider)" onClick={() => nudgeCol(i, 'right')}
-              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#54555f] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">›</button>
+              className="h-5 w-5 inline-flex items-center justify-center rounded border border-[#e6e7ee] bg-white text-[#44454e] shadow-sm hover:border-[#c7c9ff] hover:text-[#4f46e5]">›</button>
           </span>
           {/* drag handle on the boundary */}
           <span data-report-control contentEditable={false} onPointerDown={e => startColResize(i, e)}
@@ -1698,7 +1698,7 @@ export function ReportPreviewPage() {
       {/* ── Action panel ── */}
       <aside className="w-[252px] shrink-0 space-y-4 pt-4 pb-8 pr-1 print:hidden h-full overflow-y-auto">
         <div className="card p-4 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1">Deliver</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-1">Deliver</p>
           {!isApproved && (
             <>
               <p className="text-[14px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
@@ -1718,13 +1718,13 @@ export function ReportPreviewPage() {
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
           <OutputBtn icon={FileType2} label="Export to Word (full editing)" onClick={handleDocx} done={sent.docx} disabled={!isApproved || editing} busy={busy === 'docx'} />
-          <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
+          <p className="text-[11px] text-[#565869] leading-snug px-1">
             {printLetterhead
               ? 'Word file includes the full lab letterhead.'
               : `Word file has no header/footer — just ${preTop}mm top & ${preBottom}mm bottom gaps for your pre-printed paper. (Set this via “Print lab letterhead”.)`}
           </p>
           {reportOverride && (
-            <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
+            <p className="text-[11px] text-[#565869] leading-snug px-1">
               Word export uses the original report data — it won't include the in-app manual edits.
             </p>
           )}
@@ -1737,10 +1737,10 @@ export function ReportPreviewPage() {
 
         {isApproved && (
           <div className="card p-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Edit report</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">Edit report</p>
             {editing ? (
               <>
-                <p className="text-[14px] text-[#54555f] leading-snug">
+                <p className="text-[14px] text-[#44454e] leading-snug">
                   Click into any value/text and edit it directly — the layout stays exactly as it prints.
                   Use the toolbar above for bold, font, size, colour &amp; alignment. Header, name box &amp;
                   footer are locked. Then Save.
@@ -1748,7 +1748,7 @@ export function ReportPreviewPage() {
                 <button onClick={saveEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white btn-success">
                   <Save size={16} strokeWidth={1.8} /> Save edits
                 </button>
-                <button onClick={cancelEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#54555f] border border-[#e6e7ee] hover:bg-[#fafafe]">
+                <button onClick={cancelEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#44454e] border border-[#e6e7ee] hover:bg-[#fafafe]">
                   <X size={15} strokeWidth={1.8} /> Cancel
                 </button>
               </>
@@ -1762,7 +1762,7 @@ export function ReportPreviewPage() {
                 <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
                   <Pencil size={15} strokeWidth={1.8} /> Edit here (quick)
                 </button>
-                <p className="text-[11px] text-[#6b6c7e] leading-snug px-1">
+                <p className="text-[11px] text-[#565869] leading-snug px-1">
                   For full Word-style editing, use <strong>Export to Word</strong> above and edit in Microsoft Word.
                 </p>
                 {reportOverride && (
@@ -1776,11 +1776,11 @@ export function ReportPreviewPage() {
         )}
 
         <div className="card p-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Layout</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">Layout</p>
           <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           {compactReport && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
-              <p className="text-[10.5px] text-[#54555f] leading-snug">
+              <p className="text-[10.5px] text-[#44454e] leading-snug">
                 Panels pack onto pages without splitting a test. Use the ↑/↓ arrows or the page
                 resize handles on a panel — your adjustment is <strong>saved for that test</strong>
                 and re-applied to every future report until you change it.
@@ -1807,7 +1807,7 @@ export function ReportPreviewPage() {
             </button>
           )}
           <Toggle label="Repeat name box on every page" checked={repeatNameBox} onChange={(v) => { setRepeatNameBox(v); localStorage.setItem('scl_repeat_namebox', v ? '1' : '0'); }} />
-          <label className="flex items-center justify-between text-[11.5px] text-[#54555f]">
+          <label className="flex items-center justify-between text-[11.5px] text-[#44454e]">
             <span>Hide name box on page #</span>
             <span className="flex items-center gap-1">
               <input
@@ -1818,7 +1818,7 @@ export function ReportPreviewPage() {
               />
             </span>
           </label>
-          <p className="text-[10.5px] text-[#54555f] leading-snug -mt-1">
+          <p className="text-[10.5px] text-[#44454e] leading-snug -mt-1">
             The name box shows on every page. Type a page number above to omit it on just that page
             (e.g. <strong>2</strong> for a long test that continues onto page 2). Page 1 still keeps
             the letterhead, footer &amp; signature throughout.
@@ -1826,7 +1826,7 @@ export function ReportPreviewPage() {
           <Toggle label="Print lab letterhead" checked={printLetterhead} onChange={(v) => { setPrintLetterhead(v); localStorage.setItem('scl_print_letterhead', v ? '1' : '0'); }} />
           {!printLetterhead && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
-              <p className="text-[10.5px] text-[#54555f] leading-snug">
+              <p className="text-[10.5px] text-[#44454e] leading-snug">
                 Letterhead hidden for printing on your pre-printed paper. Adjust the gaps so the data lands inside the printed frame.
               </p>
               <GapInput label="Top gap" value={preTop} onChange={(v) => { setPreTop(v); localStorage.setItem('scl_pre_top', String(v)); }} />
@@ -1852,7 +1852,7 @@ export function ReportPreviewPage() {
 
         {bill && (
           <div className="card p-4 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1">Billing</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-1">Billing</p>
             <Row k="Total" v={`₹${bill.total}`} />
             {bill.concession > 0 && <Row k="Concession" v={`− ₹${bill.concession}`} />}
             {bill.concession > 0 && <Row k="Amount" v={`₹${bill.net}`} />}
@@ -2777,7 +2777,7 @@ function CellContextMenu({ x, y, onClose, actions }: {
         danger ? "text-[#b91c1c] hover:bg-[#fdf3f3]" : "text-[#34353f]")}
     >
       <Icon size={14} /> <span className="flex-1">{label}</span>
-      {kbd && <kbd className="text-[10px] text-[#9a9cab]">{kbd}</kbd>}
+      {kbd && <kbd className="text-[10px] text-[#565869]">{kbd}</kbd>}
     </button>
   );
   // Keep the menu on-screen.
@@ -3196,13 +3196,13 @@ function CompactPaginatedReport({
           type="button" title="Move this test UP to the previous page (saved for this test)"
           onClick={() => b.pg && onPanelMove(b.pg.panel.code, 'up')}
           className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
-            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'pull') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'pull') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#44454e] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
         ><ArrowUp size={13} /></button>
         <button
           type="button" title="Move this test DOWN to a new page (saved for this test)"
           onClick={() => b.pg && onPanelMove(b.pg.panel.code, 'down')}
           className={cn("h-6 w-6 inline-flex items-center justify-center rounded-md border bg-white shadow-sm",
-            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'before') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#54555f] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
+            (b.pg && panelLayout[b.pg.panel.code]?.brk === 'before') ? "border-[#4f46e5] text-[#4f46e5]" : "border-[#e6e7ee] text-[#44454e] hover:border-[#c7c9ff] hover:text-[#4f46e5]")}
         ><ArrowDown size={13} /></button>
       </div>
     ) : null;
@@ -3425,7 +3425,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 function GapInput({ label, value, onChange, max = 120, unit = 'mm' }: { label: string; value: number; onChange: (v: number) => void; max?: number; unit?: string }) {
   return (
-    <label className="flex items-center justify-between text-[11.5px] text-[#54555f]">
+    <label className="flex items-center justify-between text-[11.5px] text-[#44454e]">
       <span>{label}</span>
       <span className="flex items-center gap-1">
         <input
@@ -3434,7 +3434,7 @@ function GapInput({ label, value, onChange, max = 120, unit = 'mm' }: { label: s
           onChange={(e) => { const v = e.target.value; if (v === '') return; const n = Number(v); if (Number.isFinite(n)) onChange(Math.max(0, Math.min(max, n))); }}
           className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
         />
-        <span className="text-[#82849a]">{unit}</span>
+        <span className="text-[#6e7081]">{unit}</span>
       </span>
     </label>
   );

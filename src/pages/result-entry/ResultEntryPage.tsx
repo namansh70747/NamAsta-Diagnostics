@@ -522,19 +522,19 @@ export function ResultEntryPage() {
             {patient && (
               <div className="min-w-0">
                 <div className="flex items-baseline gap-2.5 min-w-0">
-                  <span className="font-mono text-[12.5px] text-[#6b6c7e] shrink-0">#{patient.test_no}</span>
+                  <span className="font-mono text-[12.5px] text-[#565869] shrink-0">#{patient.test_no}</span>
                   <span className="font-semibold text-[15px] text-[#14151c] truncate">{patient.title} {patient.name}</span>
-                  <span className="text-[12.5px] text-[#54555f] shrink-0">
+                  <span className="text-[12.5px] text-[#44454e] shrink-0">
                     {patient.age} {patient.age_unit} / {genderLabel(patient.sex, patient.baby)}
                   </span>
                   {patient.doctor_name && (
-                    <span className="text-[12.5px] text-[#6b6c7e] truncate">Ref: {patient.doctor_name}</span>
+                    <span className="text-[12.5px] text-[#565869] truncate">Ref: {patient.doctor_name}</span>
                   )}
                   {can('enter_results') && (
                     <button
                       onClick={openEdit}
                       title="Edit patient details (fix a wrong name, age, sex, doctor…)"
-                      className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#6b6c7e] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
+                      className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#565869] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
                     >
                       <Pencil size={13} strokeWidth={1.8} />
                     </button>
@@ -547,9 +547,9 @@ export function ResultEntryPage() {
                       style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
                     />
                   </div>
-                  <span className="text-[11px] text-[#6b6c7e] tabular-nums">{progress}/{total} entered</span>
+                  <span className="text-[11px] text-[#565869] tabular-nums">{progress}/{total} entered</span>
                   {saveMut.isPending
-                    ? <span className="text-[11px] text-[#6b6c7e]">Saving…</span>
+                    ? <span className="text-[11px] text-[#565869]">Saving…</span>
                     : savedTick > 0 && <span className="flex items-center gap-1 text-[11px] text-[#16a34a]"><Check size={11} strokeWidth={2.4} /> All saved</span>}
                 </div>
               </div>
@@ -601,7 +601,7 @@ export function ResultEntryPage() {
       {/* Panel sections */}
       {sortedPanels.map(({ panel, orders: panelOrders }) => (
         <div key={panel.code} className="card overflow-hidden animate-fade-up">
-          <div className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] bg-[#fafafe] border-b border-[#eef0f4]">
+          <div className="px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] bg-[#fafafe] border-b border-[#eef0f4]">
             {panel.report_heading}
           </div>
           <table className="w-full">
@@ -645,13 +645,13 @@ export function ResultEntryPage() {
                         className="cursor-grab active:cursor-grabbing touch-none select-none opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Drag to reorder"
                       >
-                        <GripVertical size={14} className="text-[#6b6c7e]" />
+                        <GripVertical size={14} className="text-[#565869]" />
                       </div>
                     </td>
                     <td className="px-5 py-2.5 text-[15px] text-[#14151c]">{o.test.name}</td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[11px] text-[#82849a]">Not done</span>
+                        <span className="text-[11px] text-[#6e7081]">Not done</span>
                       ) : isCalc ? (
                         <span className="inline-flex w-32 items-center justify-end gap-1.5">
                           <span className={cn(
@@ -705,7 +705,7 @@ export function ResultEntryPage() {
                     </td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[12.5px] text-[#6b6c7e]">{unitOf(o)}</span>
+                        <span className="text-[12.5px] text-[#565869]">{unitOf(o)}</span>
                       ) : (
                         <input
                           type="text"
@@ -715,7 +715,7 @@ export function ResultEntryPage() {
                           disabled={approved}
                           title="Edit unit for this patient only (does not change the test default)"
                           className={cn(
-                            "w-20 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#6b6c7e]",
+                            "w-20 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#565869]",
                             "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
                             o.order.unit_override && "text-[#4f46e5] font-medium",
                             approved && "cursor-not-allowed"
@@ -725,7 +725,7 @@ export function ResultEntryPage() {
                     </td>
                     <td className="px-5 py-2.5">
                       {o.order.not_done ? (
-                        <span className="text-[12.5px] text-[#6b6c7e] tabular-nums">{rangeOf(o)}</span>
+                        <span className="text-[12.5px] text-[#565869] tabular-nums">{rangeOf(o)}</span>
                       ) : (
                         <input
                           type="text"
@@ -735,7 +735,7 @@ export function ResultEntryPage() {
                           disabled={approved}
                           title="Edit normal range for this patient only (does not change the test default)"
                           className={cn(
-                            "w-28 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#6b6c7e] tabular-nums",
+                            "w-28 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-[#565869] tabular-nums",
                             "hover:border-[#e6e7ee] focus:border-[#c7c9ff] focus:bg-white focus:text-[#14151c] focus:outline-none transition-colors",
                             o.order.range_override && "text-[#4f46e5] font-medium",
                             approved && "cursor-not-allowed"
@@ -768,7 +768,7 @@ export function ResultEntryPage() {
                       ) : (
                         <button
                           onClick={() => markNotDone(o.order.id).then(() => qc.invalidateQueries({ queryKey: ['orders', pid] }))}
-                          className="text-[#82849a] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
+                          className="text-[#6e7081] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
                           title="Mark not done"
                         >
                           <X size={14} strokeWidth={1.8} />
@@ -796,7 +796,7 @@ export function ResultEntryPage() {
 
       {/* Comments */}
       <div className="card p-5">
-        <label className="block text-[12.5px] font-medium text-[#54555f] mb-1.5">Comments (printed on report)</label>
+        <label className="block text-[13px] font-medium text-[#44454e] mb-1.5">Comments (printed on report)</label>
         <textarea
           value={comment}
           onChange={e => setComment(e.target.value)}
@@ -821,13 +821,13 @@ export function ResultEntryPage() {
             role="dialog" aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Add row to {addRowPanel.report_heading}</h3>
-            <p className="text-[13px] text-[#54555f] mb-4">
+            <p className="text-[13px] text-[#44454e] mb-4">
               This adds a new permanent test to the panel — it will appear for this patient and
               <span className="font-medium text-[#14151c]"> every future patient</span> who gets this panel.
             </p>
             <div className="space-y-3">
               <div>
-                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Test name *</label>
+                <label className="block text-[13px] font-medium text-[#44454e] mb-1">Test name *</label>
                 <input
                   autoFocus
                   value={newRow.name}
@@ -839,15 +839,15 @@ export function ResultEntryPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Unit</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Unit</label>
                   <input value={newRow.unit} onChange={e => setNewRow(r => ({ ...r, unit: e.target.value }))} placeholder="%" className="field w-full" />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Range low</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Range low</label>
                   <input value={newRow.low} onChange={e => setNewRow(r => ({ ...r, low: e.target.value }))} inputMode="decimal" placeholder="0" className="field w-full" />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Range high</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Range high</label>
                   <input value={newRow.high} onChange={e => setNewRow(r => ({ ...r, high: e.target.value }))} inputMode="decimal" placeholder="5" className="field w-full" />
                 </div>
               </div>
@@ -874,7 +874,7 @@ export function ResultEntryPage() {
             role="dialog" aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Add a test</h3>
-            <p className="text-[13px] text-[#54555f] mb-3">Search and tap a test to add it to this patient. The bill and report update automatically.</p>
+            <p className="text-[13px] text-[#44454e] mb-3">Search and tap a test to add it to this patient. The bill and report update automatically.</p>
             <input
               autoFocus
               value={addQuery}
@@ -884,7 +884,7 @@ export function ResultEntryPage() {
             />
             <div className="max-h-72 overflow-auto">
               {addResults.length === 0 && addGroupResults.length === 0 ? (
-                <p className="text-[13px] text-[#82849a] py-4 text-center">{addQuery ? 'No matching tests.' : 'Type to search…'}</p>
+                <p className="text-[13px] text-[#6e7081] py-4 text-center">{addQuery ? 'No matching tests.' : 'Type to search…'}</p>
               ) : (<>
                 {addGroupResults.map(g => (
                   <button
@@ -896,7 +896,7 @@ export function ResultEntryPage() {
                       <span className="inline-flex items-center rounded-md bg-[#eef0fe] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5] shrink-0">Group</span>
                       <span className="text-[14px] text-[#14151c] truncate">{g.label}</span>
                     </span>
-                    <span className="text-[12px] tabular-nums text-[#6b6c7e] shrink-0">+{g.codes.length} tests</span>
+                    <span className="text-[12px] tabular-nums text-[#565869] shrink-0">+{g.codes.length} tests</span>
                   </button>
                 ))}
                 {addResults.map(t => (
@@ -905,8 +905,8 @@ export function ResultEntryPage() {
                     onClick={() => addTest(t)}
                     className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[#fafafe] text-left"
                   >
-                    <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#82849a]">({t.code})</span></span>
-                    <span className="text-[13px] tabular-nums text-[#54555f]">₹{t.price}</span>
+                    <span className="text-[14px] text-[#14151c]">{t.name} <span className="text-[12px] text-[#6e7081]">({t.code})</span></span>
+                    <span className="text-[13px] tabular-nums text-[#44454e]">₹{t.price}</span>
                   </button>
                 ))}
               </>)}
@@ -930,23 +930,23 @@ export function ResultEntryPage() {
             role="dialog" aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Edit patient details</h3>
-            <p className="text-[13px] text-[#54555f] mb-4">Correct a wrong name, age, sex or referring doctor. The receipt number and tests are not affected.</p>
+            <p className="text-[13px] text-[#44454e] mb-4">Correct a wrong name, age, sex or referring doctor. The receipt number and tests are not affected.</p>
             <div className="space-y-3">
               <div className="grid grid-cols-[5.5rem_1fr] gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Title</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Title</label>
                   <select value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} className="field w-full">
                     {['Mr.', 'Mrs.', 'Miss', 'Ms.', 'Master', 'Baby', 'Dr.', ''].map(t => <option key={t} value={t}>{t || '—'}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Name</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Name</label>
                   <input value={editDraft.name} onChange={e => setEditDraft(d => d && { ...d, name: e.target.value })} className="field w-full" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Age</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Age</label>
                   <div className="flex gap-1.5">
                     <input value={editDraft.age} onChange={e => setEditDraft(d => d && { ...d, age: e.target.value })} type="number" className="field w-full tabular-nums" />
                     <select value={editDraft.age_unit} onChange={e => setEditDraft(d => d && { ...d, age_unit: e.target.value as AgeUnit })} className="field !w-20 shrink-0">
@@ -955,7 +955,7 @@ export function ResultEntryPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Sex</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Sex</label>
                   <select
                     value={editDraft.baby ? (editDraft.sex === 'FEMALE' ? 'BABY_GIRL' : 'BABY_BOY') : editDraft.sex}
                     onChange={e => {
@@ -977,7 +977,7 @@ export function ResultEntryPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Referred by</label>
+                <label className="block text-[13px] font-medium text-[#44454e] mb-1">Referred by</label>
                 <select
                   value={editDraft.doctor_id ?? ''}
                   onChange={e => setEditDraft(d => d && { ...d, doctor_id: e.target.value === '' ? null : Number(e.target.value) })}
@@ -989,16 +989,16 @@ export function ResultEntryPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Phone</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Phone</label>
                   <input value={editDraft.phone} onChange={e => setEditDraft(d => d && { ...d, phone: e.target.value })} className="field w-full tabular-nums" />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Email</label>
+                  <label className="block text-[13px] font-medium text-[#44454e] mb-1">Email</label>
                   <input value={editDraft.email} onChange={e => setEditDraft(d => d && { ...d, email: e.target.value })} className="field w-full" />
                 </div>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Address</label>
+                <label className="block text-[13px] font-medium text-[#44454e] mb-1">Address</label>
                 <input value={editDraft.address} onChange={e => setEditDraft(d => d && { ...d, address: e.target.value })} className="field w-full" />
               </div>
             </div>
@@ -1029,7 +1029,7 @@ export function ResultEntryPage() {
             aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Values from analyzer</h3>
-            <p className="text-[13px] text-[#54555f] mb-3">
+            <p className="text-[13px] text-[#44454e] mb-3">
               Review the {analyzer.matches.length} matched parameter{analyzer.matches.length !== 1 ? 's' : ''}. Applying overwrites the current values.
             </p>
             <div className="max-h-72 overflow-auto rounded-xl border border-[#eef0f4]">
@@ -1045,7 +1045,7 @@ export function ResultEntryPage() {
                   {analyzer.matches.map(m => (
                     <tr key={m.orderId} className="border-b border-[#f1f1f5] last:border-0">
                       <td className="px-3 py-1.5 text-[#14151c]">{m.testName}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-[#82849a]">{m.current || '—'}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-[#6e7081]">{m.current || '—'}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-[#14151c]">{m.incoming}</td>
                     </tr>
                   ))}
@@ -1065,9 +1065,9 @@ export function ResultEntryPage() {
                     <div className="grid grid-cols-3 gap-2">
                       {channels.map(({ key, label }) => (
                         <div key={key} className="rounded-lg border border-[#eef0f4] p-2">
-                          <div className="text-[11px] font-semibold text-[#54555f] mb-1">{label}</div>
+                          <div className="text-[11px] font-semibold text-[#44454e] mb-1">{label}</div>
                           <div className="h-16 flex items-center justify-center bg-[#fafafe] rounded mb-1 overflow-hidden">
-                            {imgAssign[key] ? <img src={imgAssign[key]} alt={label} className="max-h-16 w-auto" /> : <span className="text-[11px] text-[#82849a]">curve</span>}
+                            {imgAssign[key] ? <img src={imgAssign[key]} alt={label} className="max-h-16 w-auto" /> : <span className="text-[11px] text-[#6e7081]">curve</span>}
                           </div>
                           <select
                             value={imgAssign[key] ?? ''}
@@ -1110,7 +1110,7 @@ export function ResultEntryPage() {
             aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Raw data from analyzer</h3>
-            <p className="text-[13px] text-[#54555f] mb-3">
+            <p className="text-[13px] text-[#44454e] mb-3">
               {rawCapture.text.trim()
                 ? <>Data arrived, but none of it matched this patient's ordered tests. Copy the text below and send it to support so the format can be added.</>
                 : <>The analyzer connected but sent no data within the listening window. Re-send the result from the H360 and try again.</>}
@@ -1149,16 +1149,16 @@ export function ResultEntryPage() {
             aria-modal="true"
           >
             <h3 className="text-[16px] font-semibold text-[#14151c] mb-2">Approve report?</h3>
-            <p className="text-[13.5px] text-[#54555f] leading-relaxed mb-3">
+            <p className="text-[13.5px] text-[#44454e] leading-relaxed mb-3">
               <span className="tabular-nums">{total}</span> test{total !== 1 ? 's' : ''} entered. Once approved, results are{' '}
               <strong className="text-[#14151c]">locked</strong> (only an Admin can unlock) and the report is ready to print &amp; deliver.
             </p>
             {notDoneOrders.length > 0 && (
               <div className="rounded-xl bg-[#fafafe] border border-[#eef0f4] px-3.5 py-2.5 mb-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1.5">Excluded — not done</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-1.5">Excluded — not done</p>
                 <ul className="space-y-0.5">
                   {notDoneOrders.map(o => (
-                    <li key={o.order.id} className="text-[12.5px] text-[#54555f]">{o.test.name}</li>
+                    <li key={o.order.id} className="text-[12.5px] text-[#44454e]">{o.test.name}</li>
                   ))}
                 </ul>
               </div>

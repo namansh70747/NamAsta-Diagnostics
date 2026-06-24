@@ -194,15 +194,15 @@ export function AppShell() {
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="group flex items-center gap-2.5 w-[320px] px-3.5 py-[8px] rounded-xl bg-white/80 text-[13px] text-[#9a9cab] border border-[#e6e7ee]
+            className="group flex items-center gap-2.5 w-[320px] px-3.5 py-[8px] rounded-xl bg-white/80 text-[13px] text-[#565869] border border-[#e6e7ee]
                        shadow-[0_1px_2px_rgba(20,21,28,0.04)] hover:border-[#c7c9ff] hover:shadow-[0_4px_14px_-4px_rgba(99,102,241,0.3)] transition-all"
           >
             <Search size={14.5} className="group-hover:text-[#6366f1] transition-colors" />
             <span className="flex-1 text-left">Search patients, tests…</span>
-            <kbd className="text-[10px] font-semibold text-[#6b6c7e] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
+            <kbd className="text-[10px] font-semibold text-[#565869] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
           </button>
 
-          <div className="flex items-center gap-3 text-[12.5px] text-[#6b6c7e]">
+          <div className="flex items-center gap-3 text-[12.5px] text-[#565869]">
             {license?.trial && license.daysLeft != null && (
               <span
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border bg-indigo-50 border-indigo-200 text-indigo-700"

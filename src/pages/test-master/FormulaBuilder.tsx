@@ -181,7 +181,7 @@ export function FormulaBuilder({
         <>
           {/* Insert test */}
           <div className="flex items-center gap-2">
-            <span className="text-[11.5px] font-medium text-[#6b6c7e] whitespace-nowrap shrink-0">
+            <span className="text-[11.5px] font-medium text-[#565869] whitespace-nowrap shrink-0">
               Insert test:
             </span>
             <Combobox
@@ -211,7 +211,7 @@ export function FormulaBuilder({
               type="button"
               onMouseDown={e => { e.preventDefault(); saveCursor(); }}
               onClick={handleBackspace}
-              className="w-9 h-9 rounded-lg border border-[#e6e7ee] bg-white text-[13px] text-[#54555f] hover:bg-[#fbe5e5] hover:border-[#d27979] hover:text-[#a31e1e] transition-colors"
+              className="w-9 h-9 rounded-lg border border-[#e6e7ee] bg-white text-[13px] text-[#44454e] hover:bg-[#fbe5e5] hover:border-[#d27979] hover:text-[#a31e1e] transition-colors"
             >
               ⌫
             </button>
@@ -219,7 +219,7 @@ export function FormulaBuilder({
               type="button"
               onMouseDown={e => e.preventDefault()}
               onClick={handleClear}
-              className="ml-auto px-3 h-9 rounded-lg border border-[#e6e7ee] bg-white text-[12px] text-[#6b6c7e] hover:bg-[#fbe5e5] hover:text-[#a31e1e] transition-colors"
+              className="ml-auto px-3 h-9 rounded-lg border border-[#e6e7ee] bg-white text-[12px] text-[#565869] hover:bg-[#fbe5e5] hover:text-[#a31e1e] transition-colors"
             >
               Clear
             </button>
@@ -230,13 +230,13 @@ export function FormulaBuilder({
       {/* Try it */}
       {referencedCodes.length > 0 && validation.ok && (
         <div className="rounded-xl border border-[#eef0f4] bg-[#fafafe] p-3 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
             Try it
           </p>
           <div className="flex flex-wrap gap-3 items-end">
             {referencedCodes.map(code => (
               <div key={code} className="flex flex-col gap-1">
-                <label className="text-[11.5px] font-medium text-[#54555f] truncate max-w-[110px]">
+                <label className="text-[11.5px] font-medium text-[#44454e] truncate max-w-[110px]">
                   {codeMap.get(code)?.name ?? code}
                 </label>
                 <input
@@ -249,7 +249,7 @@ export function FormulaBuilder({
               </div>
             ))}
             <div className="flex flex-col gap-1">
-              <label className="text-[11.5px] font-medium text-[#6b6c7e]">Result</label>
+              <label className="text-[11.5px] font-medium text-[#565869]">Result</label>
               <div className="w-24 h-[34px] flex items-center justify-center rounded-lg border border-[#eef0f4] bg-[#f4f4f8] text-[13px] tabular-nums font-semibold text-[#14151c]">
                 {trialResult}
               </div>

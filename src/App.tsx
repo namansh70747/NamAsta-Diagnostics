@@ -19,7 +19,7 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
       return (
         <div className="flex flex-col items-center justify-center h-screen gap-3 text-center px-6">
           <p className="text-[15px] font-semibold text-[#14151c]">Something didn’t load correctly.</p>
-          <p className="text-[13px] text-[#6b6c7e]">Please reload the app.</p>
+          <p className="text-[13px] text-[#565869]">Please reload the app.</p>
           <button onClick={() => window.location.reload()} className="btn btn-primary mt-1">Reload</button>
         </div>
       );

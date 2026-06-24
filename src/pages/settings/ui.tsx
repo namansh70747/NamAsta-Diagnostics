@@ -10,7 +10,7 @@ export function TabHeader({ title, subtitle }: { title: string; subtitle?: strin
   return (
     <div className="mb-1">
       <h2 className="text-[15px] font-semibold text-[#14151c]">{title}</h2>
-      {subtitle && <p className="text-[12.5px] text-[#6b6c7e] mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-[12.5px] text-[#565869] mt-0.5">{subtitle}</p>}
     </div>
   );
 }
@@ -18,18 +18,18 @@ export function TabHeader({ title, subtitle }: { title: string; subtitle?: strin
 /** Section label per design system, for grouping inside cards. */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-3">
+    <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-3">
       {children}
     </div>
   );
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="block text-[12.5px] font-medium text-[#54555f] mb-1.5">{children}</span>;
+  return <span className="block text-[13px] font-medium text-[#44454e] mb-1.5">{children}</span>;
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <span className="block text-[12px] text-[#82849a] mt-1">{children}</span>;
+  return <span className="block text-[12px] text-[#6e7081] mt-1">{children}</span>;
 }
 
 export function TextField({
@@ -197,7 +197,7 @@ export function NoteBox({ children, tone = "neutral" }: { children: ReactNode; t
         "rounded-xl px-4 py-3 text-[12px] leading-relaxed",
         tone === "warn" && "bg-[#fdf0d7]/60 text-[#92600a]",
         tone === "success" && "bg-[#def5e6]/60 text-[#14743a]",
-        tone === "neutral" && "bg-[#f6f5f2] text-[#54555f]"
+        tone === "neutral" && "bg-[#f6f5f2] text-[#44454e]"
       )}
     >
       {children}

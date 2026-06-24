@@ -3859,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "scl-lab-app"
-version = "1.3.86"
+version = "1.3.87"
 dependencies = [
  "base64 0.22.1",
  "chrono",

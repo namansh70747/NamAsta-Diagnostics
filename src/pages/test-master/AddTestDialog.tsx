@@ -130,7 +130,7 @@ export function AddTestDialog({
         )}
         {resultType === "calculated" && (
           <div className="col-span-2 space-y-1.5">
-            <label className="block text-[12.5px] font-medium text-[#54555f]">Formula</label>
+            <label className="block text-[13px] font-medium text-[#44454e]">Formula</label>
             <FormulaBuilder
               value={formula}
               onChange={setFormula}

@@ -48,19 +48,19 @@ export function LicenseTab() {
               <p className={`text-[14px] font-semibold ${status?.active ? (warn ? "text-amber-800" : "text-emerald-800") : "text-red-700"}`}>
                 {status?.active ? (lifetime ? "Active — Lifetime licence" : `Active — ${status.daysLeft} day${status.daysLeft === 1 ? "" : "s"} left`) : "No active subscription"}
               </p>
-              <p className="text-[12.5px] text-[#54555f]">
+              <p className="text-[12.5px] text-[#44454e]">
                 {status?.lab ? `${status.lab} · ` : ""}{status?.plan ? `${PLAN_LABEL[status.plan] ?? status.plan} plan` : ""}{expDate && !lifetime ? ` · expires ${expDate}` : ""}
               </p>
             </div>
           </div>
 
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-2">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-2">
               {status?.active ? "Renew / replace key" : "Enter activation key"}
             </p>
             <div className="flex gap-2.5">
               <div className="relative flex-1">
-                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82849a]" />
+                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6e7081]" />
                 <input value={key} onChange={e => setKey(e.target.value)} onKeyDown={e => { if (e.key === "Enter") renew(); }}
                   placeholder="Paste a new activation key to extend" spellCheck={false} className="field !pl-9 font-mono text-[12.5px]" />
               </div>
@@ -69,23 +69,23 @@ export function LicenseTab() {
                 {busy ? "Applying…" : "Apply"}
               </PrimaryButton>
             </div>
-            <p className="mt-2 text-[12px] text-[#6b6c7e]">
+            <p className="mt-2 text-[12px] text-[#565869]">
               Pay ₹1,800 annual renewal to Naman Sharma (namsh70747@oksbi), send the screenshot to NamAsta, then paste the key received. Your lab data is never affected by renewal.
             </p>
           </div>
 
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-2">This PC's Device ID</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-2">This PC's Device ID</p>
             <div className="flex items-center gap-2 rounded-xl border border-[#e6e7ee] bg-[#f7f8fb] px-3 py-2.5">
               <Monitor size={16} className="text-[#4f46e5] shrink-0" />
               <span className="font-mono text-[14px] font-bold tracking-wider text-[#14151c] flex-1 select-all">{deviceId || "…"}</span>
               <button type="button"
                 onClick={() => navigator.clipboard?.writeText(deviceId).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {})}
-                className="flex items-center gap-1 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-white transition-colors">
+                className="flex items-center gap-1 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#44454e] hover:bg-white transition-colors">
                 {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
               </button>
             </div>
-            <p className="mt-2 text-[12px] text-[#6b6c7e]">
+            <p className="mt-2 text-[12px] text-[#565869]">
               Each key works on a maximum of <b>2 computers</b>; a 3rd PC is refused. To add a second PC
               (or move/replace one), send this Device ID to NamAsta for a re-issued key.
             </p>

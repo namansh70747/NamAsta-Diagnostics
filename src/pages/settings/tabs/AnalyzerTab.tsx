@@ -198,7 +198,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       {inspect && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
               Binary capture — {inspect.byteCount.toLocaleString()} bytes
             </div>
             <button
@@ -208,7 +208,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
                   .then(() => { setB64Copied(true); setTimeout(() => setB64Copied(false), 1500); })
                   .catch(() => f.toast.error("Could not copy."));
               }}
-              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-[#fafafe] transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#44454e] hover:bg-[#fafafe] transition-colors"
             >
               {b64Copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy base64 (send to support)</>}
             </button>
@@ -217,7 +217,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
           {(() => {
             const got = [edImgs.wbcImg, edImgs.rbcImg, edImgs.pltImg].filter(Boolean).length;
             return (
-              <div className={`text-[12.5px] rounded-lg px-3 py-2 ${got === 3 && inspect.mllpComplete ? 'bg-[#eafaf0] text-[#14743a]' : inspect.imageFieldCount > 0 ? 'bg-[#fdf0d7] text-[#92600a]' : 'bg-[#fafafe] text-[#54555f]'}`}>
+              <div className={`text-[12.5px] rounded-lg px-3 py-2 ${got === 3 && inspect.mllpComplete ? 'bg-[#eafaf0] text-[#14743a]' : inspect.imageFieldCount > 0 ? 'bg-[#fdf0d7] text-[#92600a]' : 'bg-[#fafafe] text-[#44454e]'}`}>
                 Histogram graphs decoded: <b>{got} / 3</b>{" "}(WBC {edImgs.wbcImg ? '✓' : '—'}, RBC {edImgs.rbcImg ? '✓' : '—'}, PLT {edImgs.pltImg ? '✓' : '—'}).{" "}
                 Image fields in message: <b>{inspect.imageFieldCount}</b>.{" "}
                 {inspect.mllpComplete ? "Full message received." : <b>Message was cut off (no end marker) — re-transmit.</b>}
@@ -236,7 +236,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
                 return (
                   <div key={label} className="rounded-lg border border-[#e6e7ee] p-2 bg-white">
                     <img src={url} alt={label} className="max-h-32 w-auto" />
-                    <div className="mt-1 text-[10.5px] text-[#6b6c7e]">{label} · {bytes.toLocaleString()} B</div>
+                    <div className="mt-1 text-[10.5px] text-[#565869]">{label} · {bytes.toLocaleString()} B</div>
                   </div>
                 );
               })}
@@ -244,7 +244,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
           )}
 
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e] mb-1.5">Hex dump (first 4 KB)</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-1.5">Hex dump (first 4 KB)</div>
             <pre className="max-h-72 overflow-auto rounded-lg bg-[#14151c] text-[#e8e6e1] text-[10.5px] leading-tight p-3 select-all">{inspect.hex}</pre>
           </div>
         </div>
@@ -253,7 +253,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
       {raw && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6c7e]">Raw output</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">Raw output</div>
             <button
               type="button"
               onClick={() => {
@@ -261,7 +261,7 @@ export function AnalyzerTab({ settings }: { settings: Record<string, string> }) 
                   .then(() => { setRawCopied(true); setTimeout(() => setRawCopied(false), 1500); })
                   .catch(() => f.toast.error("Could not copy — select the text and press Ctrl+C."));
               }}
-              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#54555f] hover:bg-[#fafafe] transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-[#d7d8e0] px-2.5 py-1 text-[12px] text-[#44454e] hover:bg-[#fafafe] transition-colors"
             >
               {rawCopied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy all</>}
             </button>
