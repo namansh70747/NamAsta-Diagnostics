@@ -50,7 +50,7 @@ const DEPARTMENT: Record<string, string> = {
   HEM: 'HAEMATOLOGY', CBC: 'CBC', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
   BIO: 'BIOCHEMISTRY',
   SERO: 'SEROLOGY', SALP: 'SEROLOGY',
-  URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
+  URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', SEMEN: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
   MICRO: 'MICROBIOLOGY',
   MISC: 'MISCELLANEOUS',
 };
@@ -81,6 +81,50 @@ const URINE_SECTION: Record<string, string> = {
   U_CAST:    'MICROSCOPIC EXAMINATION',
   U_CRYSTAL: 'MICROSCOPIC EXAMINATION',
   U_BACTERIA:'MICROSCOPIC EXAMINATION',
+};
+
+/** Stool test-code → section header. */
+const STOOL_SECTION: Record<string, string> = {
+  STOOL_COLOUR:       'PHYSICAL EXAMINATION',
+  STOOL_CONSIST:      'PHYSICAL EXAMINATION',
+  STOOL_MUCUS:        'PHYSICAL EXAMINATION',
+  STOOL_BLOOD:        'PHYSICAL EXAMINATION',
+  STOOL_WORMS:        'PHYSICAL EXAMINATION',
+  STOOL_PH:           'PHYSICAL EXAMINATION',
+  STOOL_OCCULT:       'CHEMICAL EXAMINATION',
+  STOOL_REDUCING:     'CHEMICAL EXAMINATION',
+  STOOL_CYST:         'MICROSCOPIC EXAMINATION',
+  STOOL_OVA:          'MICROSCOPIC EXAMINATION',
+  STOOL_PUS:          'MICROSCOPIC EXAMINATION',
+  STOOL_FLAGELLATES:  'MICROSCOPIC EXAMINATION',
+  STOOL_TROPHOZOITES: 'MICROSCOPIC EXAMINATION',
+  STOOL_RBC:          'MICROSCOPIC EXAMINATION',
+  STOOL_ECOLI:        'MICROSCOPIC EXAMINATION',
+  STOOL_EHISTO:       'MICROSCOPIC EXAMINATION',
+  STOOL_GIARDIA:      'MICROSCOPIC EXAMINATION',
+  STOOL_HOOKWORM:     'MICROSCOPIC EXAMINATION',
+  STOOL_HNANA:        'MICROSCOPIC EXAMINATION',
+  STOOL_ASCARIS:      'MICROSCOPIC EXAMINATION',
+};
+
+/** Semen test-code → section header. */
+const SEMEN_SECTION: Record<string, string> = {
+  SEM_VOLUME:    'PHYSICAL EXAMINATION',
+  SEM_COLOUR:    'PHYSICAL EXAMINATION',
+  SEM_LIQTIME:   'PHYSICAL EXAMINATION',
+  SEM_COUNT:     'SPERM COUNT & MOTILITY',
+  SEM_MOTILITY:  'SPERM COUNT & MOTILITY',
+  SEM_HIGHMOTILE:'SPERM COUNT & MOTILITY',
+  SEM_SLUGGISH:  'SPERM COUNT & MOTILITY',
+  SEM_DEAD:      'SPERM COUNT & MOTILITY',
+  SEM_NORMAL:    'MORPHOLOGY',
+  SEM_ABNORMAL:  'MORPHOLOGY',
+  SEM_TAIL:      'MORPHOLOGY',
+  SEM_NECK:      'MORPHOLOGY',
+  SEM_HEADLESS:  'MORPHOLOGY',
+  SEM_PUS:       'MICROSCOPIC EXAMINATION',
+  SEM_RBC:       'MICROSCOPIC EXAMINATION',
+  SEM_EPITH:     'MICROSCOPIC EXAMINATION',
 };
 
 /** CBC test-code → section header (LEUKOCYTES / ERYTHROCYTES / THROMBOCYTES). */
@@ -874,12 +918,13 @@ export function ReportPreviewPage() {
     });
   };
 
-  /** Urine renderer: inserts PHYSICAL / CHEMICAL / MICROSCOPIC EXAMINATION section headers. */
-  const renderUrineRows = (rows: OrderWithResult[]) => {
+  /** Sectioned renderer: inserts sub-section headers (PHYSICAL / CHEMICAL / MICROSCOPIC …)
+   *  before the rows of each section. Shared by URINE, STOOL and SEMEN. */
+  const renderSectionedRows = (rows: OrderWithResult[], sectionMap: Record<string, string>) => {
     const out: React.ReactNode[] = [];
     let currentSection = '';
     for (const o of rows) {
-      const section = URINE_SECTION[o.test.code] ?? '';
+      const section = sectionMap[o.test.code] ?? '';
       if (section && section !== currentSection) {
         currentSection = section;
         out.push(
@@ -951,11 +996,11 @@ export function ReportPreviewPage() {
         </table>
         {renderNotes(pg.orders)}
       </>
-    ) : pg.panel.code === 'URINE' ? (
+    ) : pg.panel.code === 'URINE' || pg.panel.code === 'STOOL' || pg.panel.code === 'SEMEN' ? (
       <>
         <table className="w-full table-fixed text-[14px] border-collapse">
           {renderHead()}
-          <tbody>{renderUrineRows(pg.orders)}</tbody>
+          <tbody>{renderSectionedRows(pg.orders, pg.panel.code === 'STOOL' ? STOOL_SECTION : pg.panel.code === 'SEMEN' ? SEMEN_SECTION : URINE_SECTION)}</tbody>
         </table>
         {renderNotes(pg.orders, true)}
       </>
@@ -1088,6 +1133,8 @@ export function ReportPreviewPage() {
       const bandText = bandFor(orders);
       if (panel.code === 'CBC') return { code: panel.code, dept, showDept, heading, layout: 'cbc', sections: groupSections(orders, CBC_SECTION), bandText };
       if (panel.code === 'URINE') return { code: panel.code, dept, showDept, heading, layout: 'urine', sections: groupSections(orders, URINE_SECTION), bandText };
+      if (panel.code === 'STOOL') return { code: panel.code, dept, showDept, heading, layout: 'urine', sections: groupSections(orders, STOOL_SECTION), bandText };
+      if (panel.code === 'SEMEN') return { code: panel.code, dept, showDept, heading, layout: 'urine', sections: groupSections(orders, SEMEN_SECTION), bandText };
       return { code: panel.code, dept, showDept, heading, layout: 'standard', rows: orders.map(toRow), bandText };
     });
 

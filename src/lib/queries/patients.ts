@@ -220,6 +220,30 @@ export async function updatePatient(id: number, data: Partial<Patient>, userId: 
   await writeAudit(userId, 'patient.update', 'patients', id, null, data);
 }
 
+/** Permanently delete a patient and ALL their data (orders, results, bill, comments, delivery
+ *  log). Used to remove duplicates / wrong entries. FKs are ON DELETE RESTRICT on the
+ *  patient-referencing tables, so children must go first, in dependency order; report_overrides
+ *  and analyzer_histograms are ON DELETE CASCADE and clear automatically with the patient row.
+ *  Approved results are NOT protected here — the results_locked trigger only guards UPDATE. */
+export async function deletePatient(id: number, userId: number | null): Promise<void> {
+  const db = await getDb();
+  // Snapshot for the audit trail before everything is gone.
+  const snap = await dbQuery<{ test_no: number; name: string; report_time: string | null }>(
+    'SELECT test_no, name, report_time FROM patients WHERE id=?',
+    [id]
+  );
+  if (!snap[0]) return;
+
+  await db.execute('DELETE FROM results WHERE order_id IN (SELECT id FROM orders WHERE patient_id=?)', [id]);
+  await db.execute('DELETE FROM report_comments WHERE patient_id=?', [id]).catch(() => {});
+  await db.execute('DELETE FROM delivery_log WHERE patient_id=?', [id]).catch(() => {});
+  await db.execute('DELETE FROM bills WHERE patient_id=?', [id]);
+  await db.execute('DELETE FROM orders WHERE patient_id=?', [id]);
+  await db.execute('DELETE FROM patients WHERE id=?', [id]);
+
+  await writeAudit(userId, 'patient.delete', 'patients', id, snap[0], null);
+}
+
 /** All past visits for a returning patient (matched by name + phone) — for the
  *  history Sheet and "copy from previous visit". */
 export async function getPatientHistory(name: string, phone: string): Promise<PatientWithStatus[]> {

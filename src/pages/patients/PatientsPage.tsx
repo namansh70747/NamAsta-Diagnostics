@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { searchPatients, getPatientHistory } from "@/lib/queries/patients";
+import { searchPatients, getPatientHistory, deletePatient } from "@/lib/queries/patients";
 import { listDoctors } from "@/lib/queries/doctors";
 import { Search, UserPlus, X } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/common/Combobox";
+import { ConfirmDialog } from "@/pages/test-master/Overlays";
+import { toast } from "@/lib/toast";
+import { currentUserId } from "@/lib/session";
 import type { PatientWithStatus, PatientStatus } from "@/types";
 
 const STATUS_OPTIONS: { value: PatientStatus | "all"; label: string }[] = [
@@ -58,6 +61,7 @@ function useDebounced<T>(value: T, delay: number): T {
 
 export function PatientsPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const [query, setQuery] = useState("");
   const [doctorId, setDoctorId] = useState<string>("all");
@@ -65,6 +69,23 @@ export function PatientsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [history, setHistory] = useState<PatientWithStatus | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<PatientWithStatus | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete(p: PatientWithStatus) {
+    setDeleting(true);
+    try {
+      await deletePatient(p.id, currentUserId());
+      toast.success(`Deleted ${p.name} (Test No ${p.test_no})`);
+      setConfirmDelete(null);
+      await qc.invalidateQueries({ queryKey: ["patients-search"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const debouncedQuery = useDebounced(query, 150);
 
@@ -190,12 +211,28 @@ export function PatientsPage() {
             onResend={(p) => navigate(`/report/${p.id}`)}
             onBill={(p) => navigate(`/bill/${p.id}`)}
             onName={(p) => setHistory(p)}
+            onDelete={(p) => setConfirmDelete(p)}
           />
         )}
       </div>
 
       {history && (
         <HistorySheet patient={history} onClose={() => setHistory(null)} />
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete patient?"
+          message={
+            `Permanently delete ${confirmDelete.title ? confirmDelete.title + " " : ""}${confirmDelete.name} (Test No ${confirmDelete.test_no}) and ALL of their orders, results, and bill. This cannot be undone.` +
+            (confirmDelete.report_time
+              ? " ⚠ This report has already been approved/sent."
+              : "")
+          }
+          confirmLabel={deleting ? "Deleting…" : "Delete"}
+          onConfirm={() => { if (!deleting) handleDelete(confirmDelete); }}
+          onCancel={() => { if (!deleting) setConfirmDelete(null); }}
+        />
       )}
     </div>
   );
@@ -231,6 +268,7 @@ function ResultsTable({
   onResend,
   onBill,
   onName,
+  onDelete,
 }: {
   rows: PatientWithStatus[];
   onOpen: (p: PatientWithStatus) => void;
@@ -238,6 +276,7 @@ function ResultsTable({
   onResend: (p: PatientWithStatus) => void;
   onBill: (p: PatientWithStatus) => void;
   onName: (p: PatientWithStatus) => void;
+  onDelete: (p: PatientWithStatus) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -325,6 +364,7 @@ function ResultsTable({
                   <RowAction label="Bill" onClick={() => onBill(p)} />
                   <RowAction label="Re-print" onClick={() => onReprint(p)} />
                   <RowAction label="Re-send" onClick={() => onResend(p)} />
+                  <RowAction label="Delete" danger onClick={() => onDelete(p)} />
                 </div>
               </div>
             );
@@ -338,14 +378,19 @@ function ResultsTable({
 function RowAction({
   label,
   onClick,
+  danger,
 }: {
   label: string;
   onClick: () => void;
+  danger?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="btn btn-ghost px-2 py-1 text-[12px] font-medium"
+      className={cn(
+        "btn btn-ghost px-2 py-1 text-[12px] font-medium",
+        danger && "text-[#b91c1c] hover:bg-[#fef2f2] hover:text-[#991b1b]"
+      )}
     >
       {label}
     </button>

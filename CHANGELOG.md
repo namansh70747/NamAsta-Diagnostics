@@ -2,6 +2,18 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.85
+
+- **Structured Stool & Semen reports.** "Stool Examination" and "Semen Analysis" are now full
+  multi-parameter panels (like the Urine report) instead of a single free-text box. Ordering one
+  opens a complete form with every parameter pre-filled with its normal value — colour, consistency,
+  occult blood, cysts/ova, parasites for stool; volume, count, motility, morphology, etc. for semen —
+  so you just adjust what differs. The report prints them in grouped sub-sections (Physical /
+  Chemical / Microscopic) with a reference column, on screen, PDF, print, WhatsApp and Word.
+- **Delete a patient.** The patient list now has a Delete action (with a confirmation prompt) to
+  remove a patient registered twice or entered by mistake — it clears that patient's orders, results
+  and bill in one step.
+
 ## v1.3.84
 
 - **Patient bill / receipt.** A new Bill screen — reachable from the patient list, straight after

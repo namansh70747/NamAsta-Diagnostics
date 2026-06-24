@@ -311,6 +311,12 @@ pub fn run() {
             sql: include_str!("../migrations/0051_salmonella_profile.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 52,
+            description: "stool_semen_panels",
+            sql: include_str!("../migrations/0052_stool_semen_panels.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()
