@@ -30,10 +30,12 @@ export function LabIdentityTab({ settings }: { settings: Record<string, string> 
       <Card className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <TabHeader title="Lab Identity" subtitle="Header and footer text printed on every report." />
-          <PrimaryButton onClick={onSave} disabled={f.saving || !f.dirty}>
-            <Save size={15} strokeWidth={1.8} />
-            {f.saving ? "Saving…" : "Save"}
-          </PrimaryButton>
+          <span data-tour="set-save" className="inline-flex">
+            <PrimaryButton onClick={onSave} disabled={f.saving || !f.dirty}>
+              <Save size={15} strokeWidth={1.8} />
+              {f.saving ? "Saving…" : "Save"}
+            </PrimaryButton>
+          </span>
         </div>
 
         <TextField label="Lab Name" value={f.get("lab_name")} onChange={(v) => f.set("lab_name", v)} placeholder="e.g. CITY DIAGNOSTIC CENTRE" />

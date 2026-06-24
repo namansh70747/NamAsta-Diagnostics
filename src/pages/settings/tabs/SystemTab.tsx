@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Save, RefreshCw, AlertTriangle, Loader2, GraduationCap, Play } from "lucide-react";
 import { Card, TabHeader, TextField, PrimaryButton, SecondaryButton, NoteBox } from "../ui";
 import { useSettingsForm } from "../useSettingsForm";
 import { invoke, isTauri } from "@/lib/tauri";
 import { confirmDialog } from "@/lib/dialog";
 import { checkForUpdate, installUpdate } from "@/lib/updates";
+import { TOURS, type TourId } from "@/lib/tours";
+import { startTutorial, resetTourSeen } from "@/lib/tutorial";
+import { toast } from "@/lib/toast";
 
 const KEYS = ["next_test_no", "financial_year", "backup_retention_days"];
 
 export function SystemTab({ settings }: { settings: Record<string, string> }) {
   const f = useSettingsForm(settings, KEYS);
+  const navigate = useNavigate();
   const [version, setVersion] = useState("…");
+
+  function playTour(id: TourId) {
+    const t = TOURS[id];
+    resetTourSeen(id);
+    if (id === "settings") { startTutorial(t.steps); return; } // already on this screen
+    if (t.route) { navigate(t.route); return; } // auto-plays on arrival
+    toast.info("This tutorial will start when you open a patient's results or report.");
+  }
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
 
@@ -142,6 +155,29 @@ export function SystemTab({ settings }: { settings: Record<string, string> }) {
           </SecondaryButton>
           {updateStatus && <p className="text-[12.5px] text-[#3a3b45]">{updateStatus}</p>}
         </div>
+      </Card>
+
+      <Card className="space-y-3">
+        <TabHeader title="Help & Tutorials" subtitle="Show the step-by-step guide for any screen again." />
+        <div className="space-y-1.5">
+          {(Object.keys(TOURS) as TourId[]).map((id) => (
+            <div key={id} className="flex items-center justify-between gap-3 rounded-lg border border-[#e9ebf2] px-3 py-2">
+              <span className="flex items-center gap-2.5 text-[13.5px] text-[#14151c] min-w-0">
+                <GraduationCap size={16} strokeWidth={1.8} className="shrink-0 text-[#4f46e5]" />
+                <span className="truncate">{TOURS[id].label}</span>
+              </span>
+              <button
+                onClick={() => playTour(id)}
+                className="btn btn-secondary shrink-0 !px-3 !py-1.5 text-[13px]"
+              >
+                <Play size={14} strokeWidth={2} /> Show
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-[12.5px] text-[#5e6072] leading-snug">
+          Each screen also has a <strong>?</strong> Help button at the top to replay its tutorial any time.
+        </p>
       </Card>
     </div>
   );

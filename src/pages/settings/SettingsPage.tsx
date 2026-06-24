@@ -73,7 +73,7 @@ export function SettingsPage() {
       <div className="pt-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-6 items-start animate-fade-up">
           {/* Left tab rail */}
-          <nav className="w-full md:w-56 shrink-0 flex md:flex-col gap-1 flex-wrap" aria-label="Settings sections">
+          <nav data-tour="set-tabs" className="w-full md:w-56 shrink-0 flex md:flex-col gap-1 flex-wrap" aria-label="Settings sections">
             {TABS.map((t) => {
               const Icon = t.icon;
               const active = tab === t.id;

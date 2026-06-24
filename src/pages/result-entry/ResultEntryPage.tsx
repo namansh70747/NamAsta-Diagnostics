@@ -532,6 +532,7 @@ export function ResultEntryPage() {
                   )}
                   {can('enter_results') && (
                     <button
+                      data-tour="re-editpatient"
                       onClick={openEdit}
                       title="Edit patient details (fix a wrong name, age, sex, doctor…)"
                       className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#4c4e5d] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
@@ -540,7 +541,7 @@ export function ResultEntryPage() {
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2.5 mt-1.5">
+                <div data-tour="re-saved" className="flex items-center gap-2.5 mt-1.5">
                   <div className="w-36 h-[2px] rounded-full bg-[#e6e7ee] overflow-hidden">
                     <div
                       className="h-full bg-maroon-600 rounded-full transition-all duration-300 ease-out"
@@ -585,6 +586,7 @@ export function ResultEntryPage() {
                   <Cable size={15} strokeWidth={1.8} /> {reading ? 'Reading…' : 'Read from analyzer'}
                 </button>
                 <button
+                  data-tour="re-approve"
                   onClick={() => setShowApprove(true)}
                   title="Approve — blank tests are simply left off the report"
                   className="btn btn-success"
@@ -599,8 +601,8 @@ export function ResultEntryPage() {
       </div>
 
       {/* Panel sections */}
-      {sortedPanels.map(({ panel, orders: panelOrders }) => (
-        <div key={panel.code} className="card overflow-hidden animate-fade-up">
+      {sortedPanels.map(({ panel, orders: panelOrders }, panelIdx) => (
+        <div key={panel.code} data-tour={panelIdx === 0 ? "re-results" : undefined} className="card overflow-hidden animate-fade-up">
           <div className="px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] bg-[#fafafe] border-b border-[#eef0f4]">
             {panel.report_heading}
           </div>

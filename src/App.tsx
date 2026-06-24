@@ -4,6 +4,7 @@ import { useSession } from "@/lib/session";
 import { AppShell } from "@/app/AppShell";
 import { DialogHost } from "@/lib/dialog";
 import { ToastHost } from "@/lib/toast";
+import { TutorialHost } from "@/lib/tutorial";
 import { getLicenseStatus, type LicenseStatus } from "@/lib/license";
 import { needsSetup, resetInstallForTesting } from "@/lib/onboarding";
 import { NamAstaMark } from "@/components/common/NamAstaLogo";
@@ -224,6 +225,7 @@ export default function App() {
     <BrowserRouter>
       <DialogHost />
       <ToastHost />
+      <TutorialHost />
       <LicenseGate />
     </BrowserRouter>
   );

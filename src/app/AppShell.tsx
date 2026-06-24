@@ -2,8 +2,10 @@ import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useSession } from "@/lib/session";
 import {
   LayoutDashboard, UserPlus, Users, FlaskConical, Stethoscope,
-  BarChart3, Settings, LogOut, ChevronLeft, Menu, Search,
+  BarChart3, Settings, LogOut, ChevronLeft, Menu, Search, HelpCircle,
 } from "lucide-react";
+import { startTutorial, tourSeen, markTourSeen } from "@/lib/tutorial";
+import { TOURS, tourIdForPath } from "@/lib/tours";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/app/CommandPalette";
@@ -80,6 +82,18 @@ export function AppShell() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Guided tutorial: which tour belongs to the current screen, and auto-play it the first time
+  // this user opens that screen (the ? button replays it any time). Marked seen on auto-show so it
+  // doesn't keep popping up; a short delay lets the page (and its data-tour anchors) render first.
+  const tourId = tourIdForPath(location.pathname);
+  useEffect(() => {
+    if (!tourId || tourSeen(tourId)) return;
+    const t = setTimeout(() => {
+      if (!tourSeen(tourId)) { startTutorial(TOURS[tourId].steps); markTourSeen(tourId); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [tourId]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#edeef4]">
@@ -201,6 +215,17 @@ export function AppShell() {
             <span className="flex-1 text-left">Search patients, tests…</span>
             <kbd className="text-[10px] font-semibold text-[#4c4e5d] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
           </button>
+
+          {/* Help: replay the guided tutorial for this screen */}
+          {tourId && (
+            <button
+              onClick={() => startTutorial(TOURS[tourId].steps)}
+              title="Show tutorial for this screen"
+              className="flex items-center gap-1.5 shrink-0 px-3 py-[7px] rounded-xl text-[13px] font-semibold text-[#4338ca] bg-[#eef0fe] border border-[#c7cbff] hover:bg-[#e0e3fc] transition-colors"
+            >
+              <HelpCircle size={15} strokeWidth={2} /> Help
+            </button>
+          )}
 
           <div className="flex items-center gap-3 text-[12.5px] text-[#4c4e5d]">
             {license?.trial && license.daysLeft != null && (

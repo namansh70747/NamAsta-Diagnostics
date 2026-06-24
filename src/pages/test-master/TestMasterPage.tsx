@@ -231,11 +231,11 @@ export function TestMasterPage() {
               <Tags size={15} strokeWidth={1.8} /> Bulk Price Edit
             </button>
           )}
-          <button onClick={() => setShowPanels(true)} className="btn btn-ghost">
+          <button data-tour="tm-manage-panels" onClick={() => setShowPanels(true)} className="btn btn-ghost">
             <Layers size={15} strokeWidth={1.8} /> Manage Panels
           </button>
           {canEditTests && (
-            <button onClick={() => setShowAdd(true)} className="btn btn-primary">
+            <button data-tour="tm-add-test" onClick={() => setShowAdd(true)} className="btn btn-primary">
               <Plus size={15} strokeWidth={2.2} /> Add Test
             </button>
           )}
@@ -244,7 +244,7 @@ export function TestMasterPage() {
 
       <div className="flex items-start gap-6">
         {/* Left rail */}
-        <aside className="w-44 shrink-0">
+        <aside data-tour="tm-panels" className="w-44 shrink-0">
           <p className="px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d]">
             Panels
           </p>
@@ -297,7 +297,7 @@ export function TestMasterPage() {
 
           {/* Search */}
           <div className="flex items-center gap-3">
-            <div className="relative w-64">
+            <div data-tour="tm-search" className="relative w-64">
               <Search
                 size={15}
                 strokeWidth={1.8}
@@ -350,6 +350,7 @@ export function TestMasterPage() {
                     return (
                       <tr
                         key={t.id}
+                        data-tour={i === 0 ? "tm-row" : undefined}
                         onClick={() => setSelectedTest(t)}
                         className={cn(
                           "group border-b border-[#e9ebf2] last:border-0 cursor-pointer transition-colors",
@@ -416,6 +417,7 @@ export function TestMasterPage() {
 
                         {/* Price */}
                         <td
+                          data-tour={i === 0 ? "tm-price" : undefined}
                           className="px-5 py-3 text-right tabular-nums text-[13.5px]"
                           onClick={(e) => {
                             if (bulkMode) return;

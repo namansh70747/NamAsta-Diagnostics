@@ -1558,7 +1558,7 @@ export function ReportPreviewPage() {
           {editing ? (
             <span className="text-xs text-gray-400">Editing at 100% — zoom resumes after you save</span>
           ) : (
-          <div className="flex items-center gap-2 text-gray-500">
+          <div data-tour="rp-zoom" className="flex items-center gap-2 text-gray-500">
             <button onClick={() => setZoom(z => Math.max(25, z - 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom out (Ctrl/Cmd −)"><ZoomOut size={15} /></button>
             <span className="text-xs w-10 text-center">{zoom}%</span>
             <button onClick={() => setZoom(z => Math.min(200, z + 10))} className="p-1.5 rounded hover:bg-gray-100" title="Zoom in (Ctrl/Cmd +)"><ZoomIn size={15} /></button>
@@ -1701,7 +1701,7 @@ export function ReportPreviewPage() {
 
       {/* ── Action panel ── */}
       <aside className="w-[252px] shrink-0 space-y-4 pt-4 pb-8 pr-1 print:hidden h-full overflow-y-auto">
-        <div className="card p-4 space-y-2">
+        <div data-tour="rp-deliver" className="card p-4 space-y-2">
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45] mb-1">Deliver</p>
           {!isApproved && (
             <>
@@ -1763,7 +1763,7 @@ export function ReportPreviewPage() {
                     This report has manual edits — they're what print &amp; send.
                   </p>
                 )}
-                <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
+                <button data-tour="rp-edit" onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
                   <Pencil size={15} strokeWidth={1.8} /> Edit here (quick)
                 </button>
                 <p className="text-[11px] text-[#3a3b45] leading-snug px-1">
@@ -1779,7 +1779,7 @@ export function ReportPreviewPage() {
           </div>
         )}
 
-        <div className="card p-4 space-y-3">
+        <div data-tour="rp-layout" className="card p-4 space-y-3">
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45]">Layout</p>
           <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           {compactReport && (
