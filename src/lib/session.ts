@@ -16,7 +16,12 @@ export type Capability =
   | 'manage_doctors' | 'enter_results' | 'approve';
 
 // Capabilities a technician is allowed. Everything else is admin-only.
-const TECH_ALLOWED: Capability[] = ['enter_results', 'approve', 'manage_doctors'];
+// Test/panel customization (panels, tests, ranges, prices) is open to all staff so any user can
+// build and maintain the catalogue — settings, result-unlocking and user management stay admin-only.
+const TECH_ALLOWED: Capability[] = [
+  'enter_results', 'approve', 'manage_doctors',
+  'manage_panels', 'edit_tests', 'edit_ranges', 'edit_prices',
+];
 
 export const useSession = create<SessionState>()(
   persist(

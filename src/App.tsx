@@ -34,6 +34,7 @@ const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage").then(
 const NewPatientPage = lazy(() => import("@/pages/new-patient/NewPatientPage").then(m => ({ default: m.NewPatientPage })));
 const ResultEntryPage = lazy(() => import("@/pages/result-entry/ResultEntryPage").then(m => ({ default: m.ResultEntryPage })));
 const ReportPreviewPage = lazy(() => import("@/pages/report/ReportPreviewPage").then(m => ({ default: m.ReportPreviewPage })));
+const BillPage = lazy(() => import("@/pages/bill/BillPage").then(m => ({ default: m.BillPage })));
 const PatientsPage = lazy(() => import("@/pages/patients/PatientsPage").then(m => ({ default: m.PatientsPage })));
 const TestMasterPage = lazy(() => import("@/pages/test-master/TestMasterPage").then(m => ({ default: m.TestMasterPage })));
 const DoctorsPage = lazy(() => import("@/pages/doctors/DoctorsPage").then(m => ({ default: m.DoctorsPage })));
@@ -60,6 +61,10 @@ function ResultEntryRoute() {
 function ReportRoute() {
   const { patientId } = useParams();
   return <ReportPreviewPage key={patientId} />;
+}
+function BillRoute() {
+  const { patientId } = useParams();
+  return <BillPage key={patientId} />;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -147,6 +152,7 @@ function LicenseGate() {
             <Route path="new-patient" element={<NewPatientPage />} />
             <Route path="result-entry/:patientId" element={<ResultEntryRoute />} />
             <Route path="report/:patientId" element={<ReportRoute />} />
+          <Route path="bill/:patientId" element={<BillRoute />} />
             <Route path="patients" element={<PatientsPage />} />
             <Route path="test-master" element={<RequireAdmin><TestMasterPage /></RequireAdmin>} />
             <Route path="doctors" element={<DoctorsPage />} />

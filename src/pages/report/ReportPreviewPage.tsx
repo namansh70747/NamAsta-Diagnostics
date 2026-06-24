@@ -14,11 +14,11 @@ import { revealInFolder } from "@/lib/printing";
 import { saveReportPdf, printReportPdf } from "@/lib/pdf";
 import { sendEmail } from "@/lib/email";
 import { buildWhatsAppMessage, sendWhatsAppSemi } from "@/lib/whatsapp";
-import { formatDate } from "@/lib/format";
+import { formatDate, genderLabel } from "@/lib/format";
 import { getHistograms } from "@/lib/queries/analyzer";
 import { CbcSectionHistogram } from "@/components/report/Histogram";
 import { OrderWithResult, Panel } from "@/types";
-import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown, FileType2, Rows3, Columns3, Eraser, Square, Copy, ClipboardPaste, Scissors, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd } from "lucide-react";
+import { ChevronLeft, Printer, FileDown, MessageCircle, Mail, Check, ZoomIn, ZoomOut, Smartphone, Receipt, ShieldCheck, Loader2, Pencil, Save, X, RotateCcw, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, IndentIncrease, IndentDecrease, Undo, Redo, RemoveFormatting, Baseline, Highlighter, ArrowUp, ArrowDown, FileType2, Rows3, Columns3, Eraser, Square, Copy, ClipboardPaste, Scissors, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd } from "lucide-react";
 import { exportReportDocx, type ReportDocxModel, type DocxPanel, type DocxRow, type DocxSubSection } from "@/lib/docx";
 import { rasterizeHistograms } from "@/lib/docxHistograms";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from "react";
@@ -49,7 +49,7 @@ function esc(s: string): string {
 const DEPARTMENT: Record<string, string> = {
   HEM: 'HAEMATOLOGY', CBC: 'CBC', DLCP: 'HAEMATOLOGY', COAG: 'HAEMATOLOGY',
   BIO: 'BIOCHEMISTRY',
-  SERO: 'SEROLOGY',
+  SERO: 'SEROLOGY', SALP: 'SEROLOGY',
   URINE: 'CLINICAL PATHOLOGY', STOOL: 'CLINICAL PATHOLOGY', FLUID: 'CLINICAL PATHOLOGY',
   MICRO: 'MICROBIOLOGY',
   MISC: 'MISCELLANEOUS',
@@ -1091,7 +1091,7 @@ export function ReportPreviewPage() {
       return { code: panel.code, dept, showDept, heading, layout: 'standard', rows: orders.map(toRow), bandText };
     });
 
-    const g = patient!.sex === 'MALE' ? 'Male' : patient!.sex === 'FEMALE' ? 'Female' : 'Other';
+    const g = genderLabel(patient!.sex, patient!.baby);
     const patientPairs: [string, string][] = [
       ['Name', `${patient!.title} ${patient!.name}`],
       ['Test Request ID', String(patient!.test_no)],
@@ -1376,7 +1376,7 @@ export function ReportPreviewPage() {
 
   // NOTE: all hooks (incl. the useCallback chrome components below) MUST run before any early
   // return, or React throws "rendered more hooks than previous render" when patient loads.
-  const genderLabel = patient?.sex === 'MALE' ? 'Male' : patient?.sex === 'FEMALE' ? 'Female' : 'Other';
+  const genderText = genderLabel(patient?.sex, patient?.baby);
   const labName = settings.lab_name || 'YOUR LABORATORY';
 
   // These chrome components are wrapped in useCallback so their function identity stays STABLE
@@ -1444,14 +1444,14 @@ export function ReportPreviewPage() {
       {/* Field labels are normal weight; the filled-in values are bold (matches the lab's paper). */}
       <p>Name : <strong>{patient.title} {patient.name}</strong></p>
       <p>Test Request ID : <strong>{patient.test_no}</strong></p>
-      <p>Age/Gender : <strong>{patient.age} {patient.age_unit} / {genderLabel}</strong></p>
+      <p>Age/Gender : <strong>{patient.age} {patient.age_unit} / {genderText}</strong></p>
       <p>Sample Collected ON : <strong>{formatDate(patient.sample_time)}</strong></p>
       <p>Collected AT : <strong>{patient.collected_at}</strong></p>
       <p>Sample Received ON : <strong>{formatDate(patient.sample_time)}</strong></p>
       <p>Referred By : <strong>{patient.doctor_name ?? 'SELF'}</strong></p>
       <p>Report DATE : <strong>{formatDate(patient.report_time)}</strong></p>
     </section>
-  ) : null, [patient, genderLabel]);
+  ) : null, [patient, genderText]);
 
   const PageFooter = useCallback(({ pageIndex, total, isLast }: { pageIndex: number; total: number; isLast: boolean }) => (
     <footer contentEditable={false} suppressContentEditableWarning className="report-letterfoot relative mt-auto pt-2 border-t border-gray-400">
@@ -1684,6 +1684,8 @@ export function ReportPreviewPage() {
           <OutputBtn icon={MessageCircle} label="WhatsApp" onClick={handleWhatsApp} done={sent.whatsapp} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'whatsapp'} green />
           <OutputBtn icon={Mail} label="Email" onClick={handleEmail} done={sent.email} disabled={!isApproved || editing || !patient?.email} busy={busy === 'email'} />
           <OutputBtn icon={Smartphone} label="SMS" onClick={handleSms} done={sent.sms} disabled={!isApproved || editing || !patient?.phone} busy={busy === 'sms'} />
+          <div className="h-px bg-[#eef0f4] my-1" />
+          <OutputBtn icon={Receipt} label="Bill / Receipt" onClick={() => navigate(`/bill/${pid}`)} disabled={editing} />
         </div>
 
         {isApproved && (

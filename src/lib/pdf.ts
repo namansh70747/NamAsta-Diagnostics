@@ -128,6 +128,54 @@ export async function printReportPdf(opts: { element: HTMLElement; testNo: numbe
 }
 
 /**
+ * Bill/receipt counterparts of the report PDF helpers. Same rasterise-the-[data-report-page]-sheet
+ * pipeline (so the receipt's paper, PDF and preview can never diverge), but bills are written under a
+ * separate `SCL Bills/…` folder with a `-bill` suffix so they never overwrite a patient's report PDF.
+ */
+export async function printBillPdf(opts: { element: HTMLElement; testNo: number; name: string }): Promise<void> {
+  if (!isTauri()) {
+    window.print();
+    return;
+  }
+  const pdf = await renderReportPdf(opts.element);
+  const docDir = await documentDir();
+  const outPath = await join(docDir, "SCL Bills", "_print", `${opts.testNo}-${safeName(opts.name)}-bill.pdf`);
+  const dataUri = pdf.output("datauristring");
+  const base64 = dataUri.substring(dataUri.indexOf(",") + 1);
+  await invoke<string>("save_pdf_bytes", { base64Data: base64, outPath });
+  await invoke("open_path", { path: outPath });
+}
+
+/** Generate the bill PDF and save it under Documents/SCL Bills/YYYY/MM/. Returns the saved path
+ *  (or "" in a plain browser, where it just downloads). */
+export async function saveBillPdf(opts: {
+  element: HTMLElement;
+  testNo: number;
+  name: string;
+  date?: string | null;
+}): Promise<string> {
+  const pdf = await renderReportPdf(opts.element);
+  const fileName = `${opts.testNo}-${safeName(opts.name)}-bill.pdf`;
+
+  if (!isTauri()) {
+    pdf.save(fileName);
+    return "";
+  }
+
+  let d = opts.date ? parseDbDate(opts.date) : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+
+  const docDir = await documentDir();
+  const outPath = await join(docDir, "SCL Bills", yyyy, mm, fileName);
+
+  const dataUri = pdf.output("datauristring");
+  const base64 = dataUri.substring(dataUri.indexOf(",") + 1);
+  return invoke<string>("save_pdf_bytes", { base64Data: base64, outPath });
+}
+
+/**
  * Generate the report PDF and save it under Documents/SCL Reports/YYYY/MM/.
  * Returns the absolute saved path. In a plain browser (no Tauri) it triggers a
  * normal download and returns "".

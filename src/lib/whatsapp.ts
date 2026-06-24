@@ -17,6 +17,20 @@ export function buildWhatsAppMessage(i: WaMessageInput): string {
   return `Dear ${i.title} ${i.name}, your lab report (${testList}) from ${lab} is ready. — ${i.technicianName}, ${i.technicianQual}`;
 }
 
+export interface BillMessageInput {
+  title: string;
+  name: string;
+  receiptNo: string | number;
+  amount: string;        // already formatted, e.g. "₹200"
+  labName?: string;
+}
+
+/** WhatsApp caption for a bill/receipt PDF. */
+export function buildBillWhatsAppMessage(i: BillMessageInput): string {
+  const lab = i.labName || 'the laboratory';
+  return `Dear ${i.title} ${i.name}, please find your bill (Receipt #${i.receiptNo}, ${i.amount}) from ${lab}. Thank you.`;
+}
+
 export interface WaDocArgs {
   token: string;
   phoneNumberId: string;

@@ -299,6 +299,18 @@ pub fn run() {
             sql: include_str!("../migrations/0049_biochemistry_dup_tests.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 50,
+            description: "patient_baby_flag",
+            sql: include_str!("../migrations/0050_patient_baby_flag.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 51,
+            description: "salmonella_profile",
+            sql: include_str!("../migrations/0051_salmonella_profile.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

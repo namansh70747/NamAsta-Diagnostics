@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listTests, listPanels, upsertTest, updateTestPrice, setTestEnabled } from "@/lib/queries/tests";
-import { Test } from "@/types";
+import { Panel, Test } from "@/types";
 import { useSession } from "@/lib/session";
 import { FlaskConical, Search, Plus, Tags, Layers, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToastStack, useToasts } from "./Toast";
 import { AddTestDialog } from "./AddTestDialog";
 import { ManagePanelsDialog } from "./ManagePanelsDialog";
+import { PanelEditorSheet } from "./PanelEditorSheet";
 import { TestSheet } from "./TestSheet";
 
 type EditField = "name" | "unit" | "price" | "decimals" | "sort_order";
@@ -26,6 +27,7 @@ export function TestMasterPage() {
   const canEditTests = can("edit_tests");
   const canEditPrices = can("edit_prices");
   const canEditRanges = can("edit_ranges");
+  const canManagePanels = can("manage_panels");
 
   const toast = useToasts();
 
@@ -38,6 +40,7 @@ export function TestMasterPage() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [showPanels, setShowPanels] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<Panel | null>(null);
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkPrices, setBulkPrices] = useState<Record<number, string>>({});
 
@@ -93,6 +96,8 @@ export function TestMasterPage() {
 
   // Keep the open sheet's test object fresh after edits.
   const liveSelected = selectedTest ? tests.find((t) => t.id === selectedTest.id) ?? selectedTest : null;
+  // Keep the open panel editor's panel fresh after edits (panels refetch on mutation).
+  const livePanel = editingPanel ? panels.find((p) => p.id === editingPanel.id) ?? editingPanel : null;
 
   // ---- Mutations ----
   const savePrice = useMutation({
@@ -529,7 +534,29 @@ export function TestMasterPage() {
           onError={toast.error}
         />
       )}
-      {showPanels && <ManagePanelsDialog panels={panels} onClose={() => setShowPanels(false)} />}
+      {showPanels && (
+        <ManagePanelsDialog
+          panels={panels}
+          canManage={canManagePanels}
+          onClose={() => setShowPanels(false)}
+          onEdit={(p) => { setShowPanels(false); setEditingPanel(p); }}
+          onSuccess={toast.success}
+          onError={toast.error}
+        />
+      )}
+      {livePanel && (
+        <PanelEditorSheet
+          panel={livePanel}
+          allTests={allTests}
+          panels={panels}
+          canManage={canManagePanels}
+          canEditTests={canEditTests}
+          canEditRanges={canEditRanges}
+          onClose={() => setEditingPanel(null)}
+          onSuccess={toast.success}
+          onError={toast.error}
+        />
+      )}
 
       <ToastStack toasts={toast.toasts} dismiss={toast.dismiss} />
     </div>

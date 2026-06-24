@@ -76,6 +76,7 @@ export interface Patient {
   age: number;
   age_unit: AgeUnit;
   sex: Sex;
+  baby: number;            // 1 = newborn → shown as "Baby Boy"/"Baby Girl" (sex still MALE/FEMALE for ranges)
   phone: string;
   email: string | null;
   address: string;
@@ -180,6 +181,7 @@ export interface NewPatientInput {
   age: number;
   age_unit: AgeUnit;
   sex: Sex;
+  baby?: number;           // 1 = newborn (Baby Boy/Baby Girl); defaults to 0
   phone: string;
   email: string;
   address: string;

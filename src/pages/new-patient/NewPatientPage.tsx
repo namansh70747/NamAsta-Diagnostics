@@ -87,6 +87,7 @@ export function NewPatientPage() {
   const [age, setAge] = useState("");
   const [ageUnit, setAgeUnit] = useState<AgeUnit>("YRS");
   const [sex, setSex] = useState<Sex>("MALE");
+  const [baby, setBaby] = useState(0);   // 1 = newborn → "Baby Boy"/"Baby Girl" (sex stays MALE/FEMALE)
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
@@ -133,6 +134,15 @@ export function NewPatientPage() {
     if (['Mr.', 'Master'].includes(title)) setSex('MALE');
     else if (['Mrs.', 'Miss', 'Ms.'].includes(title)) setSex('FEMALE');
   }, [title]);
+
+  // Gender selector that folds the "Baby Boy"/"Baby Girl" newborn options into the sex+baby pair.
+  const genderChoice = baby ? (sex === 'FEMALE' ? 'BABY_GIRL' : 'BABY_BOY') : sex;
+  function setGender(choice: string) {
+    sexTouched.current = true;
+    if (choice === 'BABY_BOY') { setSex('MALE'); setBaby(1); }
+    else if (choice === 'BABY_GIRL') { setSex('FEMALE'); setBaby(1); }
+    else { setSex(choice as Sex); setBaby(0); }
+  }
 
   const total = selectedTests.reduce((s, t) => s + t.price, 0);
   const net = Math.max(0, total - concession);
@@ -225,7 +235,7 @@ export function NewPatientPage() {
     return Object.keys(e).length === 0;
   }
 
-  async function handleSave(mode2: "results" | "close") {
+  async function handleSave(mode2: "results" | "close" | "bill") {
     if (submitting.current) return;   // block a second trigger in the same tick (duplicate patient)
     if (!validate()) return;
     submitting.current = true;
@@ -236,7 +246,7 @@ export function NewPatientPage() {
 
       const patientId = await createPatient({
         title, name: name.trim(), age: parseFloat(age), age_unit: ageUnit,
-        sex, phone, email, address, doctor_id: doctorId,
+        sex, baby, phone, email, address, doctor_id: doctorId,
         collected_at: collectedAt, sample_time: nowISO(),
         test_ids: selectedTests.map(t => t.test.id),
         prices, concession, received: net, mode,
@@ -249,6 +259,7 @@ export function NewPatientPage() {
       qc.invalidateQueries({ queryKey: ['frequent-tests'] });
 
       if (mode2 === "results") navigate(`/result-entry/${patientId}`);
+      else if (mode2 === "bill") navigate(`/bill/${patientId}`);
       else navigate('/dashboard');
     } catch (err) {
       setErrors({ _: String(err) });
@@ -312,6 +323,9 @@ export function NewPatientPage() {
           <button onClick={() => handleSave("close")} disabled={saving} className="btn btn-secondary text-[13px]">
             Save &amp; Close
           </button>
+          <button onClick={() => handleSave("bill")} disabled={saving} className="btn btn-secondary text-[13px]">
+            Save &amp; Bill
+          </button>
           <button onClick={() => handleSave("results")} disabled={saving} className="btn btn-accent">
             <Save size={15} strokeWidth={1.9} />
             {saving ? 'Saving…' : 'Save & Enter Results'}
@@ -373,12 +387,18 @@ export function NewPatientPage() {
               <div className="shrink-0">
                 <label className={labelCls}>Sex</label>
                 <div className="h-[40px] flex items-center">
-                  <SegmentedPills
-                    options={['MALE','FEMALE','OTHER'] as const}
-                    value={sex}
-                    onChange={s => { sexTouched.current = true; setSex(s); }}
-                    render={s => (s === 'MALE' ? 'M' : s === 'FEMALE' ? 'F' : 'O')}
-                  />
+                  <select
+                    value={genderChoice}
+                    onChange={e => setGender(e.target.value)}
+                    className="field !w-32 shrink-0"
+                    tabIndex={-1}
+                  >
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="BABY_BOY">Baby Boy</option>
+                    <option value="BABY_GIRL">Baby Girl</option>
+                    <option value="OTHER">Other</option>
+                  </select>
                 </div>
               </div>
             </div>

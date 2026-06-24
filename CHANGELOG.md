@@ -2,6 +2,21 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.84
+
+- **Patient bill / receipt.** A new Bill screen — reachable from the patient list, straight after
+  registering a patient ("Save & Bill"), or from the report screen — prints a clean, fully
+  lab-branded receipt: your logo, lab name, signature image, the itemised tests with rates, the
+  payable amount (with amount in words), payment mode and date. It can be printed, saved as PDF, or
+  sent on WhatsApp / email, exactly like a report.
+- **"Baby Boy" / "Baby Girl" gender.** Newborns can be registered with a baby gender that prints
+  correctly on the report and the bill.
+- **Salmonella Typhi profile.** Salmonella Typhi IgG and IgM are now a single orderable profile that
+  expands into both result rows on entry — same one-line-bill behaviour as the CBC / HbA1c profiles.
+- **Test Master editing improvements.** Reworked test & panel editing — a dedicated panel editor and
+  a tabbed test editor — for easier management of tests, profiles and their reference ranges.
+- The signature setting is now labelled generically ("Signature") so it reads the same for any lab.
+
 ## v1.3.83
 
 - **Updated subscription pricing.** First-year registration is now **₹4,500** (was ₹5,000) and the

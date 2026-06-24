@@ -7,6 +7,154 @@ export async function listPanels(): Promise<Panel[]> {
   return dbQuery<Panel>('SELECT * FROM panels ORDER BY sort_order');
 }
 
+// ── Panel management (admin-only via manage_panels) ──────────────────────────
+// Panels are the report-grouping + orderable-profile unit. These let an admin create,
+// edit, reorder and delete panels from the UI (previously only possible via migrations).
+
+/** Create a panel. Auto-generates a unique code from the name when none is given
+ *  (mirrors createPanelTest's slug+timestamp scheme). Returns the new panel id. */
+export async function createPanel(input: {
+  code?: string; name: string; report_heading?: string;
+  sort_order?: number; page_break_after?: number;
+}): Promise<number> {
+  assertCan('manage_panels');
+  const name = input.name.trim();
+  if (!name) throw new Error('Panel name is required.');
+
+  let code = (input.code ?? '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+  if (code) {
+    const clash = await dbQuery<{ id: number }>('SELECT id FROM panels WHERE code=?', [code]);
+    if (clash.length) throw new Error(`A panel with code "${code}" already exists.`);
+  } else {
+    const slug = name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 16) || 'PANEL';
+    code = `${slug}_${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  const heading = input.report_heading?.trim() || name.toUpperCase();
+  const maxRows = await dbQuery<{ m: number | null }>('SELECT MAX(sort_order) AS m FROM panels');
+  const sortOrder = input.sort_order ?? (maxRows[0]?.m ?? 0) + 10;
+  const pageBreak = input.page_break_after ? 1 : 0;
+
+  const id = await dbExecute(
+    `INSERT INTO panels(code,name,report_heading,sort_order,page_break_after) VALUES(?,?,?,?,?)`,
+    [code, name, heading, sortOrder, pageBreak]
+  );
+  await writeAudit(currentUserId(), 'panel.create', 'panels', id, null, { code, name, report_heading: heading });
+  return id;
+}
+
+/** Edit a panel's display fields. `code` is intentionally immutable — it's the join key
+ *  used by the report DEPARTMENT map, the rail filter and listTests(panelCode). */
+export async function updatePanel(id: number, fields: {
+  name?: string; report_heading?: string; sort_order?: number; page_break_after?: number;
+}): Promise<void> {
+  assertCan('manage_panels');
+  const rows = await dbQuery<Panel>('SELECT * FROM panels WHERE id=?', [id]);
+  const cur = rows[0];
+  if (!cur) throw new Error('Panel not found.');
+  const name = (fields.name ?? cur.name).trim();
+  if (!name) throw new Error('Panel name is required.');
+  const heading = (fields.report_heading ?? cur.report_heading).trim() || name.toUpperCase();
+  const sortOrder = fields.sort_order ?? cur.sort_order;
+  const pageBreak = (fields.page_break_after ?? cur.page_break_after) ? 1 : 0;
+  await dbExecute(
+    `UPDATE panels SET name=?, report_heading=?, sort_order=?, page_break_after=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+    [name, heading, sortOrder, pageBreak, id]
+  );
+  await writeAudit(currentUserId(), 'panel.update', 'panels', id,
+    { name: cur.name, report_heading: cur.report_heading, sort_order: cur.sort_order, page_break_after: cur.page_break_after },
+    { name, report_heading: heading, sort_order: sortOrder, page_break_after: pageBreak });
+}
+
+/** Delete a panel. tests.panel_id is ON DELETE RESTRICT, so we block while real member
+ *  tests remain (the admin must remove/reassign them first). The is_panel=1 "profile"
+ *  row is owned by the panel and is removed automatically — unless it has historical
+ *  orders (orders.test_id is also RESTRICT), in which case deletion is refused. */
+export async function deletePanel(id: number): Promise<void> {
+  assertCan('manage_panels');
+  const members = await dbQuery<{ id: number; is_panel: number }>(
+    'SELECT id, is_panel FROM tests WHERE panel_id=?', [id]);
+  const realMembers = members.filter(m => !m.is_panel);
+  if (realMembers.length > 0) {
+    throw new Error(`This panel has ${realMembers.length} test${realMembers.length === 1 ? '' : 's'}. Remove or reassign them before deleting the panel.`);
+  }
+  const bundle = members.find(m => m.is_panel);
+  if (bundle) {
+    const ords = await dbQuery<{ n: number }>('SELECT COUNT(*) AS n FROM orders WHERE test_id=?', [bundle.id]);
+    if ((ords[0]?.n ?? 0) > 0) {
+      throw new Error('This panel has been ordered before, so it cannot be deleted. Turn off "orderable as one profile" to retire it instead.');
+    }
+    await dbExecute('DELETE FROM tests WHERE id=?', [bundle.id]);
+  }
+  await dbExecute('DELETE FROM panels WHERE id=?', [id]);
+  await writeAudit(currentUserId(), 'panel.delete', 'panels', id, null, null);
+}
+
+/** Persist a new panel order (sort_order 10,20,30…) — mirrors reorderPanelTests. */
+export async function reorderPanels(orderedIds: number[]): Promise<void> {
+  assertCan('manage_panels');
+  for (let i = 0; i < orderedIds.length; i++) {
+    await dbExecute('UPDATE panels SET sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?', [(i + 1) * 10, orderedIds[i]]);
+  }
+}
+
+/** Make a panel orderable as a single billed "profile" line (like CBC / HbA1c) by
+ *  creating/enabling its is_panel=1 bundle test, or disable it (kept, not deleted, so
+ *  historical orders stay intact). createPatient() expands the bundle into its members. */
+export async function setPanelOrderable(
+  panelId: number, input: { orderable: boolean; price?: number; name?: string }
+): Promise<void> {
+  assertCan('manage_panels');
+  const panels = await dbQuery<Panel>('SELECT * FROM panels WHERE id=?', [panelId]);
+  const panel = panels[0];
+  if (!panel) throw new Error('Panel not found.');
+  const existing = await dbQuery<{ id: number }>(
+    'SELECT id FROM tests WHERE panel_id=? AND is_panel=1 LIMIT 1', [panelId]);
+  const price = Math.max(0, Number(input.price ?? 0) || 0);
+  const name = input.name?.trim() || panel.name;
+
+  if (input.orderable) {
+    if (existing.length) {
+      await dbExecute('UPDATE tests SET name=?, price=?, enabled=1, updated_at=CURRENT_TIMESTAMP WHERE id=?',
+        [name, price, existing[0].id]);
+      await writeAudit(currentUserId(), 'panel.orderable.update', 'tests', existing[0].id, null, { price, name });
+    } else {
+      // Bundle code: prefer the panel code, then <code>P (the CBC / HBA1CP convention), then a
+      // timestamped fallback — whichever is free in the UNIQUE tests.code space.
+      let code = panel.code;
+      for (const candidate of [panel.code, `${panel.code}P`, `${panel.code}_${Date.now().toString(36).toUpperCase()}`]) {
+        const clash = await dbQuery<{ id: number }>('SELECT id FROM tests WHERE code=?', [candidate]);
+        if (!clash.length) { code = candidate; break; }
+      }
+      const id = await dbExecute(
+        `INSERT INTO tests(code,name,panel_id,result_type,unit,decimals,price,enabled,sort_order,is_panel)
+         VALUES(?,?,?,?,?,?,?,?,?,?)`,
+        [code, name, panelId, 'text', '', 0, price, 1, 0, 1]
+      );
+      await writeAudit(currentUserId(), 'panel.orderable.create', 'tests', id, null, { code, price, name });
+    }
+  } else if (existing.length) {
+    await dbExecute('UPDATE tests SET enabled=0, updated_at=CURRENT_TIMESTAMP WHERE id=?', [existing[0].id]);
+    await writeAudit(currentUserId(), 'panel.orderable.disable', 'tests', existing[0].id, null, null);
+  }
+}
+
+/** Move an existing test into a panel (appended to the end) or unlink it (panelId=null).
+ *  Used by the panel editor's "add existing test" / "remove from panel" actions. */
+export async function reassignTestPanel(testId: number, panelId: number | null): Promise<void> {
+  assertCan('manage_panels');
+  if (panelId != null) {
+    const maxRows = await dbQuery<{ m: number | null }>(
+      'SELECT MAX(sort_order) AS m FROM tests WHERE panel_id=?', [panelId]);
+    const sortOrder = (maxRows[0]?.m ?? 0) + 10;
+    await dbExecute('UPDATE tests SET panel_id=?, sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',
+      [panelId, sortOrder, testId]);
+  } else {
+    await dbExecute('UPDATE tests SET panel_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?', [testId]);
+  }
+  await writeAudit(currentUserId(), 'test.reassign_panel', 'tests', testId, null, { panel_id: panelId });
+}
+
 export async function listTests(panelCode?: string, enabledOnly = true): Promise<Test[]> {
   let sql = `SELECT t.*, p.code as panel_code, p.report_heading as panel_heading
              FROM tests t LEFT JOIN panels p ON t.panel_id=p.id`;

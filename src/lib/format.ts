@@ -53,3 +53,10 @@ export function todayDateISO(): string {
 export function ageDisplay(age: number, unit: string): string {
   return `${age} ${unit}`;
 }
+
+/** Human gender label. A newborn (baby=1) reads as "Baby Boy"/"Baby Girl"; sex itself stays
+ *  MALE/FEMALE so reference-range and eGFR lookups are unaffected. */
+export function genderLabel(sex: string | null | undefined, baby?: number | null): string {
+  if (baby) return sex === 'FEMALE' ? 'Baby Girl' : 'Baby Boy';
+  return sex === 'MALE' ? 'Male' : sex === 'FEMALE' ? 'Female' : 'Other';
+}

@@ -188,6 +188,7 @@ export function PatientsPage() {
             onOpen={(p) => navigate(openPath(p))}
             onReprint={(p) => navigate(`/report/${p.id}`)}
             onResend={(p) => navigate(`/report/${p.id}`)}
+            onBill={(p) => navigate(`/bill/${p.id}`)}
             onName={(p) => setHistory(p)}
           />
         )}
@@ -228,12 +229,14 @@ function ResultsTable({
   onOpen,
   onReprint,
   onResend,
+  onBill,
   onName,
 }: {
   rows: PatientWithStatus[];
   onOpen: (p: PatientWithStatus) => void;
   onReprint: (p: PatientWithStatus) => void;
   onResend: (p: PatientWithStatus) => void;
+  onBill: (p: PatientWithStatus) => void;
   onName: (p: PatientWithStatus) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -292,7 +295,7 @@ function ResultsTable({
                 </div>
                 <div className="whitespace-nowrap text-[12.5px] text-[#54555f]">
                   {p.age} {p.age_unit} /{" "}
-                  {p.sex === "MALE" ? "M" : p.sex === "FEMALE" ? "F" : "O"}
+                  {p.baby ? (p.sex === "FEMALE" ? "BG" : "BB") : p.sex === "MALE" ? "M" : p.sex === "FEMALE" ? "F" : "O"}
                 </div>
                 <div className="truncate text-[12.5px] text-[#8a8b97]">
                   {p.doctor_name ?? "—"}
@@ -319,6 +322,7 @@ function ResultsTable({
                 </div>
                 <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                   <RowAction label="Open" onClick={() => onOpen(p)} />
+                  <RowAction label="Bill" onClick={() => onBill(p)} />
                   <RowAction label="Re-print" onClick={() => onReprint(p)} />
                   <RowAction label="Re-send" onClick={() => onResend(p)} />
                 </div>

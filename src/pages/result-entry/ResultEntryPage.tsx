@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getPatientById, addTestsToPatient } from "@/lib/queries/patients";
+import { getPatientById, addTestsToPatient, updatePatient } from "@/lib/queries/patients";
 import { getOrdersWithResults, saveResult, approvePatient, markNotDone, unlockResult, getReportComment, saveReportComment, setUnitOverride, setRangeOverride } from "@/lib/queries/results";
 import { listPanels, searchTests, reorderPanelTests, createPanelTest, getTestsByCodes } from "@/lib/queries/tests";
+import { listDoctors } from "@/lib/queries/doctors";
 import { matchTestGroups, TestGroup } from "@/lib/testGroups";
 import { useSession } from "@/lib/session";
-import { OrderWithResult, Panel, Test } from "@/types";
+import { genderLabel } from "@/lib/format";
+import { OrderWithResult, Panel, Test, AgeUnit, Sex } from "@/types";
 import { computeCalculated, resolveCalculated, safeDecimals } from "@/lib/calc";
 import { computeFlag, patientAgeDays, findRange, displayRange, rangesWithOverride } from "@/lib/flags";
 import { getAllSettings } from "@/lib/queries/settings";
@@ -16,7 +18,7 @@ import { saveHistograms } from "@/lib/queries/analyzer";
 import { promptDialog } from "@/lib/dialog";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { Check, CheckCircle, ChevronLeft, FileText, Unlock, X, Cable, Plus, GripVertical } from "lucide-react";
+import { Check, CheckCircle, ChevronLeft, FileText, Unlock, X, Cable, Plus, GripVertical, Pencil } from "lucide-react";
 
 /** Parse a test's `choices` JSON without ever throwing — malformed/legacy data
  *  ('' instead of '[]', bad JSON) must not crash the whole result-entry page. */
@@ -56,6 +58,9 @@ export function ResultEntryPage() {
   const [showAddTest, setShowAddTest] = useState(false);
   const [addQuery, setAddQuery] = useState('');
   const [addResults, setAddResults] = useState<Test[]>([]);
+  // Edit-patient-details dialog: fix a wrong name/age/sex/etc. without leaving result entry.
+  type EditDraft = { title: string; name: string; age: string; age_unit: AgeUnit; sex: Sex; baby: number; phone: string; email: string; address: string; doctor_id: number | null };
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   // Drag-to-reorder (pointer-based — HTML5 drag is unreliable in the macOS WebView).
   // Refs hold the live values for the window listeners; state drives the visual highlight.
   const [dragId, setDragId] = useState<number | null>(null);
@@ -66,6 +71,7 @@ export function ResultEntryPage() {
   const { data: patient } = useQuery({ queryKey: ['patient', pid], queryFn: () => getPatientById(pid) });
   const { data: orders = [] } = useQuery({ queryKey: ['orders', pid], queryFn: () => getOrdersWithResults(pid) });
   const { data: panels = [] } = useQuery({ queryKey: ['panels'], queryFn: listPanels });
+  const { data: doctors = [] } = useQuery({ queryKey: ['doctors', 'active'], queryFn: () => listDoctors() });
   const { data: savedComment } = useQuery({ queryKey: ['comment', pid], queryFn: () => getReportComment(pid) });
   const { data: settings = {} } = useQuery({ queryKey: ['settings'], queryFn: getAllSettings });
 
@@ -209,16 +215,41 @@ export function ResultEntryPage() {
     onError: (e) => { if (String(e).includes('cancelled')) return; toast.error(e); },
   });
 
+  function openEdit() {
+    if (!patient) return;
+    setEditDraft({
+      title: patient.title ?? '', name: patient.name ?? '', age: String(patient.age ?? ''),
+      age_unit: patient.age_unit, sex: patient.sex, baby: patient.baby ?? 0,
+      phone: patient.phone ?? '', email: patient.email ?? '', address: patient.address ?? '',
+      doctor_id: patient.doctor_id ?? null,
+    });
+  }
+  const editMut = useMutation({
+    mutationFn: (d: EditDraft) => updatePatient(pid, {
+      title: d.title, name: d.name.trim().toUpperCase(), age: parseFloat(d.age) || 0,
+      age_unit: d.age_unit, sex: d.sex, baby: d.baby, phone: d.phone.trim(),
+      email: d.email.trim() || null, address: d.address.trim(), doctor_id: d.doctor_id,
+    }, user!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['patient', pid] });
+      qc.invalidateQueries({ queryKey: ['today-patients'] });
+      qc.invalidateQueries({ queryKey: ['patients-search'] });
+      setEditDraft(null);
+      toast.success('Patient details updated.');
+    },
+    onError: (e) => toast.error(e),
+  });
+
   // F9 = approve. Keep a ref so the single global listener always reads latest state without
   // re-registering on every render (re-registering every render adds/removes a listener on
   // every keystroke, every saved value, every order refetch — hundreds of times per session).
   // allHaveValues is declared below (after orders/localValues), so initialise the ref safe
   // and update it synchronously after every render via a separate effect.
-  const f9StateRef = useRef({ isApproved, showAddTest, analyzer, showApprove, allHaveValues: false });
+  const f9StateRef = useRef({ isApproved, showAddTest, analyzer, showApprove, editing: false, allHaveValues: false });
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const s = f9StateRef.current;
-      if (e.key === 'F9' && !s.isApproved && !s.showAddTest && !s.analyzer && !s.showApprove) {
+      if (e.key === 'F9' && !s.isApproved && !s.showAddTest && !s.analyzer && !s.showApprove && !s.editing) {
         e.preventDefault(); setShowApprove(true);
       }
     };
@@ -473,7 +504,7 @@ export function ResultEntryPage() {
   });
 
   // Keep the F9 ref in sync — runs after every render so the listener always reads fresh values.
-  f9StateRef.current = { isApproved, showAddTest, analyzer, showApprove, allHaveValues };
+  f9StateRef.current = { isApproved, showAddTest, analyzer, showApprove, editing: !!editDraft, allHaveValues };
 
   const progress = activeOrders.filter(o => localValues[o.order.id] || o.test.result_type === 'calculated').length;
   const total = activeOrders.length;
@@ -494,10 +525,19 @@ export function ResultEntryPage() {
                   <span className="font-mono text-[12.5px] text-[#8a8b97] shrink-0">#{patient.test_no}</span>
                   <span className="font-semibold text-[15px] text-[#14151c] truncate">{patient.title} {patient.name}</span>
                   <span className="text-[12.5px] text-[#54555f] shrink-0">
-                    {patient.age} {patient.age_unit} / {patient.sex === 'MALE' ? 'M' : 'F'}
+                    {patient.age} {patient.age_unit} / {genderLabel(patient.sex, patient.baby)}
                   </span>
                   {patient.doctor_name && (
                     <span className="text-[12.5px] text-[#8a8b97] truncate">Ref: {patient.doctor_name}</span>
+                  )}
+                  {can('enter_results') && (
+                    <button
+                      onClick={openEdit}
+                      title="Edit patient details (fix a wrong name, age, sex, doctor…)"
+                      className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[#8a8b97] hover:bg-[#e6e7ee] hover:text-[#14151c] transition-colors"
+                    >
+                      <Pencil size={13} strokeWidth={1.8} />
+                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2.5 mt-1.5">
@@ -873,6 +913,104 @@ export function ResultEntryPage() {
             </div>
             <div className="flex justify-end mt-4">
               <button onClick={() => { setShowAddTest(false); setAddQuery(''); setAddResults([]); }} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit patient details — fix a registration mistake (name/age/sex/doctor) in place */}
+      {editDraft && (
+        <div
+          className="fixed inset-0 z-50 bg-[#0e0f16]/40 backdrop-blur-[2px] animate-fade-in flex items-center justify-center p-4"
+          onClick={() => setEditDraft(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md p-6 animate-scale-in shadow-[var(--shadow-pop)] max-h-[88vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+            role="dialog" aria-modal="true"
+          >
+            <h3 className="text-[16px] font-semibold text-[#14151c] mb-1">Edit patient details</h3>
+            <p className="text-[13px] text-[#54555f] mb-4">Correct a wrong name, age, sex or referring doctor. The receipt number and tests are not affected.</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-[5.5rem_1fr] gap-3">
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Title</label>
+                  <select value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} className="field w-full">
+                    {['Mr.', 'Mrs.', 'Miss', 'Ms.', 'Master', 'Baby', 'Dr.', ''].map(t => <option key={t} value={t}>{t || '—'}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Name</label>
+                  <input value={editDraft.name} onChange={e => setEditDraft(d => d && { ...d, name: e.target.value })} className="field w-full" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Age</label>
+                  <div className="flex gap-1.5">
+                    <input value={editDraft.age} onChange={e => setEditDraft(d => d && { ...d, age: e.target.value })} type="number" className="field w-full tabular-nums" />
+                    <select value={editDraft.age_unit} onChange={e => setEditDraft(d => d && { ...d, age_unit: e.target.value as AgeUnit })} className="field !w-20 shrink-0">
+                      <option value="YRS">YRS</option><option value="MTH">MTH</option><option value="DAYS">DAYS</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Sex</label>
+                  <select
+                    value={editDraft.baby ? (editDraft.sex === 'FEMALE' ? 'BABY_GIRL' : 'BABY_BOY') : editDraft.sex}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setEditDraft(d => d && (
+                        v === 'BABY_BOY' ? { ...d, sex: 'MALE', baby: 1 } :
+                        v === 'BABY_GIRL' ? { ...d, sex: 'FEMALE', baby: 1 } :
+                        { ...d, sex: v as Sex, baby: 0 }
+                      ));
+                    }}
+                    className="field w-full"
+                  >
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="BABY_BOY">Baby Boy</option>
+                    <option value="BABY_GIRL">Baby Girl</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Referred by</label>
+                <select
+                  value={editDraft.doctor_id ?? ''}
+                  onChange={e => setEditDraft(d => d && { ...d, doctor_id: e.target.value === '' ? null : Number(e.target.value) })}
+                  className="field w-full"
+                >
+                  <option value="">SELF</option>
+                  {doctors.map(dc => <option key={dc.id} value={dc.id}>{dc.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Phone</label>
+                  <input value={editDraft.phone} onChange={e => setEditDraft(d => d && { ...d, phone: e.target.value })} className="field w-full tabular-nums" />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#54555f] mb-1">Email</label>
+                  <input value={editDraft.email} onChange={e => setEditDraft(d => d && { ...d, email: e.target.value })} className="field w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#54555f] mb-1">Address</label>
+                <input value={editDraft.address} onChange={e => setEditDraft(d => d && { ...d, address: e.target.value })} className="field w-full" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditDraft(null)} className="btn btn-secondary">Cancel</button>
+              <button
+                onClick={() => editDraft && !editMut.isPending && editDraft.name.trim() && editMut.mutate(editDraft)}
+                disabled={editMut.isPending || !editDraft.name.trim()}
+                className="btn btn-primary"
+              >
+                {editMut.isPending ? 'Saving…' : 'Save changes'}
+              </button>
             </div>
           </div>
         </div>

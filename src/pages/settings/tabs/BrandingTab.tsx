@@ -11,7 +11,7 @@ export function BrandingTab({ settings }: { settings: Record<string, string> }) 
 
   return (
     <Card className="space-y-6 animate-fade-up">
-      <TabHeader title="Branding" subtitle="Logo and your father's signature image used on the printed report." />
+      <TabHeader title="Branding" subtitle="Logo and signature image used on printed reports and bills." />
 
       <ImagePicker
         title="Lab logo"
@@ -30,8 +30,8 @@ export function BrandingTab({ settings }: { settings: Record<string, string> }) 
       <div className="border-t border-[#eef0f4]" />
 
       <ImagePicker
-        title="Father's signature"
-        description="Printed above the “Lab Technician” line in the report footer."
+        title="Signature"
+        description="Printed above the signatory label on reports and bills."
         value={f.get("signature_data")}
         onPicked={async (dataUrl) => {
           if (await f.saveValue("signature_data", dataUrl)) f.toast.success("Signature updated.");

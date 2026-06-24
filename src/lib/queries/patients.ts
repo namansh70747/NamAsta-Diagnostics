@@ -38,10 +38,10 @@ export async function createPatient(input: NewPatientInput, userId: number): Pro
   // Insert the patient and capture its id from THIS statement's result (pool-safe;
   // never read last_insert_rowid() in a separate call — it can hit another connection).
   const patientRes = await db.execute(
-    `INSERT INTO patients(test_no,title,name,age,age_unit,sex,phone,email,address,doctor_id,collected_at,registered_at,sample_time)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)`,
+    `INSERT INTO patients(test_no,title,name,age,age_unit,sex,baby,phone,email,address,doctor_id,collected_at,registered_at,sample_time)
+     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)`,
     [nextNo, input.title, input.name.toUpperCase(), input.age, input.age_unit,
-     input.sex, input.phone || null, input.email || null, input.address || '',
+     input.sex, input.baby ? 1 : 0, input.phone || null, input.email || null, input.address || '',
      input.doctor_id, input.collected_at, sampleTime]
   );
   const patientId = patientRes.lastInsertId ?? 0;
@@ -211,7 +211,7 @@ export async function getPatientById(id: number): Promise<Patient | null> {
 }
 
 export async function updatePatient(id: number, data: Partial<Patient>, userId: number): Promise<void> {
-  const allowed = ['title', 'name', 'age', 'age_unit', 'sex', 'phone', 'email', 'address', 'doctor_id', 'collected_at'];
+  const allowed = ['title', 'name', 'age', 'age_unit', 'sex', 'baby', 'phone', 'email', 'address', 'doctor_id', 'collected_at'];
   const fields = Object.keys(data).filter(k => allowed.includes(k));
   if (!fields.length) return;
   const sets = fields.map(f => `${f}=?`).join(',');
