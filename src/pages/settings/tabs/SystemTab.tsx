@@ -130,7 +130,7 @@ export function SystemTab({ settings }: { settings: Record<string, string> }) {
       <Card className="space-y-4">
         <TabHeader title="About" />
         <div className="flex items-center justify-between text-[13.5px]">
-          <span className="text-[#44454e]">App version</span>
+          <span className="text-[#3a3b45]">App version</span>
           <span className="font-mono text-[#14151c] tabular-nums">{version}</span>
         </div>
         <div className="space-y-2">
@@ -140,7 +140,7 @@ export function SystemTab({ settings }: { settings: Record<string, string> }) {
               : <RefreshCw size={15} strokeWidth={1.8} />}
             {updateBusy ? "Working…" : "Check for updates"}
           </SecondaryButton>
-          {updateStatus && <p className="text-[12.5px] text-[#44454e]">{updateStatus}</p>}
+          {updateStatus && <p className="text-[12.5px] text-[#3a3b45]">{updateStatus}</p>}
         </div>
       </Card>
     </div>

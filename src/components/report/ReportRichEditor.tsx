@@ -145,7 +145,7 @@ export function ReportRichEditor({
             <Save size={14} /> Save
           </button>
           <button onMouseDown={e => e.preventDefault()} onClick={onCancel}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-[#44454e] border border-[#e6e7ee] hover:bg-[#fafafe]">
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-[#3a3b45] border border-[#e6e7ee] hover:bg-[#fafafe]">
             <X size={14} /> Cancel
           </button>
         </div>

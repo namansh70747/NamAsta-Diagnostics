@@ -82,7 +82,7 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f3f4f8]">
+    <div className="flex h-screen overflow-hidden bg-[#edeef4]">
       <KeyboardShortcuts onOpenPalette={() => setPaletteOpen(true)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
@@ -107,7 +107,7 @@ export function AppShell() {
           }
         </div>
 
-        <div className="relative mx-4 h-px bg-white/[0.07]" />
+        <div className="relative mx-4 h-px bg-white/[0.10]" />
 
         {/* nav */}
         <nav className="relative flex-1 py-3 px-3 space-y-1 overflow-y-auto">
@@ -121,7 +121,7 @@ export function AppShell() {
                 collapsed && "justify-center px-0",
                 isActive
                   ? "text-white"
-                  : "text-white/50 hover:text-white/90 hover:bg-white/[0.05]"
+                  : "text-white/70 hover:text-white/95 hover:bg-white/[0.05]"
               )}
               style={({ isActive }) => isActive ? {
                 background: "linear-gradient(120deg, rgba(99,102,241,0.22), rgba(123,27,27,0.18))",
@@ -148,7 +148,7 @@ export function AppShell() {
 
         {/* user / collapse */}
         <div className="relative px-3 pb-3 space-y-1">
-          <div className="mx-1.5 h-px bg-white/[0.07] mb-2.5" />
+          <div className="mx-1.5 h-px bg-white/[0.10] mb-2.5" />
           <div className={cn("flex items-center gap-2.5 rounded-xl px-2 py-1.5", collapsed && "justify-center px-0")}>
             <div
               className="w-[32px] h-[32px] rounded-full flex items-center justify-center text-[12.5px] font-bold text-white shrink-0 shadow-[0_2px_8px_-2px_rgba(99,102,241,0.6)]"
@@ -159,7 +159,7 @@ export function AppShell() {
             {!collapsed && (
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="text-[12.5px] font-semibold text-white/90 truncate">{user?.display_name}</p>
-                <p className="text-[10.5px] text-white/40 capitalize">{user?.role}</p>
+                <p className="text-[10.5px] text-white/60 capitalize">{user?.role}</p>
               </div>
             )}
             <button
@@ -173,7 +173,7 @@ export function AppShell() {
           <button
             onClick={() => setCollapsed(c => !c)}
             className={cn(
-              "w-full flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11.5px] font-medium text-white/35 hover:text-white/70 hover:bg-white/[0.05] transition-colors",
+              "w-full flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11.5px] font-medium text-white/55 hover:text-white/80 hover:bg-white/[0.05] transition-colors",
               collapsed && "justify-center px-0"
             )}
           >
@@ -194,15 +194,15 @@ export function AppShell() {
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="group flex items-center gap-2.5 w-[320px] px-3.5 py-[8px] rounded-xl bg-white/80 text-[13.5px] text-[#565869] border border-[#e6e7ee]
+            className="group flex items-center gap-2.5 w-[320px] px-3.5 py-[8px] rounded-xl bg-white/80 text-[13.5px] text-[#4c4e5d] border border-[#e6e7ee]
                        shadow-[0_1px_2px_rgba(20,21,28,0.04)] hover:border-[#c7c9ff] hover:shadow-[0_4px_14px_-4px_rgba(99,102,241,0.3)] transition-all"
           >
             <Search size={14.5} className="group-hover:text-[#6366f1] transition-colors" />
             <span className="flex-1 text-left">Search patients, tests…</span>
-            <kbd className="text-[10px] font-semibold text-[#565869] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
+            <kbd className="text-[10px] font-semibold text-[#4c4e5d] bg-[#eef0f4] rounded px-1.5 py-0.5">⌘K</kbd>
           </button>
 
-          <div className="flex items-center gap-3 text-[12.5px] text-[#565869]">
+          <div className="flex items-center gap-3 text-[12.5px] text-[#4c4e5d]">
             {license?.trial && license.daysLeft != null && (
               <span
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium border bg-indigo-50 border-indigo-200 text-indigo-700"

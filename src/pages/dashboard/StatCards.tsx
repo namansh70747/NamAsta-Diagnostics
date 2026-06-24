@@ -112,7 +112,7 @@ function StatCard({
       <p className="mt-3.5 text-[27px] font-extrabold tracking-tight tabular-nums text-[#14151c] leading-none">
         {value}
       </p>
-      <p className="mt-1.5 text-[13.5px] font-medium text-[#565869]">{label}</p>
+      <p className="mt-1.5 text-[13.5px] font-medium text-[#4c4e5d]">{label}</p>
     </button>
   );
 }

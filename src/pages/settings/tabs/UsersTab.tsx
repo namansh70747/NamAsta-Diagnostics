@@ -132,16 +132,16 @@ export function UsersTab() {
           </div>
         ) : users.length === 0 ? (
           <div className="py-14 text-center">
-            <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#565869] flex items-center justify-center mx-auto mb-3">
+            <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#4c4e5d] flex items-center justify-center mx-auto mb-3">
               <UsersIcon size={17} strokeWidth={1.8} />
             </div>
-            <div className="text-[13.5px] text-[#565869]">No users yet.</div>
+            <div className="text-[13.5px] text-[#4c4e5d]">No users yet.</div>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#eef0f4]">
+                <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
                   <th className="px-5 py-3 text-left table-head">User</th>
                   <th className="px-5 py-3 text-left table-head">Role</th>
                   <th className="px-5 py-3 text-left table-head">Active</th>
@@ -149,13 +149,13 @@ export function UsersTab() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {users.map((u, i) => {
                   const isLastAdmin = u.role === "admin" && u.active === 1 && activeAdmins <= 1;
                   return (
-                    <tr key={u.id} className="group border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]">
+                    <tr key={u.id} className={cn("group border-b border-[#e9ebf2] last:border-0 transition-colors", i % 2 ? "bg-[#f6f7fb]" : "bg-white", "hover:bg-[#eef1f8]")}>
                       <td className="px-5 py-3 text-[13.5px]">
                         <div className="font-medium text-[#14151c]">{u.display_name}</div>
-                        <div className="text-[12px] text-[#6e7081]">@{u.username}</div>
+                        <div className="text-[12px] text-[#5e6072]">@{u.username}</div>
                       </td>
                       <td className="px-5 py-3">
                         <span

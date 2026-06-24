@@ -20,9 +20,9 @@ interface SelectedTest {
   price: number;
 }
 
-const labelCls = "block text-[13px] font-medium text-[#44454e] mb-1.5";
+const labelCls = "block text-[13px] font-medium text-[#3a3b45] mb-1.5";
 const errCls = "text-[12px] text-[#b91c1c] mt-1.5";
-const sectionLabelCls = "text-[12px] font-semibold uppercase tracking-[0.09em] text-[#565869] mb-3";
+const sectionLabelCls = "text-[12px] font-semibold uppercase tracking-[0.09em] text-[#4c4e5d] mb-3";
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
@@ -52,7 +52,7 @@ function SegmentedPills<T extends string>({
             stretch && "flex-1",
             value === opt
               ? "bg-gradient-to-b from-[#7c83ff] to-[#6366f1] text-white shadow-[0_2px_8px_-2px_rgba(99,102,241,0.6)]"
-              : "text-[#44454e] hover:bg-white hover:text-[#14151c]"
+              : "text-[#3a3b45] hover:bg-white hover:text-[#14151c]"
           )}
         >
           {render ? render(opt) : opt}
@@ -65,7 +65,7 @@ function SegmentedPills<T extends string>({
 function BillRow({ label, value, bold, danger }: { label: string; value: string; bold?: boolean; danger?: boolean }) {
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className={cn("text-[13.5px]", bold ? "font-semibold text-[#14151c]" : "text-[#44454e]")}>{label}</span>
+      <span className={cn("text-[13.5px]", bold ? "font-semibold text-[#14151c]" : "text-[#3a3b45]")}>{label}</span>
       <span className={cn(
         "text-[13.5px] tabular-nums transition-colors",
         bold && "font-bold text-[16px]",
@@ -313,7 +313,7 @@ export function NewPatientPage() {
       {/* Header row */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <p className="text-[13px] text-[#565869]">
+          <p className="text-[13px] text-[#4c4e5d]">
             Receipt <span className="font-mono font-bold text-[#14151c]">#{testNo || '—'}</span>
             <span className="mx-1.5 text-[#cdced8]">·</span>
             {todayStr}
@@ -415,7 +415,7 @@ export function NewPatientPage() {
                 <FieldError msg={errors.phone} />
               </div>
               <div className="flex-1">
-                <label className={labelCls}>Email <span className="text-[#6e7081] font-normal">(optional)</span></label>
+                <label className={labelCls}>Email <span className="text-[#5e6072] font-normal">(optional)</span></label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="patient@email.com" className="field" />
               </div>
             </div>
@@ -459,7 +459,7 @@ export function NewPatientPage() {
 
             {/* Search (top, keyboard-first) */}
             <div className="relative mb-3">
-              <Search size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6e7081] pointer-events-none" />
+              <Search size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5e6072] pointer-events-none" />
               <input
                 data-search="1"
                 value={testQuery}
@@ -486,7 +486,7 @@ export function NewPatientPage() {
                         <span className="inline-flex items-center rounded-md bg-[#eef0fe] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5] shrink-0">Group</span>
                         <span className="text-[#14151c] truncate">{row.group.label}</span>
                       </span>
-                      <span className="text-[12px] text-[#565869] tabular-nums shrink-0">+{row.group.codes.length} tests</span>
+                      <span className="text-[12px] text-[#4c4e5d] tabular-nums shrink-0">+{row.group.codes.length} tests</span>
                     </button>
                   ) : (
                     <button
@@ -500,10 +500,10 @@ export function NewPatientPage() {
                       )}
                     >
                       <span className="min-w-0 truncate">
-                        <span className="font-mono text-[11.5px] text-[#565869] mr-2">{row.test.code}</span>
+                        <span className="font-mono text-[11.5px] text-[#4c4e5d] mr-2">{row.test.code}</span>
                         <span className="text-[#14151c]">{row.test.name}</span>
                       </span>
-                      <span className="text-[12.5px] text-[#565869] tabular-nums shrink-0">₹{row.test.price}</span>
+                      <span className="text-[12.5px] text-[#4c4e5d] tabular-nums shrink-0">₹{row.test.price}</span>
                     </button>
                   ))}
                 </div>
@@ -518,7 +518,7 @@ export function NewPatientPage() {
                   type="button"
                   tabIndex={-1}
                   onClick={() => addPanel(p.code)}
-                  className="rounded-full border border-[#e6e7ee] px-3 py-1 text-[13px] font-medium text-[#44454e] transition-all hover:border-[#c7c9ff] hover:bg-[#eef0fe] hover:text-[#4f46e5]"
+                  className="rounded-full border border-[#e6e7ee] px-3 py-1 text-[13px] font-medium text-[#3a3b45] transition-all hover:border-[#c7c9ff] hover:bg-[#eef0fe] hover:text-[#4f46e5]"
                 >
                   {p.label}
                 </button>
@@ -528,7 +528,7 @@ export function NewPatientPage() {
             {/* Frequent tests (one-tap, usage-ranked) */}
             {frequent.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-4">
-                <span className="flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-[#6e7081]">
+                <span className="flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-[#5e6072]">
                   <Zap size={11} /> Frequent
                 </span>
                 {frequent.map(t => (
@@ -538,7 +538,7 @@ export function NewPatientPage() {
                     tabIndex={-1}
                     onClick={() => addTest(t)}
                     title={`₹${t.price}`}
-                    className="rounded-full bg-[#f4f5f8] px-2.5 py-1 text-[11.5px] font-medium text-[#44454e] transition-colors hover:bg-[#eef0fe] hover:text-[#4f46e5]"
+                    className="rounded-full bg-[#f4f5f8] px-2.5 py-1 text-[11.5px] font-medium text-[#3a3b45] transition-colors hover:bg-[#eef0fe] hover:text-[#4f46e5]"
                   >
                     {t.code}
                   </button>
@@ -551,20 +551,20 @@ export function NewPatientPage() {
             <div className={cn("max-h-56 overflow-y-auto -mx-1 px-1", errors.tests && "mt-2")}>
               {selectedTests.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-[13.5px] text-[#565869]">No tests selected yet</p>
-                  <p className="text-[12px] text-[#6e7081] mt-1">Search, or tap a panel / frequent chip</p>
+                  <p className="text-[13.5px] text-[#4c4e5d]">No tests selected yet</p>
+                  <p className="text-[12px] text-[#5e6072] mt-1">Search, or tap a panel / frequent chip</p>
                 </div>
               ) : selectedTests.map(st => (
                 <div
                   key={st.test.id}
-                  className="group flex items-center justify-between gap-3 px-2 py-2 border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe] rounded-lg"
+                  className="group flex items-center justify-between gap-3 px-2 py-2 border-b border-[#e9ebf2] last:border-0 transition-colors hover:bg-[#fafafe] rounded-lg"
                 >
                   <span className="min-w-0 truncate">
-                    <span className="font-mono text-[11.5px] text-[#6e7081] mr-2">{st.test.code}</span>
+                    <span className="font-mono text-[11.5px] text-[#5e6072] mr-2">{st.test.code}</span>
                     <span className="text-[13.5px] text-[#14151c]">{st.test.name}</span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
-                    <span className="text-[12.5px] text-[#6e7081]">₹</span>
+                    <span className="text-[12.5px] text-[#5e6072]">₹</span>
                     <input
                       type="number"
                       tabIndex={-1}
@@ -579,7 +579,7 @@ export function NewPatientPage() {
                       type="button"
                       tabIndex={-1}
                       onClick={() => removeTest(st.test.id)}
-                      className="ml-1 text-[#6e7081] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
+                      className="ml-1 text-[#5e6072] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#b91c1c]"
                       title="Remove test"
                     >
                       <X size={14} strokeWidth={1.8} />
@@ -596,7 +596,7 @@ export function NewPatientPage() {
             <div className="space-y-2">
               <BillRow label={`Total (${selectedTests.length} test${selectedTests.length === 1 ? '' : 's'})`} value={`₹${total}`} />
               <div className="flex items-center justify-between py-0.5">
-                <label className="text-[13.5px] text-[#44454e]">Concession (₹)</label>
+                <label className="text-[13.5px] text-[#3a3b45]">Concession (₹)</label>
                 <input
                   type="number"
                   tabIndex={-1}

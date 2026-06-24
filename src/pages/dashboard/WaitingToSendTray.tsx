@@ -21,12 +21,12 @@ export function WaitingToSendTray({
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#eef0f4]">
-        <h2 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
+        <h2 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d]">
           <Send size={15} strokeWidth={1.8} className="text-[#4f46e5]" />
           Waiting to Send
         </h2>
         {!loading && rows.length > 0 && (
-          <span className="text-[12px] text-[#565869] tabular-nums">{rows.length}</span>
+          <span className="text-[12px] text-[#4c4e5d] tabular-nums">{rows.length}</span>
         )}
       </div>
 
@@ -35,7 +35,7 @@ export function WaitingToSendTray({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="flex items-center justify-between gap-3 px-5 py-[15px] border-b border-[#f1f1f5] last:border-0"
+              className="flex items-center justify-between gap-3 px-5 py-[15px] border-b border-[#e9ebf2] last:border-0"
             >
               <div className="min-w-0">
                 <div className="skeleton h-3.5 w-32" />
@@ -50,10 +50,10 @@ export function WaitingToSendTray({
         </div>
       ) : rows.length === 0 ? (
         <div className="py-14 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#4c4e5d]">
             <CheckCircle2 size={17} strokeWidth={1.8} />
           </div>
-          <p className="text-[13.5px] text-[#565869]">
+          <p className="text-[13.5px] text-[#4c4e5d]">
             All caught up — no approved reports waiting to be sent.
           </p>
         </div>
@@ -62,13 +62,13 @@ export function WaitingToSendTray({
           {rows.map((r) => (
             <div
               key={r.patient_id}
-              className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]"
+              className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#e9ebf2] last:border-0 transition-colors hover:bg-[#fafafe]"
             >
               <div className="min-w-0">
                 <p className="truncate text-[13.5px] font-medium text-[#14151c]">
                   {r.patient_name}
                 </p>
-                <p className="mt-0.5 text-[12px] text-[#565869] tabular-nums">
+                <p className="mt-0.5 text-[12px] text-[#4c4e5d] tabular-nums">
                   #{r.test_no} · {r.phone}
                 </p>
               </div>

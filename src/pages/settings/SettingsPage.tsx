@@ -56,11 +56,11 @@ export function SettingsPage() {
     return (
       <div className="pt-4">
         <div className="card p-6 max-w-[640px] py-14 text-center animate-fade-up">
-          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#565869] flex items-center justify-center mx-auto mb-3">
+          <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#4c4e5d] flex items-center justify-center mx-auto mb-3">
             <Lock size={17} strokeWidth={1.8} />
           </div>
           <div className="text-[13.5px] font-semibold text-[#14151c]">Admin only</div>
-          <p className="text-[13.5px] text-[#565869] mt-1">
+          <p className="text-[13.5px] text-[#4c4e5d] mt-1">
             You need administrator access to view or change settings.
           </p>
         </div>
@@ -86,13 +86,13 @@ export function SettingsPage() {
                     "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] text-left transition-colors w-auto md:w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-400",
                     active
                       ? "bg-white shadow-[var(--shadow-card)] text-[#14151c] font-semibold"
-                      : "text-[#44454e] hover:bg-[#eef0f4]"
+                      : "text-[#3a3b45] hover:bg-[#eef0f4]"
                   )}
                 >
                   <Icon
                     size={16}
                     strokeWidth={active ? 2.2 : 1.8}
-                    className={active ? "text-maroon-600" : "text-[#6e7081]"}
+                    className={active ? "text-maroon-600" : "text-[#5e6072]"}
                   />
                   {t.label}
                 </button>

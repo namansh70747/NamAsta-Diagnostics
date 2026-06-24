@@ -98,18 +98,18 @@ export function Combobox<T extends string | number>({
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
           {allowClear && value != null && (
             <button type="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); pick(null); }}
-              className="p-1 rounded text-[#6e7081] hover:text-[#44454e]" title="Clear">
+              className="p-1 rounded text-[#5e6072] hover:text-[#3a3b45]" title="Clear">
               <X size={13} />
             </button>
           )}
-          <ChevronDown size={15} className={cn("text-[#6e7081] transition-transform", open && "rotate-180")} />
+          <ChevronDown size={15} className={cn("text-[#5e6072] transition-transform", open && "rotate-180")} />
         </div>
       </div>
 
       {open && (
         <div ref={listRef} className="card absolute z-20 top-full left-0 right-0 mt-1.5 max-h-60 overflow-y-auto shadow-[var(--shadow-pop)] animate-scale-in py-1">
           {filtered.length === 0 ? (
-            <div className="px-4 py-2.5 text-[13px] text-[#6e7081]">No matches</div>
+            <div className="px-4 py-2.5 text-[13px] text-[#5e6072]">No matches</div>
           ) : filtered.map((o, i) => (
             <button
               key={o.value}
@@ -124,7 +124,7 @@ export function Combobox<T extends string | number>({
             >
               <span className="min-w-0 truncate text-[#14151c]">{o.label}</span>
               <span className="flex items-center gap-2 shrink-0">
-                {o.hint && <span className="text-[11.5px] text-[#6e7081]">{o.hint}</span>}
+                {o.hint && <span className="text-[11.5px] text-[#5e6072]">{o.hint}</span>}
                 {o.value === value && <Check size={14} className="text-[#4f46e5]" />}
               </span>
             </button>

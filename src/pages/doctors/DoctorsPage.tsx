@@ -168,7 +168,7 @@ function DoctorDialog({
     <Modal title={doctor ? "Edit Doctor" : "Add Doctor"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-[#44454e]">
+          <label className="mb-1.5 block text-[13px] font-medium text-[#3a3b45]">
             Name <span className="text-maroon-600">*</span>
           </label>
           <input
@@ -180,8 +180,8 @@ function DoctorDialog({
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-[#44454e]">
-            Degree <span className="text-[#565869] font-normal">(optional)</span>
+          <label className="mb-1.5 block text-[13px] font-medium text-[#3a3b45]">
+            Degree <span className="text-[#4c4e5d] font-normal">(optional)</span>
           </label>
           <input
             value={degree}
@@ -190,7 +190,7 @@ function DoctorDialog({
             className="field w-full"
           />
         </div>
-        <p className="text-[12px] text-[#565869]">
+        <p className="text-[12px] text-[#4c4e5d]">
           {doctor
             ? "Updates this doctor — including a rename — keeping their referral history."
             : "New doctors are matched by name; an existing name just updates that doctor."}
@@ -246,12 +246,12 @@ function SummaryDialog({
     <Modal title={doctor.name} onClose={onClose}>
       <div className="space-y-4">
         {doctor.degree && (
-          <p className="-mt-4 text-[12.5px] text-[#565869]">{doctor.degree}</p>
+          <p className="-mt-4 text-[12.5px] text-[#4c4e5d]">{doctor.degree}</p>
         )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-[#44454e]">
+            <label className="mb-1.5 block text-[13px] font-medium text-[#3a3b45]">
               From
             </label>
             <input
@@ -263,7 +263,7 @@ function SummaryDialog({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-[#44454e]">
+            <label className="mb-1.5 block text-[13px] font-medium text-[#3a3b45]">
               To
             </label>
             <input
@@ -287,7 +287,7 @@ function SummaryDialog({
                 key={s.label}
                 className="rounded-xl border border-[#eef0f4] bg-[#fafafe] px-3.5 py-3"
               >
-                <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869]">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d]">
                   {s.label}
                 </div>
                 <div className="mt-1 text-[18px] font-bold tabular-nums text-[#14151c] transition-colors">
@@ -302,7 +302,7 @@ function SummaryDialog({
           </div>
         )}
 
-        <p className="text-[12px] text-[#565869]">
+        <p className="text-[12px] text-[#4c4e5d]">
           Showing referrals registered between {formatDate(from)} and{" "}
           {formatDate(to)}.
         </p>
@@ -366,7 +366,7 @@ function InlineDegree({
           e.stopPropagation();
           setEditing(true);
         }}
-        className="-mx-1 rounded-md px-1 py-0.5 text-[13px] text-[#565869] transition-colors hover:bg-[#eef0f4] hover:text-[#44454e]"
+        className="-mx-1 rounded-md px-1 py-0.5 text-[13px] text-[#4c4e5d] transition-colors hover:bg-[#eef0f4] hover:text-[#3a3b45]"
         title="Click to edit degree"
       >
         {doctor.degree?.trim() ? (
@@ -392,7 +392,7 @@ function InlineDegree({
           if (e.key === "Escape") cancel();
         }}
         placeholder="Degree"
-        className="w-40 border-0 border-b border-maroon-700/60 bg-transparent px-0 py-0.5 text-[13px] text-[#14151c] placeholder:text-[#6e7081] focus:border-maroon-700 focus:outline-none"
+        className="w-40 border-0 border-b border-maroon-700/60 bg-transparent px-0 py-0.5 text-[13px] text-[#14151c] placeholder:text-[#5e6072] focus:border-maroon-700 focus:outline-none"
       />
       <button
         type="button"
@@ -423,7 +423,7 @@ function TableSkeleton() {
   return (
     <tbody>
       {Array.from({ length: 6 }).map((_, i) => (
-        <tr key={i} className="border-b border-[#f1f1f5] last:border-0">
+        <tr key={i} className="border-b border-[#e9ebf2] last:border-0">
           {Array.from({ length: 5 }).map((__, j) => (
             <td key={j} className="px-5 py-4">
               <div className="h-4 w-full animate-pulse rounded-lg bg-[#eef0f4]" />
@@ -499,7 +499,7 @@ export function DoctorsPage() {
     <div className="pt-4 space-y-4 animate-fade-up">
       {/* header */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#565869]">
+        <p className="text-[13px] text-[#4c4e5d]">
           {isLoading
             ? "Loading…"
             : `${filtered.length} doctor${filtered.length === 1 ? "" : "s"}`}
@@ -518,7 +518,7 @@ export function DoctorsPage() {
         <Search
           size={15}
           strokeWidth={1.8}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#565869]"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#4c4e5d]"
         />
         <input
           value={search}
@@ -532,7 +532,7 @@ export function DoctorsPage() {
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#eef0f4]">
+            <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
               <th className="table-head px-5 py-3 text-left">Name</th>
               <th className="table-head px-5 py-3 text-left">Degree</th>
               <th className="table-head px-5 py-3 text-center">Referrals</th>
@@ -560,10 +560,10 @@ export function DoctorsPage() {
                 <tr>
                   <td colSpan={5} className="px-5 py-14">
                     <div className="text-center">
-                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
+                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#4c4e5d]">
                         <Stethoscope size={17} strokeWidth={1.8} />
                       </div>
-                      <p className="text-[13.5px] text-[#565869]">
+                      <p className="text-[13.5px] text-[#4c4e5d]">
                         {doctors.length === 0
                           ? "Add referring doctors to track their referrals and collections."
                           : "No doctors match your search."}
@@ -583,11 +583,15 @@ export function DoctorsPage() {
               )}
 
               {!isError &&
-                filtered.map((d) => (
+                filtered.map((d, i) => (
                   <tr
                     key={d.id}
                     onClick={() => setDialog({ kind: "summary", doctor: d })}
-                    className="group cursor-pointer border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]"
+                    className={cn(
+                      "group cursor-pointer border-b border-[#e9ebf2] last:border-0 transition-colors",
+                      i % 2 ? "bg-[#f6f7fb]" : "bg-white",
+                      "hover:bg-[#eef1f8]"
+                    )}
                   >
                     <td className="px-5 py-3 text-[14px] font-semibold text-[#14151c]">
                       {d.name}

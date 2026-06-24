@@ -163,7 +163,7 @@ export function TestDetailsTab({
       )}
       {resultType === "calculated" && (
         <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#44454e]">Formula</label>
+          <label className="block text-[13px] font-medium text-[#3a3b45]">Formula</label>
           <FormulaBuilder
             value={formula}
             onChange={setFormula}
@@ -172,7 +172,7 @@ export function TestDetailsTab({
           />
         </div>
       )}
-      <label className="flex items-center gap-2 text-[13px] text-[#44454e] cursor-pointer select-none">
+      <label className="flex items-center gap-2 text-[13px] text-[#3a3b45] cursor-pointer select-none">
         <input
           type="checkbox"
           checked={needsReview}
@@ -315,7 +315,7 @@ export function TestRangesTab({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-3">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-3">
           Existing Ranges
         </p>
         {isLoading ? (
@@ -325,7 +325,7 @@ export function TestRangesTab({
             ))}
           </div>
         ) : ranges.length === 0 ? (
-          <p className="text-[13.5px] text-[#565869] py-3">No reference ranges yet.</p>
+          <p className="text-[13.5px] text-[#4c4e5d] py-3">No reference ranges yet.</p>
         ) : (
           <div className="space-y-2">
             {ranges.map((r) => {
@@ -340,26 +340,26 @@ export function TestRangesTab({
                     <div className="text-[13.5px] font-medium text-[#14151c] tabular-nums truncate">
                       {r.range_text || (
                         <>
-                          {r.low ?? "—"} <span className="text-[#6e7081] font-normal">–</span>{" "}
+                          {r.low ?? "—"} <span className="text-[#5e6072] font-normal">–</span>{" "}
                           {r.high ?? "—"}
                         </>
                       )}
                     </div>
-                    <div className="text-[11.5px] text-[#565869] mt-0.5">
+                    <div className="text-[11.5px] text-[#4c4e5d] mt-0.5">
                       {ageLabel(r.age_min_days, r.age_max_days)}
                     </div>
                     {r.unit && (
                       <div className="text-[11.5px] font-medium text-[#4f46e5] mt-0.5">Unit: {r.unit}</div>
                     )}
                     {r.band_text && (
-                      <div className="text-[11.5px] text-[#565869] mt-0.5 truncate">{r.band_text}</div>
+                      <div className="text-[11.5px] text-[#4c4e5d] mt-0.5 truncate">{r.band_text}</div>
                     )}
                   </div>
                   {canEdit && (
                     <button
                       onClick={() => setConfirmDel(r)}
                       aria-label="Delete range"
-                      className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-[#6e7081] opacity-0 group-hover:opacity-100 hover:bg-[#fbe5e5] hover:text-[#a31e1e] transition-all"
+                      className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-[#5e6072] opacity-0 group-hover:opacity-100 hover:bg-[#fbe5e5] hover:text-[#a31e1e] transition-all"
                     >
                       <Trash2 size={15} strokeWidth={1.8} />
                     </button>
@@ -373,12 +373,12 @@ export function TestRangesTab({
 
       {canEdit && (
         <div className="rounded-xl border border-[#eef0f4] p-4 space-y-3">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-3">
             Add Range
           </p>
           {/* Age-group preset — fills min/max days automatically */}
           <div className="mb-1">
-            <p className="text-[11px] font-medium text-[#565869] mb-2">Age group (quick fill)</p>
+            <p className="text-[11px] font-medium text-[#4c4e5d] mb-2">Age group (quick fill)</p>
             <div className="flex flex-wrap gap-1.5">
               {AGE_GROUPS.map(g => (
                 <button
@@ -388,7 +388,7 @@ export function TestRangesTab({
                   className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium border transition-colors
                     ${ageMin === String(g.min) && ageMax === String(g.max)
                       ? "bg-[#eef0fe] border-[#6366f1] text-[#4338ca]"
-                      : "bg-white border-[#e6e7ee] text-[#44454e] hover:border-[#c7c9ff]"}`}
+                      : "bg-white border-[#e6e7ee] text-[#3a3b45] hover:border-[#c7c9ff]"}`}
                 >
                   {g.label}
                 </button>

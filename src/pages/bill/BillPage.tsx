@@ -151,7 +151,7 @@ export function BillPage() {
   }
 
   if (!patient) {
-    return <div className="p-10 text-center text-[14px] text-[#565869]">Loading bill…</div>;
+    return <div className="p-10 text-center text-[14px] text-[#4c4e5d]">Loading bill…</div>;
   }
 
   return (
@@ -273,7 +273,7 @@ export function BillPage() {
           <ChevronLeft size={16} /> Back
         </button>
 
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mt-1">Bill / Receipt</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mt-1">Bill / Receipt</p>
 
         <BillBtn onClick={handlePrint} busy={busy === "print"} disabled={!!busy} icon={<Printer size={16} />} label="Print" primary />
         <BillBtn onClick={handleSavePdf} busy={busy === "pdf"} disabled={!!busy} icon={<FileDown size={16} />} label="Save PDF" />
@@ -281,7 +281,7 @@ export function BillPage() {
         <BillBtn onClick={handleEmail} busy={busy === "email"} disabled={!!busy || !patient.email} icon={<Mail size={16} />} label="Send by Email" />
 
         <div className="card p-3 mt-2 space-y-1 text-[13px]">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-1">Summary</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-1">Summary</p>
           <SummaryRow k="Receipt No." v={String(patient.test_no)} />
           <SummaryRow k="Items" v={String(lineItems.length)} />
           {concession > 0 && <SummaryRow k="Total" v={formatCurrency(total)} />}
@@ -290,13 +290,13 @@ export function BillPage() {
           {bill?.mode && <SummaryRow k="Mode" v={bill.mode} />}
         </div>
         {(!patient.phone || !patient.email) && (
-          <p className="text-[11px] text-[#6e7081] leading-snug mt-1">
+          <p className="text-[11px] text-[#5e6072] leading-snug mt-1">
             {!patient.phone && "No mobile number on file — WhatsApp disabled. "}
             {!patient.email && "No email on file — Email disabled."}
           </p>
         )}
         {!settings.signature_data && (
-          <p className="text-[11px] text-[#6e7081] leading-snug mt-1">
+          <p className="text-[11px] text-[#5e6072] leading-snug mt-1">
             Tip: upload a signature in Settings → Branding to print it on the bill.
           </p>
         )}
@@ -325,7 +325,7 @@ function BillBtn({ onClick, busy, disabled, icon, label, primary }: {
 function SummaryRow({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[#44454e]">{k}</span>
+      <span className="text-[#3a3b45]">{k}</span>
       <span className={cn("tabular-nums text-[#14151c]", bold && "font-bold")}>{v}</span>
     </div>
   );

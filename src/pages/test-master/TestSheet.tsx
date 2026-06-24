@@ -42,7 +42,7 @@ export function TestSheet({
                 "px-3 py-2.5 text-[13px] font-medium capitalize border-b-2 -mb-px transition-colors",
                 tab === t
                   ? "border-maroon-600 text-[#14151c]"
-                  : "border-transparent text-[#565869] hover:text-[#44454e]"
+                  : "border-transparent text-[#4c4e5d] hover:text-[#3a3b45]"
               )}
             >
               {t}

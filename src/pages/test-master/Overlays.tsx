@@ -17,7 +17,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
     <button
       onClick={onClose}
       aria-label="Close"
-      className="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#565869] hover:bg-[#eef0f4] hover:text-[#14151c] transition-colors"
+      className="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#4c4e5d] hover:bg-[#eef0f4] hover:text-[#14151c] transition-colors"
     >
       <X size={16} strokeWidth={1.8} />
     </button>
@@ -103,7 +103,7 @@ export function Sheet({
                 <span className="chip chip-gray font-mono text-[10.5px] shrink-0">{chip}</span>
               )}
             </div>
-            {subtitle && <p className="text-[12px] text-[#565869] mt-0.5 truncate">{subtitle}</p>}
+            {subtitle && <p className="text-[12px] text-[#4c4e5d] mt-0.5 truncate">{subtitle}</p>}
           </div>
           <CloseButton onClose={onClose} />
         </div>
@@ -143,7 +143,7 @@ export function ConfirmDialog({
         className="bg-white rounded-2xl shadow-[var(--shadow-pop)] w-full max-w-sm p-6 animate-scale-in"
       >
         <h3 className="text-[15px] font-semibold text-[#14151c]">{title}</h3>
-        <p className="text-[13.5px] text-[#44454e] mt-2 leading-relaxed">{message}</p>
+        <p className="text-[13.5px] text-[#3a3b45] mt-2 leading-relaxed">{message}</p>
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onCancel} className="btn btn-ghost">
             Cancel

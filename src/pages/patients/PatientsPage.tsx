@@ -45,6 +45,7 @@ function StatusChip({ status }: { status?: PatientStatus }) {
   const s = status ?? "registered";
   return (
     <span className={cn("chip whitespace-nowrap", STATUS_CHIP[s] ?? "chip-gray")}>
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-current opacity-80" />
       {STATUS_LABEL[s] ?? s.replace(/_/g, " ")}
     </span>
   );
@@ -122,7 +123,7 @@ export function PatientsPage() {
     <div className="pt-4 space-y-4 animate-fade-up">
       {/* Header row: muted count left, primary action right */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#565869]">
+        <p className="text-[13px] text-[#4c4e5d]">
           {isLoading
             ? "Searching…"
             : `${filtered.length} patient${filtered.length === 1 ? "" : "s"}`}
@@ -142,7 +143,7 @@ export function PatientsPage() {
             <Search
               size={15}
               strokeWidth={1.8}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#565869] pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4c4e5d] pointer-events-none"
             />
             <input
               type="text"
@@ -247,7 +248,7 @@ const COLS =
 
 function HeaderRow() {
   return (
-    <div className={cn(COLS, "py-3 border-b border-[#eef0f4]")}>
+    <div className={cn(COLS, "py-3 bg-[#eef1f8] border-b border-[#dcdfeb]")}>
       <div className="table-head">Date</div>
       <div className="table-head">Test No</div>
       <div className="table-head">Name</div>
@@ -298,6 +299,14 @@ function ResultsTable({
         >
           {virtualizer.getVirtualItems().map((vi) => {
             const p = rows[vi.index];
+            const zebra = vi.index % 2 ? "bg-[#f6f7fb]" : "bg-white";
+            // Attention left-edge: unpaid balance (money) wins over pending results.
+            const edge =
+              (p.bill?.balance ?? 0) > 0
+                ? "before:content-[''] before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-[#dc2626]"
+                : p.status === "results_pending"
+                ? "before:content-[''] before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-[#f59e0b]"
+                : "";
             return (
               <div
                 key={p.id}
@@ -305,16 +314,19 @@ function ResultsTable({
                 data-index={vi.index}
                 className={cn(
                   COLS,
-                  "group absolute top-0 left-0 w-full border-b border-[#f1f1f5] last:border-0 hover:bg-[#eef1f8] text-[14px] transition-colors"
+                  "group absolute top-0 left-0 w-full border-b border-[#e9ebf2] last:border-0 text-[14px] transition-colors",
+                  zebra,
+                  "hover:bg-[#eef1f8]",
+                  edge
                 )}
                 style={{
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="text-[12.5px] font-mono tabular-nums text-[#565869]">
+                <div className="text-[12.5px] font-mono tabular-nums text-[#4c4e5d]">
                   {formatDate(p.registered_at)}
                 </div>
-                <div className="text-[12.5px] font-mono tabular-nums text-[#565869]">
+                <div className="text-[12.5px] font-mono tabular-nums text-[#4c4e5d]">
                   {p.test_no}
                 </div>
                 <div className="min-w-0">
@@ -327,22 +339,22 @@ function ResultsTable({
                     {p.name}
                   </button>
                   {p.phone && (
-                    <div className="truncate text-[12px] text-[#565869]">
+                    <div className="truncate text-[12px] text-[#4c4e5d]">
                       {p.phone}
                     </div>
                   )}
                 </div>
-                <div className="whitespace-nowrap text-[12.5px] text-[#44454e]">
+                <div className="whitespace-nowrap text-[12.5px] text-[#3a3b45]">
                   {p.age} {p.age_unit} /{" "}
                   {p.baby ? (p.sex === "FEMALE" ? "BG" : "BB") : p.sex === "MALE" ? "M" : p.sex === "FEMALE" ? "F" : "O"}
                 </div>
-                <div className="truncate text-[12.5px] text-[#565869]">
+                <div className="truncate text-[12.5px] text-[#4c4e5d]">
                   {p.doctor_name ?? "—"}
                 </div>
-                <div className="text-[#44454e]">
+                <div className="text-[#3a3b45]">
                   <span className="tabular-nums">{p.test_count ?? 0}</span>{" "}
-                  <span className="text-[#565869]">tests</span>
-                  <div className="text-[12px] tabular-nums text-[#565869]">
+                  <span className="text-[#4c4e5d]">tests</span>
+                  <div className="text-[12px] tabular-nums text-[#4c4e5d]">
                     {formatCurrency(p.bill?.total ?? 0)}
                   </div>
                 </div>
@@ -351,7 +363,7 @@ function ResultsTable({
                     "text-right tabular-nums",
                     (p.bill?.balance ?? 0) > 0
                       ? "font-semibold text-[#b91c1c]"
-                      : "text-[#565869]"
+                      : "text-[#4c4e5d]"
                   )}
                 >
                   {formatCurrency(p.bill?.balance ?? 0)}
@@ -446,7 +458,7 @@ function HistorySheet({
               {patient.title ? `${patient.title} ` : ""}
               {patient.name}
             </div>
-            <div className="text-[12.5px] text-[#565869]">
+            <div className="text-[12.5px] text-[#4c4e5d]">
               {patient.phone || "No phone"} · Visit history
             </div>
           </div>
@@ -459,7 +471,7 @@ function HistorySheet({
           </button>
         </div>
 
-        <div className="flex-1 space-y-2 overflow-auto bg-[#f3f4f8] p-4">
+        <div className="flex-1 space-y-2 overflow-auto bg-[#edeef4] p-4">
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -471,10 +483,10 @@ function HistorySheet({
             </div>
           ) : visits.length === 0 ? (
             <div className="py-14 text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#4c4e5d]">
                 <Search size={17} strokeWidth={1.8} />
               </div>
-              <p className="text-[13.5px] text-[#565869]">
+              <p className="text-[13.5px] text-[#4c4e5d]">
                 No previous visits found.
               </p>
             </div>
@@ -494,7 +506,7 @@ function HistorySheet({
                   </span>
                   <StatusChip status={v.status} />
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[12px] text-[#565869]">
+                <div className="mt-1.5 flex items-center justify-between text-[12px] text-[#4c4e5d]">
                   <span className="font-mono tabular-nums">
                     Test #{v.test_no}
                   </span>
@@ -519,10 +531,10 @@ function HistorySheet({
 function EmptyState({ query, onNew }: { query: string; onNew: () => void }) {
   return (
     <div className="py-14 text-center">
-      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#565869]">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f4] text-[#4c4e5d]">
         <Search size={17} strokeWidth={1.8} />
       </div>
-      <p className="text-[13.5px] text-[#565869]">
+      <p className="text-[13.5px] text-[#4c4e5d]">
         {query ? "No patients match your filters." : "No patients yet."}
       </p>
       <button onClick={onNew} className="btn btn-secondary mt-4">
@@ -539,7 +551,7 @@ function TableSkeleton() {
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
-          className={cn(COLS, "border-b border-[#f1f1f5] last:border-0 py-4")}
+          className={cn(COLS, "border-b border-[#e9ebf2] last:border-0 py-4")}
         >
           {Array.from({ length: 9 }).map((_, j) => (
             <div

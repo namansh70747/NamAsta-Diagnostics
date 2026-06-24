@@ -71,7 +71,7 @@ function ExportButton({
 }
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-[13px] font-medium text-[#565869]">{children}</span>;
+  return <span className="text-[13px] font-medium text-[#4c4e5d]">{children}</span>;
 }
 
 function DateRangeBar({
@@ -117,7 +117,7 @@ function LoadingRows({ colSpan }: { colSpan: number }) {
   return (
     <>
       {[0, 1, 2, 3].map((i) => (
-        <tr key={i} className="border-b border-[#f1f1f5] last:border-0">
+        <tr key={i} className="border-b border-[#e9ebf2] last:border-0">
           <td colSpan={colSpan} className="px-5 py-3">
             <div
               className="animate-pulse rounded-lg bg-[#eef0f4] h-4"
@@ -134,10 +134,10 @@ function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
   return (
     <tr>
       <td colSpan={colSpan} className="py-14 text-center">
-        <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#565869] flex items-center justify-center mx-auto mb-3">
+        <div className="w-11 h-11 rounded-xl bg-[#eef0f4] text-[#4c4e5d] flex items-center justify-center mx-auto mb-3">
           <FileBarChart2 size={17} strokeWidth={1.8} />
         </div>
-        <div className="text-[13.5px] text-[#565869]">{message}</div>
+        <div className="text-[13.5px] text-[#4c4e5d]">{message}</div>
       </td>
     </tr>
   );
@@ -147,7 +147,7 @@ const TH = "px-5 py-3 text-left table-head";
 const THR = "px-5 py-3 text-right table-head";
 const TD = "px-5 py-3 text-[13.5px] text-[#14151c]";
 const TDR = "px-5 py-3 text-[13.5px] text-right tabular-nums text-[#14151c]";
-const ROW = "border-b border-[#f1f1f5] last:border-0 transition-colors hover:bg-[#fafafe]";
+const ROW = "border-b border-[#e9ebf2] last:border-0 transition-colors odd:bg-white even:bg-[#f6f7fb] hover:bg-[#eef1f8]";
 const TOTAL_ROW = "bg-[#fafafe] font-semibold border-t border-[#e6e7ee]";
 
 // ---- Day Book ------------------------------------------------------------
@@ -183,7 +183,7 @@ function DayBookTab() {
       <TableCard>
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#eef0f4]">
+            <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
               <th className={TH}>Test No</th>
               <th className={TH}>Name</th>
               <th className={TH}>Date</th>
@@ -204,9 +204,9 @@ function DayBookTab() {
                   <tr key={r.test_no} className={ROW}>
                     <td className={cn(TD, "font-mono text-[13px]")}>{r.test_no}</td>
                     <td className={TD}>{r.name}</td>
-                    <td className="px-5 py-3 text-[12.5px] text-[#565869]">{formatDate(r.registered_at)}</td>
+                    <td className="px-5 py-3 text-[12.5px] text-[#4c4e5d]">{formatDate(r.registered_at)}</td>
                     <td className={TD}>{r.doctor_name || "—"}</td>
-                    <td className="px-5 py-3 text-[12.5px] text-[#565869]">{r.mode || "—"}</td>
+                    <td className="px-5 py-3 text-[12.5px] text-[#4c4e5d]">{r.mode || "—"}</td>
                     <td className={TDR}>{formatCurrency(r.total)}</td>
                     <td className={cn(TDR, "text-[#14743a]")}>{formatCurrency(r.received)}</td>
                   </tr>
@@ -285,7 +285,7 @@ function MonthlyChart({ data }: { data: MonthlyRow[] }) {
                   textAnchor="middle"
                   fontSize={10}
                   fontWeight={600}
-                  fill="#44454e"
+                  fill="#3a3b45"
                   className="tabular-nums"
                 >
                   {formatCurrency(d.received)}
@@ -296,7 +296,7 @@ function MonthlyChart({ data }: { data: MonthlyRow[] }) {
                 y={topPad + chartH + 16}
                 textAnchor="middle"
                 fontSize={10.5}
-                fill="#565869"
+                fill="#4c4e5d"
               >
                 {monthLabel(d.month)}
               </text>
@@ -362,7 +362,7 @@ function MonthlyTab() {
 
       {data.length > 0 && (
         <div className="card p-5 animate-fade-up">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#565869] mb-3">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-3">
             Monthly Collection (Received)
           </div>
           <MonthlyChart data={data} />
@@ -372,7 +372,7 @@ function MonthlyTab() {
       <TableCard>
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#eef0f4]">
+            <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
               <th className={TH}>Month</th>
               <th className={THR}>Patients</th>
               <th className={THR}>Total</th>
@@ -445,7 +445,7 @@ function DoctorWiseTab() {
       <TableCard>
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#eef0f4]">
+            <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
               <th className={TH}>Doctor</th>
               <th className={THR}>Patients</th>
               <th className={THR}>Total</th>
@@ -519,7 +519,7 @@ function TestWiseTab() {
       <TableCard>
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#eef0f4]">
+            <tr className="bg-[#eef1f8] border-b border-[#dcdfeb]">
               <th className={TH}>Code</th>
               <th className={TH}>Test</th>
               <th className={THR}>Count</th>
@@ -575,7 +575,7 @@ export function BizReportsPage() {
               "px-3.5 py-1.5 rounded-[9px] text-[13px] font-medium transition-colors whitespace-nowrap",
               tab === t.id
                 ? "bg-[#4f46e5] text-white shadow-sm"
-                : "text-[#44454e] hover:bg-[#eef0fe]"
+                : "text-[#3a3b45] hover:bg-[#eef0fe]"
             )}
           >
             {t.label}
