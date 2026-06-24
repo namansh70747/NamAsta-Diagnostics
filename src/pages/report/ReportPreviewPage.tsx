@@ -940,13 +940,17 @@ export function ReportPreviewPage() {
       const range = rangeText(o);
       const matchedRange = patient ? findRange(o.ranges, patient.sex, ageDays) : null;
       const unit = o.order.unit_override || matchedRange?.unit || o.test.unit;
+      // Auto-bold out-of-range numeric results, matching the standard renderRows. computeFlag
+      // no-ops on text results (Nil/Positive/Trace), so qualitative rows stay normal.
+      const flag = patient ? computeFlag(o.test.result_type, value, rangesWithOverride(o.ranges, o.order.range_override), patient.sex, ageDays) : '';
+      const isAbnormal = flag === 'H' || flag === 'L';
       const cells = [o.test.name, value || '—', (unit && unit !== '—' ? unit : ''), range.replace(/ \/ /g, "\n")];
       out.push(
         <tr key={o.order.id}>
           {cells.map((c, i) => (
             <td
               key={i}
-              className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums", i < 2 ? "text-gray-950" : "text-gray-800", i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
+              className={cn("align-top", HEAD_PAD[i], i === 1 && "tabular-nums", i < 2 ? (isAbnormal ? "font-bold text-black" : "text-gray-950") : "text-gray-800", i === 2 && "whitespace-nowrap", i === 3 && "whitespace-pre-line")}
               style={{ paddingTop: rowPad, paddingBottom: rowPad, paddingLeft: colOffset[i], textAlign: colAlign[i] }}
             >
               {c}
@@ -1698,7 +1702,7 @@ export function ReportPreviewPage() {
       {/* ── Action panel ── */}
       <aside className="w-[252px] shrink-0 space-y-4 pt-4 pb-8 pr-1 print:hidden h-full overflow-y-auto">
         <div className="card p-4 space-y-2">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-1">Deliver</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45] mb-1">Deliver</p>
           {!isApproved && (
             <>
               <p className="text-[14px] text-[#92600a] bg-[#fdf0d7] rounded-lg px-3 py-2 leading-snug">
@@ -1718,13 +1722,13 @@ export function ReportPreviewPage() {
           <OutputBtn icon={Printer} label="Print" onClick={handlePrint} done={sent.print} disabled={!isApproved || editing} busy={busy === 'print'} primary />
           <OutputBtn icon={FileDown} label="Save PDF" onClick={handlePdf} done={sent.pdf} disabled={!isApproved || editing} busy={busy === 'pdf'} />
           <OutputBtn icon={FileType2} label="Export to Word (full editing)" onClick={handleDocx} done={sent.docx} disabled={!isApproved || editing} busy={busy === 'docx'} />
-          <p className="text-[11px] text-[#4c4e5d] leading-snug px-1">
+          <p className="text-[11px] text-[#3a3b45] leading-snug px-1">
             {printLetterhead
               ? 'Word file includes the full lab letterhead.'
               : `Word file has no header/footer — just ${preTop}mm top & ${preBottom}mm bottom gaps for your pre-printed paper. (Set this via “Print lab letterhead”.)`}
           </p>
           {reportOverride && (
-            <p className="text-[11px] text-[#4c4e5d] leading-snug px-1">
+            <p className="text-[11px] text-[#3a3b45] leading-snug px-1">
               Word export uses the original report data — it won't include the in-app manual edits.
             </p>
           )}
@@ -1737,7 +1741,7 @@ export function ReportPreviewPage() {
 
         {isApproved && (
           <div className="card p-4 space-y-2">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d]">Edit report</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45]">Edit report</p>
             {editing ? (
               <>
                 <p className="text-[14px] text-[#3a3b45] leading-snug">
@@ -1762,7 +1766,7 @@ export function ReportPreviewPage() {
                 <button onClick={startEdit} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#4f46e5" }}>
                   <Pencil size={15} strokeWidth={1.8} /> Edit here (quick)
                 </button>
-                <p className="text-[11px] text-[#4c4e5d] leading-snug px-1">
+                <p className="text-[11px] text-[#3a3b45] leading-snug px-1">
                   For full Word-style editing, use <strong>Export to Word</strong> above and edit in Microsoft Word.
                 </p>
                 {reportOverride && (
@@ -1776,7 +1780,7 @@ export function ReportPreviewPage() {
         )}
 
         <div className="card p-4 space-y-3">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d]">Layout</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45]">Layout</p>
           <Toggle label="Pack panels (multi-page)" checked={compactReport} onChange={(v) => { setCompactReport(v); localStorage.setItem('scl_compact_report', v ? '1' : '0'); }} />
           {compactReport && (
             <div className="rounded-lg bg-[#eef0f4] px-3 py-2.5 space-y-2">
@@ -1852,7 +1856,7 @@ export function ReportPreviewPage() {
 
         {bill && (
           <div className="card p-4 space-y-1.5">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#4c4e5d] mb-1">Billing</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3a3b45] mb-1">Billing</p>
             <Row k="Total" v={`₹${bill.total}`} />
             {bill.concession > 0 && <Row k="Concession" v={`− ₹${bill.concession}`} />}
             {bill.concession > 0 && <Row k="Amount" v={`₹${bill.net}`} />}
@@ -2777,7 +2781,7 @@ function CellContextMenu({ x, y, onClose, actions }: {
         danger ? "text-[#b91c1c] hover:bg-[#fdf3f3]" : "text-[#34353f]")}
     >
       <Icon size={14} /> <span className="flex-1">{label}</span>
-      {kbd && <kbd className="text-[10px] text-[#4c4e5d]">{kbd}</kbd>}
+      {kbd && <kbd className="text-[10px] text-[#3a3b45]">{kbd}</kbd>}
     </button>
   );
   // Keep the menu on-screen.
@@ -3434,7 +3438,7 @@ function GapInput({ label, value, onChange, max = 120, unit = 'mm' }: { label: s
           onChange={(e) => { const v = e.target.value; if (v === '') return; const n = Number(v); if (Number.isFinite(n)) onChange(Math.max(0, Math.min(max, n))); }}
           className="w-14 rounded border border-[#d8d3cc] bg-white px-2 py-1 text-right tabular-nums"
         />
-        <span className="text-[#5e6072]">{unit}</span>
+        <span className="text-[#4c4e5d]">{unit}</span>
       </span>
     </label>
   );
