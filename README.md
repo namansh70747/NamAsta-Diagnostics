@@ -207,8 +207,8 @@ Other top‑level files
 
 | Page | Screenshot |
 |------|------------|
-| **Dashboard** | ![Dashboard](/Users/namansharma/.qwen/tmp/clipboard/clipboard-1782478194899-85be71bf-2ee1-4c6b-a5b4-6e50c250c42a.png) |
-| **Test Master Editor** | ![Test Master Editor](/Users/namansharma/.qwen/tmp/clipboard/clipboard-1782478194913-2b375133-3fa7-4b14-a4cd-bd7c99b65b90.png) |
-| **Report Preview** | ![Report Preview](/Users/namansharma/.qwen/tmp/clipboard/clipboard-1782478194925-b116b974-6548-4637-9247-da5bd13c93e5.png) |
+| **Dashboard** | ![Dashboard](docs/screenshots/dashboard.png) |
+| **Test Master Editor** | ![Test Master Editor](docs/screenshots/test-master.png) |
+| **Report Preview** | ![Report Preview](docs/screenshots/report-preview.png) |
 
 *If you prefer the images to be version‑controlled, copy the PNG files into the repository (e.g., `docs/screenshots/`) and update the paths accordingly.*
