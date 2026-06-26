@@ -1070,22 +1070,6 @@ export function ReportPreviewPage() {
     }
   }
 
-  /** Render the report to a single PNG (full letterhead, like makePdf) for the WhatsApp
-   *  paste-and-send flow — an image pastes into WhatsApp Web where a file reference can't. */
-  async function makePng(): Promise<string> {
-    const { saveElementPng } = await import('@/lib/pdf');
-    const el = reportEl();
-    const hadNoLetterhead = el.classList.contains('no-letterhead');
-    if (hadNoLetterhead) el.classList.remove('no-letterhead');
-    try {
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
-      await Promise.all(Array.from(el.querySelectorAll('img')).map(img => img.decode().catch(() => undefined)));
-      return await saveElementPng({ element: el, testNo: patient!.test_no, name: patient!.name, kind: 'report' });
-    } finally {
-      if (hadNoLetterhead) el.classList.add('no-letterhead');
-    }
-  }
-
   const panelSummary = () => sortedPanels.map(p => p.panel.report_heading).join(', ') || 'Lab Report';
 
   function handlePrint() {
@@ -1217,20 +1201,21 @@ export function ReportPreviewPage() {
       });
       return;
     }
-    // Semi-automatic fallback (free, dad's number): copy the PDF to the clipboard and open
-    // the chat with the text ready — the user just pastes (Ctrl/⌘+V) and presses Enter.
+    // Semi-automatic fallback (free, personal number): copy the actual report PDF to the
+    // clipboard and open the WhatsApp Desktop chat with the text ready — the user pastes
+    // (Ctrl/⌘+V) to attach the PDF as a document and presses Enter.
     withLog('whatsapp_semi', `91${patient.phone}`, 'whatsapp', async () => {
-      const imgPath = (await makePng()) || undefined;
-      const { copyImageToClipboard } = await import('@/lib/whatsapp');
-      if (imgPath) await copyImageToClipboard(imgPath);
-      await sendWhatsAppSemi(patient.phone, msg, imgPath);
-      if (imgPath) {
+      const pdfPath = (await makePdf()) || undefined;
+      const { copyPdfToClipboard } = await import('@/lib/whatsapp');
+      if (pdfPath) await copyPdfToClipboard(pdfPath);
+      await sendWhatsAppSemi(patient.phone, msg, pdfPath);
+      if (pdfPath) {
         alert(
-          'WhatsApp chat opened and the report image is on the clipboard.\n\n' +
+          'WhatsApp chat opened and the report PDF is on the clipboard.\n\n' +
           '1. Click into the chat\n' +
-          '2. Press Ctrl + V  (⌘ + V on Mac) to paste the report\n' +
+          '2. Press Ctrl + V  (⌘ + V on Mac) to attach the PDF\n' +
           '3. Press Enter to send.\n\n' +
-          '(If paste doesn’t work, use the “+” / attach button → Photos & videos → the highlighted file.)'
+          '(If paste doesn’t attach it, click the 📎 / attach button → Document → the highlighted file.)'
         );
       }
     });

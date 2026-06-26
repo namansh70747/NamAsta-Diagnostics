@@ -2,6 +2,14 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.93
+
+- **WhatsApp now attaches the actual report/bill PDF.** The free "send on WhatsApp" flow opens the
+  **WhatsApp Desktop** chat (instead of a browser tab) with the message ready and the real **PDF**
+  on the clipboard — press **Ctrl + V** to attach it as a document, then Enter. Previously it copied
+  an image and often opened a logged-out web tab, so recipients frequently got only the text. Applies
+  to both the report and the bill screens. (Fallback: 📎 → Document → the highlighted file.)
+
 ## v1.3.85
 
 - **Structured Stool & Semen reports.** "Stool Examination" and "Semen Analysis" are now full

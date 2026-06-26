@@ -61,17 +61,28 @@ export async function sendWhatsAppDocument(a: WaDocArgs): Promise<string> {
   });
 }
 
-/** Semi-automatic WhatsApp (§8A.8 / Phase 6): open wa.me prefilled, then reveal the
- *  saved PDF so the user drags it in once. Zero cost, zero ban risk. */
+/** Semi-automatic WhatsApp (§8A.8 / Phase 6): open the chat prefilled, then reveal the saved
+ *  PDF so the user pastes/attaches it in one step. Zero cost, zero ban risk.
+ *
+ *  Opens the WhatsApp **Desktop** app via its `whatsapp://` deep link (where a clipboard PDF
+ *  pastes straight in as a document) rather than wa.me — which opens a browser/WhatsApp Web tab
+ *  the lab usually isn't logged into. The deep link must go through `open_path` (the OS opener),
+ *  because the Tauri shell `open` scope rejects non-http(s) URLs. Falls back to wa.me if the
+ *  WhatsApp protocol handler isn't registered. */
 export async function sendWhatsAppSemi(phone: string, message: string, pdfPath?: string): Promise<void> {
   const digits = phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
   if (digits.length !== 10) throw new Error(`"${phone}" is not a valid 10-digit mobile number.`);
-  const url = `https://wa.me/91${digits}?text=${encodeURIComponent(message)}`;
+  const waUrl = `https://wa.me/91${digits}?text=${encodeURIComponent(message)}`;
   if (isTauri()) {
-    await open(url);
+    const deepLink = `whatsapp://send?phone=91${digits}&text=${encodeURIComponent(message)}`;
+    try {
+      await invoke<void>('open_path', { path: deepLink });   // opens WhatsApp Desktop
+    } catch {
+      await open(waUrl);                                     // no desktop app → browser
+    }
     if (pdfPath) await revealInFolder(pdfPath);
   } else {
-    window.open(url, '_blank');
+    window.open(waUrl, '_blank');
   }
 }
 
