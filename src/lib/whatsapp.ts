@@ -75,10 +75,18 @@ export async function sendWhatsAppSemi(phone: string, message: string, pdfPath?:
   const waUrl = `https://wa.me/91${digits}?text=${encodeURIComponent(message)}`;
   if (isTauri()) {
     const deepLink = `whatsapp://send?phone=91${digits}&text=${encodeURIComponent(message)}`;
+    let deepLinkWorked = false;
     try {
       await invoke<void>('open_path', { path: deepLink });   // opens WhatsApp Desktop
-    } catch {
-      await open(waUrl);                                     // no desktop app → browser
+      deepLinkWorked = true;
+    } catch (err: unknown) {
+      // Deep link failed (WhatsApp may not be installed or registered).
+      // Fall back to browser-based wa.me — but surface the error so the user knows.
+      console.warn(`WhatsApp deep link failed: ${err instanceof Error ? err.message : String(err)}. Falling back to browser.`);
+    }
+    if (!deepLinkWorked) {
+      // Fallback: open the web-based wa.me link in default browser
+      await open(waUrl);
     }
     if (pdfPath) await revealInFolder(pdfPath);
   } else {

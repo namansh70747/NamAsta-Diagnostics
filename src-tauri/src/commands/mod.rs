@@ -94,27 +94,14 @@ pub fn reveal_in_folder(path: String) -> Result<(), String> {
 }
 
 /// Open a file with the OS default application (e.g. a PDF in the system viewer, where
-/// Ctrl/⌘+P shows the print dialog). The tauri-plugin-shell `open` scope only permits
-/// mailto/tel/https URLs, so opening a local file path through it fails — this custom
-/// command uses the OS opener directly, the same approach as `reveal_in_folder`.
+/// Ctrl/⌘+P shows the print dialog) or a URL (e.g. `whatsapp://` deep links). Waits until
+/// the OS has handed the path/URL to its handler so deferred-delivery (WhatsApp semi-
+/// automatic) doesn't silently fail.
 #[tauri::command]
-pub fn open_path(path: String) -> Result<(), String> {
-    use std::process::Command;
-
-    #[cfg(target_os = "macos")]
-    let result = Command::new("open").arg(&path).spawn();
-
-    // Use explorer.exe to open the file with its default app — it takes the path as a single
-    // argument (no cmd.exe re-parsing of &, %, ^, () that a profile/Documents path may contain),
-    // and Rust quotes the spaces in "SCL Reports".
-    #[cfg(target_os = "windows")]
-    let result = Command::new("explorer.exe").arg(&path).spawn();
-
-    #[cfg(target_os = "linux")]
-    let result = Command::new("xdg-open").arg(&path).spawn();
-
-    result
-        .map(|_| ())
+pub fn open_path(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_path(&path, None::<&str>)
         .map_err(|e| format!("Failed to open {path}: {e}"))
 }
 

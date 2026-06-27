@@ -321,7 +321,8 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_fs::init());
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init());
 
     // Auto-update + self-relaunch are desktop-only (the plugins aren't built for mobile).
     #[cfg(desktop)]
