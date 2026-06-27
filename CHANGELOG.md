@@ -2,6 +2,13 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.94
+
+- **Playwright end-to-end testing framework added.** Development dependency for future browser-based QA.
+- **Reliable WhatsApp deep-link opening.** Uses `tauri-plugin-opener` (`open_path`) instead of raw
+  `Command::spawn()` so the OS has time to register the `whatsapp://` URL handoff. Fixes the race
+  condition where WhatsApp Desktop would not open. Applies to both Report and Bill screens.
+
 ## v1.3.93
 
 - **WhatsApp now attaches the actual report/bill PDF.** The free "send on WhatsApp" flow opens the
