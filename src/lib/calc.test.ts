@@ -219,7 +219,8 @@ describe('computeCalculated', () => {
     });
 
     it.each([
-      [18.49, 'Underweight'],
+      [18.44, 'Underweight'],
+      [18.45, 'Healthy Weight'],
       [18.5, 'Healthy Weight'],
       [24.94, 'Healthy Weight'],
       [24.95, 'Overweight'],
