@@ -9,6 +9,7 @@ export const BUILTIN_CALC_CODES = new Set([
   'BIL1_I', 'BIL2_I',
   'BVLDL', 'NHDL', 'BLDL', 'BRAT', 'BLHR',
   'EAG', 'BUN', 'INR', 'GFR', 'GFR_CAT',
+  'BMI_VALUE', 'BMI_CLASS',
 ]);
 
 /** Extract all identifier tokens from a formula (same regex the evaluator uses). */
@@ -164,6 +165,32 @@ export function computeCalculated(code: string, formula: string, values: ResultM
       if (pt == null || pt <= 0 || control <= 0) return null;
       const inr = Math.pow(pt / control, isi);
       return isFinite(inr) ? inr : null;
+    }
+    case 'BMI_VALUE': {
+      // BMI = weight (kg) / height² (m²). Treat zero/negative measurements as invalid rather
+      // than emitting Infinity or a clinically meaningless negative value.
+      const heightCm = g('BMI_HT_CM');
+      const weightKg = g('BMI_WT_KG');
+      if (heightCm == null || weightKg == null || heightCm <= 0 || weightKg <= 0) return null;
+      const heightM = heightCm / 100;
+      const bmi = weightKg / (heightM * heightM);
+      return isFinite(bmi) ? bmi : null;
+    }
+    case 'BMI_CLASS': {
+      const bmi = g('BMI_VALUE');
+      if (bmi == null || bmi <= 0 || ctx?.ageYears == null || ctx.ageYears < 0) return null;
+      // CDC adult categories apply at age 20+. Children/teens require an age- and sex-specific
+      // assessment, so never attach an adult category to a pediatric report.
+      if (ctx.ageYears < 20) return 'Age/sex-specific pediatric assessment required';
+      // BMI is reported to one decimal place. Classify that same displayed value so the report
+      // can never show (for example) "25.0" beside a category derived from an unseen 24.96.
+      const reportedBmi = roundToDecimals(bmi, 1);
+      if (reportedBmi < 18.5) return 'Underweight';
+      if (reportedBmi < 25) return 'Healthy Weight';
+      if (reportedBmi < 30) return 'Overweight';
+      if (reportedBmi < 35) return 'Class 1 Obesity';
+      if (reportedBmi < 40) return 'Class 2 Obesity';
+      return 'Class 3 Obesity (Severe Obesity)';
     }
     case 'GFR': {
       // CKD-EPI 2021 — needs serum creatinine (CRT) + patient age + sex.

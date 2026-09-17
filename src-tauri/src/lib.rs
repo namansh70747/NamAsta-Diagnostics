@@ -323,6 +323,12 @@ pub fn run() {
             sql: include_str!("../migrations/0053_ptinr_bilirubin_widal_dengue_panels.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 54,
+            description: "bmi_panel",
+            sql: include_str!("../migrations/0054_bmi_panel.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default()

@@ -41,6 +41,9 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Run unit tests
+        run: npm test
+
       # tauri.conf.json pins bundle.targets to "nsis" (Windows) and turns on updater
       # artifacts, so both are overridden here: --bundles dmg produces the Mac installer, and
       # createUpdaterArtifacts=false avoids needing the release signing key for a test build.

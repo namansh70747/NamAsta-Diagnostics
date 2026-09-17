@@ -205,6 +205,60 @@ describe('computeCalculated', () => {
     });
   });
 
+  describe('BMI profile', () => {
+    it('calculates kg/m² from centimetres and kilograms', () => {
+      expect(calc('BMI_VALUE', { BMI_HT_CM: 175, BMI_WT_KG: 70 })).toBeCloseTo(22.857142857, 6);
+    });
+
+    it('returns null for missing, zero or negative measurements', () => {
+      expect(calc('BMI_VALUE', { BMI_HT_CM: 175 })).toBeNull();
+      expect(calc('BMI_VALUE', { BMI_HT_CM: 0, BMI_WT_KG: 70 })).toBeNull();
+      expect(calc('BMI_VALUE', { BMI_HT_CM: 175, BMI_WT_KG: 0 })).toBeNull();
+      expect(calc('BMI_VALUE', { BMI_HT_CM: -175, BMI_WT_KG: 70 })).toBeNull();
+      expect(calc('BMI_VALUE', { BMI_HT_CM: 175, BMI_WT_KG: -70 })).toBeNull();
+    });
+
+    it.each([
+      [18.49, 'Underweight'],
+      [18.5, 'Healthy Weight'],
+      [24.94, 'Healthy Weight'],
+      [24.95, 'Overweight'],
+      [25, 'Overweight'],
+      [29.94, 'Overweight'],
+      [29.95, 'Class 1 Obesity'],
+      [30, 'Class 1 Obesity'],
+      [34.94, 'Class 1 Obesity'],
+      [34.95, 'Class 2 Obesity'],
+      [35, 'Class 2 Obesity'],
+      [39.94, 'Class 2 Obesity'],
+      [39.95, 'Class 3 Obesity (Severe Obesity)'],
+      [40, 'Class 3 Obesity (Severe Obesity)'],
+    ])('classifies adult BMI %s as %s', (bmi, expected) => {
+      expect(computeCalculated('BMI_CLASS', 'BMI_VALUE', { BMI_VALUE: bmi as number }, { ageYears: 20, sex: 'OTHER' }))
+        .toBe(expected);
+    });
+
+    it('does not apply adult cut-offs to children and teens', () => {
+      for (const ageYears of [0, 2, 10, 19.99]) {
+        expect(computeCalculated('BMI_CLASS', 'BMI_VALUE', { BMI_VALUE: 31 }, { ageYears, sex: 'FEMALE' }))
+          .toBe('Age/sex-specific pediatric assessment required');
+      }
+    });
+
+    it('resolves the Height/Weight -> BMI -> Category chain', () => {
+      const out = resolveCalculated(
+        { BMI_HT_CM: 180, BMI_WT_KG: 81 },
+        [
+          { code: 'BMI_VALUE', formula: 'BMI_WT_KG / ((BMI_HT_CM / 100) * (BMI_HT_CM / 100))' },
+          { code: 'BMI_CLASS', formula: 'BMI_VALUE' },
+        ],
+        { ageYears: 35, sex: 'MALE' },
+      );
+      expect(out.BMI_VALUE).toBeCloseTo(25);
+      expect(out.BMI_CLASS).toBe('Overweight');
+    });
+  });
+
   // The PT/INR panel's Ratio and Index lines are plain stored formulas (not hardwired), so they
   // run through the generic evaluator exactly as the migration ships them.
   describe('PT/INR panel Ratio and Index formulas', () => {

@@ -2,6 +2,15 @@
 
 All notable changes to NamAsta Diagnostics. Newest first.
 
+## v1.3.97
+
+- **New Body Mass Index (BMI) panel.** Order Height and Weight as one profile; BMI is calculated
+  automatically in kg/m² and an adult category is shown using CDC thresholds. Patients under 20
+  are explicitly directed to an age/sex-specific pediatric assessment instead of being labelled
+  with adult cut-offs. Invalid zero or negative measurements never produce a calculated value.
+- The profile starts at ₹0 so installing the update cannot silently change a lab's pricing; an
+  administrator can set the local profile price in Test Master.
+
 ## v1.3.96
 
 - **Corrected INR calculation.** INR is now computed the standard way —

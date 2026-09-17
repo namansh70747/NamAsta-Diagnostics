@@ -54,6 +54,9 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Build & publish (signed installer + updater artifacts)
         uses: tauri-apps/tauri-action@v0
         env:
